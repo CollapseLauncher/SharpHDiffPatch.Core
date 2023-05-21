@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SharpHDiffPatch-bin": {
+      "commandName": "Project",
+      "commandLineArgs": "-v"
+    }
+  }
+}

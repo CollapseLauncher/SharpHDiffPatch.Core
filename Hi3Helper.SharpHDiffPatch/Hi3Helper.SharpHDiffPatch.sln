@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33617.297
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hi3Helper.SharpHDiffPatch", "Hi3Helper.SharpHDiffPatch.csproj", "{57CB7A6D-2474-4A01-BE1A-5D1488F81390}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpHDiffPatch-bin", "..\SharpHDiffPatch-bin\SharpHDiffPatch-bin.csproj", "{506DDD1C-DD74-4FCE-A0C9-D90E904CF708}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{57CB7A6D-2474-4A01-BE1A-5D1488F81390}.Debug|x64.ActiveCfg = Debug|x64
+		{57CB7A6D-2474-4A01-BE1A-5D1488F81390}.Debug|x64.Build.0 = Debug|x64
+		{57CB7A6D-2474-4A01-BE1A-5D1488F81390}.Release|x64.ActiveCfg = Release|x64
+		{57CB7A6D-2474-4A01-BE1A-5D1488F81390}.Release|x64.Build.0 = Release|x64
+		{506DDD1C-DD74-4FCE-A0C9-D90E904CF708}.Debug|x64.ActiveCfg = Debug|x64
+		{506DDD1C-DD74-4FCE-A0C9-D90E904CF708}.Debug|x64.Build.0 = Debug|x64
+		{506DDD1C-DD74-4FCE-A0C9-D90E904CF708}.Release|x64.ActiveCfg = Release|x64
+		{506DDD1C-DD74-4FCE-A0C9-D90E904CF708}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9B909AEF-C93A-4E46-BA4B-B600F0C9FDBE}
+	EndGlobalSection
+EndGlobal
