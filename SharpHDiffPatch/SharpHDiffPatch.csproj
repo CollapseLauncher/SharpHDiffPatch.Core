@@ -3,10 +3,10 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net7.0;net8.0</TargetFrameworks>
-    <RootNamespace>SharpHDiffPatch_bin</RootNamespace>
+    <RootNamespace>SharpHDiffPatch</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Platforms>AnyCPU;x64</Platforms>
+    <Platforms>x64;x86;ARM64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

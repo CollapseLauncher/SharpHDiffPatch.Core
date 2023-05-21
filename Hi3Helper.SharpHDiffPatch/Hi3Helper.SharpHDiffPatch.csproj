@@ -3,8 +3,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>net7.0;net8.0</TargetFrameworks>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<DefineConstants>DISABLE_TRACE;BUILD_TESTING;PROTOTYPE_</DefineConstants>
-		<Platforms>AnyCPU;x64</Platforms>
+		<Platforms>x64;x86;ARM64</Platforms>
 	</PropertyGroup>
 
 </Project>
