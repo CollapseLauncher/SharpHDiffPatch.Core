@@ -110,7 +110,7 @@ namespace Hi3Helper.SharpHDiffPatch
         public ulong hdiffDataSize;
     }
 
-    public partial class HDiffPatch
+    public sealed partial class HDiffPatch
     {
         private CompressedHDiffInfo singleHDiffInfo;
         private TDirDiffInfo tDirDiffInfo;

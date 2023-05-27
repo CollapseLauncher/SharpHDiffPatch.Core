@@ -5,14 +5,14 @@ using System.Threading.Tasks;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
-    public class ChunkStream : Stream
+    public sealed class ChunkStream : Stream
     {
         private long _start { get; set; }
         private long _end { get; set; }
         private long _size { get => _end - _start; }
         private long _curPos { get; set; }
         private long _remain { get => _size - _curPos; }
-        private protected readonly Stream _stream;
+        private readonly Stream _stream;
         private bool _isDisposing { get; set; }
 
         public ChunkStream(Stream stream, long start, long end, bool isDisposing = false)

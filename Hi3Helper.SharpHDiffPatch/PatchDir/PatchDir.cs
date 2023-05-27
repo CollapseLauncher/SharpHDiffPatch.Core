@@ -15,7 +15,7 @@ namespace Hi3Helper.SharpHDiffPatch
         
     }
 
-    public partial class HDiffPatch
+    public sealed partial class HDiffPatch
     {
 
         private void RunDirectoryPatch(string inputPath, string outputPath)

@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
-    public class PatchSingle
+    public sealed class PatchSingle
     {
         enum kByteRleType
         {
