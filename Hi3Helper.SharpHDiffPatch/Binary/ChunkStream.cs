@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Hi3Helper.EncTool
+namespace Hi3Helper.SharpHDiffPatch
 {
     public class ChunkStream : Stream
     {

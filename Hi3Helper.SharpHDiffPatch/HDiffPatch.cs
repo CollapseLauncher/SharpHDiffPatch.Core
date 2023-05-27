@@ -1,5 +1,4 @@
-﻿using Hi3Helper.UABT.Binary;
-using System;
+﻿using System;
 using System.IO;
 
 namespace Hi3Helper.SharpHDiffPatch

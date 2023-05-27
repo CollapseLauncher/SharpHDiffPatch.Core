@@ -1,6 +1,4 @@
-﻿using Hi3Helper.EncTool;
-using Hi3Helper.UABT.Binary;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 
@@ -121,7 +119,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 UncoverBufferClips(ref bufferClips, inputStream, outputStream);
             }
             stopwatch.Stop();
-            
+
             TimeSpan timeTaken = stopwatch.Elapsed;
             Console.WriteLine($"Patch has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.Milliseconds} ms)");
         }
@@ -131,7 +129,7 @@ namespace Hi3Helper.SharpHDiffPatch
             long start = patchStream.Position;
             long end = patchStream.Position + clipSize;
             long size = end - start;
-#if DEBUG
+#if DEBUG && SHOWDEBUGINFO
             Console.WriteLine($"Start assigning chunk as Stream: start -> {start} end -> {end} size -> {size}");
 #endif
 
@@ -148,13 +146,13 @@ namespace Hi3Helper.SharpHDiffPatch
             long remainToRead = clipSize;
             int offset = 0;
             int read = 0;
-#if DEBUG
+#if DEBUG && SHOWDEBUGINFO
             Console.WriteLine($"Start reading buffer clip with buffer size: {bufSize} to size: {clipSize}");
 #endif
             while ((remainToRead -= read = patchStream.Read(returnClip, offset, (int)Math.Min(bufSize, remainToRead))) > 0)
             {
                 offset += read;
-#if DEBUG
+#if DEBUG && SHOWDEBUGINFO
                 Console.WriteLine($"Reading remain {read}: Remain to read: {remainToRead}");
 #endif
             }
@@ -200,7 +198,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 while (count > 0)
                 {
                     ReadCover(out CoverHeader cover, coverReader);
-#if DEBUG
+#if DEBUG && SHOWDEBUGINFO
                     Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
 #endif
                     CoverHeader coverUse = cover;
@@ -261,7 +259,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 while (count > 0)
                 {
                     ReadCover(out CoverHeader cover, coverReader);
-#if DEBUG
+#if DEBUG && SHOWDEBUGINFO
                     Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
 #endif
                     CoverHeader coverUse = cover;
@@ -359,7 +357,7 @@ namespace Hi3Helper.SharpHDiffPatch
                         break;
                 }
 
-#if DEBUG
+#if DEBUG && SHOWDEBUGINFO
                 if (rleLoader.type != kByteRleType.unrle)
                 {
                     Console.WriteLine($"        RLE Type: {rleLoader.type} -> length: {rleLoader.memSetLength} -> code: {rleLoader.memSetValue}");

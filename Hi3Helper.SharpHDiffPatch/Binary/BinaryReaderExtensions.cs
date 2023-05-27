@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Hi3Helper.UABT.Binary
+namespace Hi3Helper.SharpHDiffPatch
 {
     public static class BinaryReaderExtensions
     {
