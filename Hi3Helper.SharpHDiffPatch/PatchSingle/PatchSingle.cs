@@ -383,7 +383,10 @@ namespace Hi3Helper.SharpHDiffPatch
                     long lastPos = outCache.Position;
                     outCache.Read(addToSetValueBuffer);
                     outCache.Position = lastPos;
-                    IncrementBytesByValue(addToSetValueBuffer, byteSetValue, (int)memSetStep);
+
+                    int length = (int)memSetStep;
+                    for (int i = 0; i < length; i++) addToSetValueBuffer[i] += byteSetValue;
+
                     outCache.Write(addToSetValueBuffer);
                 }
                 else
@@ -405,22 +408,15 @@ namespace Hi3Helper.SharpHDiffPatch
                 long lastPos = outCache.Position;
                 outCache.Read(oldData);
                 outCache.Position = lastPos;
-                IncrementBytesByBytes(rleData, oldData, (int)decodeStep);
+
+                int length = (int)decodeStep;
+                for (int i = 0; i < length; i++) rleData[i] += oldData[i];
+
                 outCache.Write(rleData);
 
                 copyLength -= decodeStep;
                 rleLoader.memCopyLength -= (ulong)decodeStep;
             }
-        }
-
-        private void IncrementBytesByValue(Span<byte> buffer, byte addBy, int length)
-        {
-            for (int i = 0; i < length; i++) buffer[i] += addBy;
-        }
-
-        private void IncrementBytesByBytes(Span<byte> buffer, ReadOnlySpan<byte> addByBuffer, int length)
-        {
-            for (int i = 0; i < length; i++) buffer[i] += addByBuffer[i];
         }
 
         private void ReadCover(out CoverHeader coverHeader, BinaryReader coverReader)
