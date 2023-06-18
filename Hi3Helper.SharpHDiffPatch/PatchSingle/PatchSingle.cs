@@ -186,7 +186,6 @@ namespace Hi3Helper.SharpHDiffPatch
             try
             {
                 long newPosBack = 0;
-                int i = 0;
 
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
 
@@ -247,7 +246,6 @@ namespace Hi3Helper.SharpHDiffPatch
                 BinaryReader inputReader = new BinaryReader(inputStream);
                 BinaryWriter outputWriter = new BinaryWriter(outputStream);
                 long newPosBack = 0;
-                int i = 0;
 
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
 
@@ -443,7 +441,6 @@ namespace Hi3Helper.SharpHDiffPatch
             newPosBack += copyLength;
             oldPosBack = oldPos;
 
-            // TODO: Figure out how to get isOldPosBackNeedAddLength on original source and compare it 
             oldPosBack += true ? coverLength : 0;
 
             coverHeader = new CoverHeader
