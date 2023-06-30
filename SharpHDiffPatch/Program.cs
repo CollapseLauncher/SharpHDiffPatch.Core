@@ -1,7 +1,7 @@
-﻿using System;
+﻿using Hi3Helper.SharpHDiffPatch;
+using System;
 using System.IO;
 using System.Reflection;
-using Hi3Helper.SharpHDiffPatch;
 
 namespace SharpHDiffPatchBin
 {
@@ -43,7 +43,7 @@ namespace SharpHDiffPatchBin
                 }
             }
 
-            if (!File.Exists(inputPath))
+            if (!(File.Exists(inputPath) || Directory.Exists(inputPath)))
             {
                 Console.WriteLine("Input file doesn't exist!");
                 return;
