@@ -7,10 +7,9 @@ namespace Hi3Helper.SharpHDiffPatch
 {
     public enum CompressionMode
     {
-        nocomp,
-        lzma,
-        zstd
+        nocomp
     }
+
     public enum ChecksumMode
     {
         nochecksum,
@@ -53,17 +52,7 @@ namespace Hi3Helper.SharpHDiffPatch
         public ulong newDataSize;
         public ulong compressedCount;
 
-        public SingleCompressedHDiffInfo sdiffInfo;
         public CompressedHDiffInfo hdiffinfo;
-    }
-
-    public class SingleCompressedHDiffInfo
-    {
-        public CompressionMode compMode;
-        public string headerMagic;
-        public ulong stepMemSize;
-
-        public THDiffzHead headInfo;
     }
 
     public class CompressedHDiffInfo
@@ -140,14 +129,16 @@ namespace Hi3Helper.SharpHDiffPatch
         #region Header Initialization
         public void Initialize(string diff)
         {
-            tDirDiffInfo = new TDirDiffInfo() { sdiffInfo = new SingleCompressedHDiffInfo() };
-            headerInfo = new HDiffHeaderInfo();
             diffPath = diff;
             diffStream = new FileStream(diff, FileMode.Open, FileAccess.Read);
 
             using (BinaryReader sr = new BinaryReader(diffStream))
             {
-                isPatchDir = Header.TryParseHeaderInfo(sr, this.diffPath, this.tDirDiffInfo, this.singleHDiffInfo, this.headerInfo);
+                isPatchDir = Header.TryParseHeaderInfo(sr, diffPath, out TDirDiffInfo _tDirDiffInfo, out CompressedHDiffInfo _singleHDiffInfo, out HDiffHeaderInfo _headerInfo);
+
+                headerInfo = _headerInfo;
+                singleHDiffInfo = _singleHDiffInfo;
+                tDirDiffInfo = _tDirDiffInfo;
             }
         }
 

@@ -68,9 +68,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     long oldFileSize = GetOldFileSize(dirData);
                     TryCheckMatchOldSize(oldStream, oldFileSize);
 
-                    dirDiffInfo.sdiffInfo = new SingleCompressedHDiffInfo();
-                    _ = Header.TryParseHeaderInfo(patchReader, "", dirDiffInfo, new CompressedHDiffInfo() { headInfo = new THDiffzHead() }, new HDiffHeaderInfo());
-                    StartPatchRoutine(oldStream, patchStream, newStream, dirDiffInfo.newDataSize);
+                    _ = Header.TryParseHeaderInfo(patchReader, "", out _, out dirDiffInfo.hdiffinfo, out _);
+                    StartPatchRoutine(oldStream, patchStream, newStream, dirDiffInfo.hdiffinfo.newDataSize);
                 }
 
                 TimeSpan timeTaken = stopwatch.Elapsed;

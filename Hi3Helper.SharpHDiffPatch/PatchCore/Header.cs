@@ -5,8 +5,13 @@ namespace Hi3Helper.SharpHDiffPatch
 {
     internal class Header
     {
-        internal static bool TryParseHeaderInfo(BinaryReader sr, string diffPath, TDirDiffInfo tDirDiffInfo, CompressedHDiffInfo singleHDiffInfo, HDiffHeaderInfo headerInfo)
+        internal static bool TryParseHeaderInfo(BinaryReader sr, string diffPath,
+            out TDirDiffInfo tDirDiffInfo, out CompressedHDiffInfo singleHDiffInfo, out HDiffHeaderInfo headerInfo)
         {
+            tDirDiffInfo = new TDirDiffInfo();
+            singleHDiffInfo = new CompressedHDiffInfo() { headInfo = new THDiffzHead() };
+            headerInfo = new HDiffHeaderInfo();
+
             string headerInfoLine = sr.ReadStringToNull();
             bool isPatchDir = true;
 
@@ -20,7 +25,6 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 isPatchDir = false;
 
-                singleHDiffInfo = new CompressedHDiffInfo() { headInfo = new THDiffzHead() };
                 singleHDiffInfo.headerMagic = hInfoArr[0];
 
                 TryParseCompressionEnum(hInfoArr[1], out singleHDiffInfo.compMode);
@@ -79,7 +83,6 @@ namespace Hi3Helper.SharpHDiffPatch
         private static void TryReadTDirHDiffInfo(BinaryReader sr, TDirDiffInfo tDirDiffInfo, HDiffHeaderInfo headerInfo)
         {
             tDirDiffInfo.isSingleCompressedDiff = false;
-            tDirDiffInfo.sdiffInfo.stepMemSize = 0;
 
             if (IsSingleCompressedHDiff(sr, tDirDiffInfo, headerInfo))
             {
