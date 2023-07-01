@@ -84,17 +84,10 @@ namespace Hi3Helper.SharpHDiffPatch
                     + (long)hDiffInfo.headInfo.rle_codeBuf_size
                     + (long)hDiffInfo.headInfo.newDataDiff_size;
 
-                Span<byte> singleBufferClips = new byte[bufferTotalSize];
-                PatchCore.FillSingleBufferClip(patchStream, singleBufferClips, hDiffInfo.headInfo);
+                PatchCore.FillSingleBufferClip(patchStream, out MemoryStream[] singleBufferClips, hDiffInfo.headInfo);
                 Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
 
-                PatchCore.UncoverBufferClips(singleBufferClips, new int[4]
-                {
-                        (int)hDiffInfo.headInfo.cover_buf_size,
-                        (int)hDiffInfo.headInfo.rle_ctrlBuf_size,
-                        (int)hDiffInfo.headInfo.rle_codeBuf_size,
-                        (int)hDiffInfo.headInfo.newDataDiff_size
-                }, inputStream, outputStream, hDiffInfo, hDiffInfo.newDataSize);
+                PatchCore.UncoverBufferClipsStream(singleBufferClips, inputStream, outputStream, hDiffInfo, hDiffInfo.newDataSize);
             }
             stopwatch.Stop();
 
