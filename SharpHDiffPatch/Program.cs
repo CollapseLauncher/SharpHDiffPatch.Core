@@ -7,6 +7,7 @@ namespace SharpHDiffPatchBin
 {
     public static class PatcherBin
     {
+        private static readonly string[] SizeSuffixes = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
         public static void Main(params string[] args)
         {
             if (args.Length == 0)
@@ -72,7 +73,7 @@ namespace SharpHDiffPatchBin
 
         private static void EventListener_PatchEvent(object? sender, PatchEvent e)
         {
-            Console.Write($"\rPatching: {e.ProgressPercentage}%");
+            Console.Write($"Patching: {e.ProgressPercentage}% | Speed: {SummarizeSizeSimple(e.Speed)}/s    \r");
         }
 
         private static void ShowVersion()
@@ -103,6 +104,13 @@ namespace SharpHDiffPatchBin
                 - This patcher doesn't support patch file with compression.
                 - The support for directory patch is experimental. Please use it with pre-caution.
                 """);
+        }
+
+        public static string SummarizeSizeSimple(double value, int decimalPlaces = 2)
+        {
+            byte mag = (byte)Math.Log(value, 1000);
+
+            return string.Format("{0} {1}", Math.Round(value / (1L << (mag * 10)), decimalPlaces), SizeSuffixes[mag]);
         }
     }
 }
