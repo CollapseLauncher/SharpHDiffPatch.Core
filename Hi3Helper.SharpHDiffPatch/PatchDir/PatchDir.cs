@@ -138,17 +138,18 @@ namespace Hi3Helper.SharpHDiffPatch
                     + (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size
                     + (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size;
 
-                PatchCore.FillSingleBufferClip(patchStream, out MemoryStream[] singleBufferClips, dirDiffInfo.hdiffinfo.headInfo);
+                PatchCore.FillSingleBufferClip(patchStream, out Stream[] singleBufferClips, dirDiffInfo.hdiffinfo.headInfo);
                 Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
 
                 PatchCore.UncoverBufferClipsStream(singleBufferClips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
             }
             else
             {
-                ChunkStream[] clips = new ChunkStream[4];
-                clips[0] = PatchCore.GetBufferClipsStream(patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size);
-                clips[1] = PatchCore.GetBufferClipsStream(patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size);
-                clips[2] = PatchCore.GetBufferClipsStream(patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size);
+                Stream[] clips = new Stream[4];
+
+                PatchCore.FillBufferClip(patchStream, clips[0] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size);
+                PatchCore.FillBufferClip(patchStream, clips[1] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size);
+                PatchCore.FillBufferClip(patchStream, clips[2] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size);
                 clips[3] = PatchCore.GetBufferClipsStream(patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size);
 
                 PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);

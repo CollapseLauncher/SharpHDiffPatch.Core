@@ -55,25 +55,25 @@ namespace Hi3Helper.SharpHDiffPatch
             return stream;
         }
 
-        internal static void FillSingleBufferClip(Stream patchStream, out MemoryStream[] buffer, THDiffzHead headerInfo)
+        internal static void FillSingleBufferClip(Stream patchStream, out Stream[] buffer, THDiffzHead headerInfo)
         {
             buffer = new MemoryStream[4];
-            FillBufferClip(patchStream, buffer[0] = new MemoryStream(), (int)headerInfo.cover_buf_size);
-            FillBufferClip(patchStream, buffer[1] = new MemoryStream(), (int)headerInfo.rle_ctrlBuf_size);
-            FillBufferClip(patchStream, buffer[2] = new MemoryStream(), (int)headerInfo.rle_codeBuf_size);
-            FillBufferClip(patchStream, buffer[3] = new MemoryStream(), (int)headerInfo.newDataDiff_size);
+            FillBufferClip(patchStream, buffer[0] = new MemoryStream(), (long)headerInfo.cover_buf_size);
+            FillBufferClip(patchStream, buffer[1] = new MemoryStream(), (long)headerInfo.rle_ctrlBuf_size);
+            FillBufferClip(patchStream, buffer[2] = new MemoryStream(), (long)headerInfo.rle_codeBuf_size);
+            FillBufferClip(patchStream, buffer[3] = new MemoryStream(), (long)headerInfo.newDataDiff_size);
         }
 
-        private static void FillBufferClip(Stream patchStream, MemoryStream buffer, int length)
+        internal static void FillBufferClip(Stream patchStream, Stream buffer, long length)
         {
-            int offset = 0;
+            long offset = 0;
             int read;
-            int realLength = length;
+            long realLength = length;
             byte[] bufferF = new byte[4 << 10];
 
             while (length > 0)
             {
-                read = patchStream.Read(bufferF, 0, Math.Min(bufferF.Length, realLength - offset));
+                read = patchStream.Read(bufferF, 0, (int)Math.Min(bufferF.LongLength, realLength - offset));
                 buffer.Write(bufferF, 0, read);
                 length -= read;
                 offset += read;
@@ -119,8 +119,9 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, ulong count, ulong newDataSize)
         {
+            byte[] bufferCacheOutput = new byte[16 << 10];
+
             MemoryStream cacheOutputStream = new MemoryStream();
-            Span<byte> bufferCacheOutput = stackalloc byte[16 << 10];
             BinaryReader coverReader = new BinaryReader(clips[0]);
             BinaryReader ctrlReader = new BinaryReader(clips[1]);
             BinaryReader codeReader = new BinaryReader(clips[2]);
@@ -166,9 +167,9 @@ namespace Hi3Helper.SharpHDiffPatch
                     {
                         int readCache;
                         cacheOutputStream.Position = 0;
-                        while ((readCache = cacheOutputStream.Read(bufferCacheOutput)) > 0)
+                        while ((readCache = cacheOutputStream.Read(bufferCacheOutput, 0, bufferCacheOutput.Length)) > 0)
                         {
-                            outputStream.Write(bufferCacheOutput.Slice(0, readCache));
+                            outputStream.Write(bufferCacheOutput, 0, readCache);
                         }
                         cacheOutputStream.Dispose();
                         cacheOutputStream = new MemoryStream();
