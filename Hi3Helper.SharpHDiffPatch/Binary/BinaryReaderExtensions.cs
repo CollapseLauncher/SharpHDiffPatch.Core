@@ -23,17 +23,15 @@ namespace Hi3Helper.SharpHDiffPatch
         private static ulong ToTarget(BinaryReader reader, int tagBit)
         {
             byte code = reader.ReadByte();
-            int offsetRead = 0;
             ulong value = code & (((ulong)1 << (7 - tagBit)) - 1);
 
             if ((code & (1 << (7 - tagBit))) != 0)
             {
                 do
                 {
-                    if ((value >> (sizeof(ulong) * 8 - 7)) != 0) return 0;
+                    if ((value >> (8 * 8 - 7)) != 0) return 0;
                     code = reader.ReadByte();
                     value = (value << 7) | (code & (((ulong)1 << 7) - 1));
-                    offsetRead++;
                 }
                 while ((code & (1 << 7)) != 0);
             }

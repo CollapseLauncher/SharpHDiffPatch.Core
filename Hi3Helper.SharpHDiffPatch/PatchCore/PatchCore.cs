@@ -3,6 +3,34 @@ using System.IO;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
+    internal enum kByteRleType
+    {
+        rle0 = 0,
+        rle255 = 1,
+        rle = 2,
+        unrle = 3
+    }
+
+    internal ref struct RLERefClipStruct
+    {
+        public ulong memCopyLength;
+        public ulong memSetLength;
+        public byte memSetValue;
+        public kByteRleType type;
+
+        internal BinaryReader rleCodeClip;
+        internal BinaryReader rleCtrlClip;
+        internal BinaryReader rleCopyClip;
+        internal BinaryReader rleInputClip;
+    };
+
+    internal struct CoverHeader
+    {
+        internal long oldPos;
+        internal long newPos;
+        internal long coverLength;
+    }
+
     internal class PatchCore
     {
         private const int _kSignTagBit = 1;
@@ -25,6 +53,31 @@ namespace Hi3Helper.SharpHDiffPatch
             ChunkStream stream = new ChunkStream(patchStream, patchStream.Position, end, false);
             patchStream.Position += clipSize;
             return stream;
+        }
+
+        internal static void FillSingleBufferClip(Stream patchStream, Span<byte> buffer, THDiffzHead headerInfo)
+        {
+            int readOffset = FillBufferClip(patchStream, buffer, 0, (int)headerInfo.cover_buf_size);
+            readOffset += FillBufferClip(patchStream, buffer, readOffset, (int)headerInfo.rle_ctrlBuf_size);
+            readOffset += FillBufferClip(patchStream, buffer, readOffset, (int)headerInfo.rle_codeBuf_size);
+            _ = FillBufferClip(patchStream, buffer, readOffset, (int)headerInfo.newDataDiff_size);
+        }
+
+        private static int FillBufferClip(Stream patchStream, Span<byte> buffer, int offset, int length)
+        {
+            int remainToRead = length;
+            int read;
+            int totalRead = 0;
+            while ((remainToRead -= read = patchStream.Read(buffer.Slice(offset, remainToRead))) > 0)
+            {
+                HDiffPatch._token.ThrowIfCancellationRequested();
+                offset += read;
+                totalRead += read;
+            }
+
+            totalRead += read;
+
+            return totalRead;
         }
 
         internal static byte[] GetBufferClips(Stream patchStream, long clipSize, long clipSizeCompress)
@@ -62,11 +115,17 @@ namespace Hi3Helper.SharpHDiffPatch
             WriteCoverStreamToOutput(clips, uncoverCount, inputStream, outputStream, hDiffInfo.newDataSize);
         }
 
-        internal static void UncoverBufferClips(ref byte[][] bufferClips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo)
+        internal static void UncoverBufferClips(Span<byte> bufferClip, int[] lengths, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo, ulong newDataSize)
+        {
+            hDiffInfo.newDataSize = newDataSize;
+            UncoverBufferClips(bufferClip, lengths, inputStream, outputStream, hDiffInfo);
+        }
+
+        internal static void UncoverBufferClips(Span<byte> bufferClip, int[] lengths, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo)
         {
             ulong uncoverCount = hDiffInfo.headInfo.coverCount;
             coverCount = (long)hDiffInfo.headInfo.coverCount;
-            WriteCoverToOutputNew(ref bufferClips, uncoverCount, inputStream, outputStream, hDiffInfo.newDataSize);
+            WriteCoverToOutputNew(bufferClip, lengths, uncoverCount, inputStream, outputStream, hDiffInfo.newDataSize);
         }
 
         private static void WriteCoverStreamToOutput(ChunkStream[] clips, ulong count, Stream inputStream, Stream outputStream, ulong newDataSize)
@@ -91,18 +150,12 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 while (count > 0)
                 {
-                    if (count == 2)
-                    {
-                        Console.WriteLine();
-                    }
-
+                    HDiffPatch._token.ThrowIfCancellationRequested();
                     ReadCover(out CoverHeader cover, coverReader);
 #if DEBUG && SHOWDEBUGINFO
                     Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
 #endif
                     CoverHeader coverUse = cover;
-
-                    MemoryStream outCache = new MemoryStream();
 
                     if (newPosBack < cover.newPos)
                     {
@@ -114,6 +167,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     }
 
                     _patch_add_old_with_rle(outputStream, ref rleStruct, cover.oldPos, cover.coverLength);
+                    int read = (int)(cover.newPos + cover.coverLength - newPosBack);
+                    HDiffPatch.UpdateEvent(read);
                     newPosBack = cover.newPos + cover.coverLength;
                     count--;
                 }
@@ -123,6 +178,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     long copyLength = (long)newDataSize - newPosBack;
                     _TOutStreamCache_copyFromClip(outputStream, copyReader, copyLength);
                     _rle_decode_skip(ref rleStruct, outputStream, copyLength);
+                    HDiffPatch.UpdateEvent((int)copyLength);
                 }
             }
             catch
@@ -140,59 +196,79 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private static void WriteCoverToOutputNew(ref byte[][] bufferClips, ulong count, Stream inputStream, Stream outputStream, ulong newDataSize)
+        private static unsafe void WriteCoverToOutputNew(Span<byte> clipBuffer, int[] lengths, ulong count, Stream inputStream, Stream outputStream, ulong newDataSize)
         {
-            using (MemoryStream coverStream = new MemoryStream(bufferClips[0]))
-            using (MemoryStream ctrlStream = new MemoryStream(bufferClips[1]))
-            using (MemoryStream codeStream = new MemoryStream(bufferClips[2]))
-            using (MemoryStream copyStream = new MemoryStream(bufferClips[3]))
+            fixed (byte* bufferA = clipBuffer.Slice(0, lengths[0]))
+            fixed (byte* bufferB = clipBuffer.Slice(lengths[0], lengths[1]))
+            fixed (byte* bufferC = clipBuffer.Slice(lengths[1], lengths[2]))
+            fixed (byte* bufferD = clipBuffer.Slice(lengths[2], lengths[3]))
             {
-                BinaryReader coverReader = new BinaryReader(coverStream);
-                BinaryReader ctrlReader = new BinaryReader(ctrlStream);
-                BinaryReader codeReader = new BinaryReader(codeStream);
-                BinaryReader copyReader = new BinaryReader(copyStream);
+                UnmanagedMemoryStream bufferAStream = new UnmanagedMemoryStream(bufferA, lengths[0]);
+                UnmanagedMemoryStream bufferBStream = new UnmanagedMemoryStream(bufferB, lengths[1]);
+                UnmanagedMemoryStream bufferCStream = new UnmanagedMemoryStream(bufferC, lengths[2]);
+                UnmanagedMemoryStream bufferDStream = new UnmanagedMemoryStream(bufferD, lengths[3]);
+
+                BinaryReader coverReader = new BinaryReader(bufferAStream);
+                BinaryReader ctrlReader = new BinaryReader(bufferBStream);
+                BinaryReader codeReader = new BinaryReader(bufferCStream);
+                BinaryReader copyReader = new BinaryReader(bufferDStream);
                 BinaryReader inputReader = new BinaryReader(inputStream);
                 BinaryWriter outputWriter = new BinaryWriter(outputStream);
-                long newPosBack = 0;
 
-                RLERefClipStruct rleStruct = new RLERefClipStruct();
-
-                rleStruct.rleCtrlClip = ctrlReader;
-                rleStruct.rleCodeClip = codeReader;
-                rleStruct.rleCopyClip = copyReader;
-                rleStruct.rleInputClip = inputReader;
-
-                while (count > 0)
+                try
                 {
-                    ReadCover(out CoverHeader cover, coverReader);
+                    long newPosBack = 0;
+
+                    RLERefClipStruct rleStruct = new RLERefClipStruct();
+
+                    rleStruct.rleCtrlClip = ctrlReader;
+                    rleStruct.rleCodeClip = codeReader;
+                    rleStruct.rleCopyClip = copyReader;
+                    rleStruct.rleInputClip = inputReader;
+
+                    while (count > 0)
+                    {
+                        HDiffPatch._token.ThrowIfCancellationRequested();
+                        ReadCover(out CoverHeader cover, coverReader);
 #if DEBUG && SHOWDEBUGINFO
                     Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
 #endif
-                    CoverHeader coverUse = cover;
+                        CoverHeader coverUse = cover;
 
-                    MemoryStream outCache = new MemoryStream();
+                        if (newPosBack < cover.newPos)
+                        {
+                            long copyLength = cover.newPos - newPosBack;
+                            inputReader.BaseStream.Position = cover.oldPos;
 
-                    if (newPosBack < cover.newPos)
+                            _TOutStreamCache_copyFromClip(outputStream, copyReader, copyLength);
+                            _rle_decode_skip(ref rleStruct, outputStream, copyLength);
+                        }
+                        _patch_add_old_with_rle(outputStream, ref rleStruct, cover.oldPos, cover.coverLength);
+                        int read = (int)(cover.newPos + cover.coverLength - newPosBack);
+                        HDiffPatch.UpdateEvent(read);
+                        newPosBack = cover.newPos + cover.coverLength;
+                        count--;
+                    }
+
+                    if (newPosBack < (long)newDataSize)
                     {
-                        long copyLength = cover.newPos - newPosBack;
-                        inputReader.BaseStream.Position = cover.oldPos;
-
+                        long copyLength = (long)newDataSize - newPosBack;
                         _TOutStreamCache_copyFromClip(outputStream, copyReader, copyLength);
                         _rle_decode_skip(ref rleStruct, outputStream, copyLength);
+                        HDiffPatch.UpdateEvent((int)copyLength);
                     }
-                    _patch_add_old_with_rle(outputStream, ref rleStruct, cover.oldPos, cover.coverLength);
-                    newPosBack = cover.newPos + cover.coverLength;
-                    count--;
                 }
-
-                if (newPosBack < (long)newDataSize)
+                catch { throw; }
+                finally
                 {
-                    long copyLength = (long)newDataSize - newPosBack;
-                    _TOutStreamCache_copyFromClip(outputStream, copyReader, copyLength);
-                    _rle_decode_skip(ref rleStruct, outputStream, copyLength);
+                    coverReader?.Dispose();
+                    ctrlReader?.Dispose();
+                    codeReader?.Dispose();
+                    copyReader?.Dispose();
+                    inputReader?.Dispose();
+                    outputWriter?.Dispose();
                 }
             }
-            outputStream.Dispose();
         }
 
         private static void _patch_add_old_with_rle(Stream outCache, ref RLERefClipStruct rleLoader, long oldPos, long addLength)
@@ -211,7 +287,6 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 oldPos += decodeStep;
                 addLength -= decodeStep;
-
             }
         }
 

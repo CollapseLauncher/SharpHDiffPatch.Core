@@ -7,6 +7,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Platforms>x64;x86;ARM64</Platforms>
+    <Version>1.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -59,6 +59,7 @@ namespace SharpHDiffPatchBin
             {
                 HDiffPatch patcher = new HDiffPatch();
                 patcher.Initialize(patchPath);
+                EventListener.PatchEvent += EventListener_PatchEvent;
                 patcher.Patch(inputPath, outputPath, isUseBufferedPatch);
             }
             catch (Exception ex)
@@ -67,6 +68,11 @@ namespace SharpHDiffPatchBin
                 Console.WriteLine("\r\nPress any key to exit...");
                 Console.Read();
             }
+        }
+
+        private static void EventListener_PatchEvent(object? sender, PatchEvent e)
+        {
+            Console.Write($"\rPatching: {e.ProgressPercentage}%");
         }
 
         private static void ShowVersion()
@@ -81,7 +87,7 @@ namespace SharpHDiffPatchBin
 
             ShowVersion();
             Console.WriteLine($"""
-                Usage: {exeName} [input_path] [patch_path] [output_path] (useBuffer: true/false [default: false])
+                Usage: {exeName} [input_file/folder] [patch_path] [output_file/folder] (useBuffer: true/false [default: false])
                     
                 Example:
                     {exeName} Bank01.pck Bank01.pck.diff Bank01.pcknew
@@ -89,10 +95,13 @@ namespace SharpHDiffPatchBin
                 Or if you want to enable buffer for patching process:
                     {exeName} Bank01.pck Bank01.pck.diff Bank01.pcknew true
 
+                Or if you want to patch a directory
+                    {exeName} C:\MyFolder\Release1.2 C:\MyFolder\1.2-1.3patch.diff C:\MyFolder\Release1.3
+
                 Note:
                 - The output path is in "force" mode. Meaning that it will overwrite an existing file if exist.
                 - This patcher doesn't support patch file with compression.
-                - This doesn't support dirPatch (directory patch) at the moment. But we will bring it in the future.
+                - The support for directory patch is experimental. Please use it with pre-caution.
                 """);
         }
     }

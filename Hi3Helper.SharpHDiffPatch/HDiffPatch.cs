@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -111,14 +114,23 @@ namespace Hi3Helper.SharpHDiffPatch
         public ulong hdiffDataSize;
     }
 
-    public sealed partial class HDiffPatch : IPatch
+    public sealed partial class HDiffPatch
     {
+        internal static CancellationToken _token;
+        internal static Stopwatch _patchStopwatch;
+
         private CompressedHDiffInfo singleHDiffInfo { get; set; }
         private TDirDiffInfo tDirDiffInfo { get; set; }
         private HDiffHeaderInfo headerInfo { get; set; }
         private Stream diffStream { get; set; }
         private string diffPath { get; set; }
         private bool isPatchDir { get; set; }
+
+        internal static long currentSizePatched { get; set; }
+        internal static long totalSizePatched { get; set; }
+
+        internal static PatchEvent PatchEvent = new PatchEvent();
+        public static EventListener Event = new EventListener();
 
         public HDiffPatch()
         {
@@ -139,13 +151,32 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        public void Patch(string inputPath, string outputPath, bool useBufferedPatch)
+        public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default)
         {
+            _patchStopwatch = Stopwatch.StartNew();
+            _token = token;
+
             IPatch patcher = isPatchDir && tDirDiffInfo.isInputDir && tDirDiffInfo.isOutputDir ?
                 new PatchDir(tDirDiffInfo, headerInfo, diffPath) :
                 new PatchSingle(singleHDiffInfo);
             patcher.Patch(inputPath, outputPath, useBufferedPatch);
+
+            _patchStopwatch.Stop();
         }
         #endregion
+
+        public static void UpdateEvent(int read)
+        {
+            PatchEvent.UpdateEvent(currentSizePatched += read, totalSizePatched, read, _patchStopwatch.Elapsed.TotalSeconds);
+            Event.PushEvent(PatchEvent);
+        }
+    }
+
+    public class EventListener
+    {
+        // Log for external listener
+        public static event EventHandler<PatchEvent> PatchEvent;
+        // Push log to listener
+        public void PushEvent(PatchEvent patchEvent) => PatchEvent?.Invoke(this, patchEvent);
     }
 }

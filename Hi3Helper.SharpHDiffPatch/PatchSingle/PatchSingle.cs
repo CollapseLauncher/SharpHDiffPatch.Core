@@ -4,34 +4,6 @@ using System.IO;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
-    internal enum kByteRleType
-    {
-        rle0 = 0,
-        rle255 = 1,
-        rle = 2,
-        unrle = 3
-    }
-
-    internal ref struct RLERefClipStruct
-    {
-        public ulong memCopyLength;
-        public ulong memSetLength;
-        public byte memSetValue;
-        public kByteRleType type;
-
-        internal BinaryReader rleCodeClip;
-        internal BinaryReader rleCtrlClip;
-        internal BinaryReader rleCopyClip;
-        internal BinaryReader rleInputClip;
-    };
-
-    internal struct CoverHeader
-    {
-        internal long oldPos;
-        internal long newPos;
-        internal long coverLength;
-    }
-
     public sealed class PatchSingle : IPatch
     {
         private CompressedHDiffInfo hDiffInfo;
@@ -90,6 +62,9 @@ namespace Hi3Helper.SharpHDiffPatch
         {
             patchStream.Seek((long)hDiffInfo.headInfo.headEndPos, SeekOrigin.Begin);
 
+            HDiffPatch.currentSizePatched = 0;
+            HDiffPatch.totalSizePatched = (long)hDiffInfo.newDataSize;
+
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (!isUseBufferedPatch)
             {
@@ -103,13 +78,23 @@ namespace Hi3Helper.SharpHDiffPatch
             }
             else
             {
-                byte[][] bufferClips = new byte[4][];
-                bufferClips[0] = PatchCore.GetBufferClips(patchStream, (long)hDiffInfo.headInfo.cover_buf_size, (long)hDiffInfo.headInfo.compress_cover_buf_size);
-                bufferClips[1] = PatchCore.GetBufferClips(patchStream, (long)hDiffInfo.headInfo.rle_ctrlBuf_size, (long)hDiffInfo.headInfo.compress_rle_ctrlBuf_size);
-                bufferClips[2] = PatchCore.GetBufferClips(patchStream, (long)hDiffInfo.headInfo.rle_codeBuf_size, (long)hDiffInfo.headInfo.compress_rle_codeBuf_size);
-                bufferClips[3] = PatchCore.GetBufferClips(patchStream, (long)hDiffInfo.headInfo.newDataDiff_size, (long)hDiffInfo.headInfo.compress_newDataDiff_size);
+                Console.Write("Buffering clips data into memory... ");
+                long bufferTotalSize = (long)hDiffInfo.headInfo.cover_buf_size
+                    + (long)hDiffInfo.headInfo.rle_ctrlBuf_size
+                    + (long)hDiffInfo.headInfo.rle_codeBuf_size
+                    + (long)hDiffInfo.headInfo.newDataDiff_size;
 
-                PatchCore.UncoverBufferClips(ref bufferClips, inputStream, outputStream, hDiffInfo);
+                Span<byte> singleBufferClips = new byte[bufferTotalSize];
+                PatchCore.FillSingleBufferClip(patchStream, singleBufferClips, hDiffInfo.headInfo);
+                Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
+
+                PatchCore.UncoverBufferClips(singleBufferClips, new int[4]
+                {
+                        (int)hDiffInfo.headInfo.cover_buf_size,
+                        (int)hDiffInfo.headInfo.rle_ctrlBuf_size,
+                        (int)hDiffInfo.headInfo.rle_codeBuf_size,
+                        (int)hDiffInfo.headInfo.newDataDiff_size
+                }, inputStream, outputStream, hDiffInfo, hDiffInfo.newDataSize);
             }
             stopwatch.Stop();
 

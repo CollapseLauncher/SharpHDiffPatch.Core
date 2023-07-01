@@ -7,7 +7,7 @@ using System;
 using System.IO;
 using System.Linq;
 
-namespace Hi3Helper.EncTool
+namespace Hi3Helper.SharpHDiffPatch
 {
     public struct NewFileCombinedStreamStruct
     {
@@ -236,6 +236,38 @@ namespace Hi3Helper.EncTool
             }
         }
 
+        public override int Read(Span<byte> buffer)
+        {
+            int result = 0;
+            int count = buffer.Length;
+            int offset = 0;
+
+            while (count > 0)
+            {
+                _UnderlyingStreams[_Index].Position = _Position - _UnderlyingStartingPositions[_Index];
+                int bytesRead = _UnderlyingStreams[_Index].Read(buffer.Slice(offset));
+                result += bytesRead;
+                offset += bytesRead;
+                count -= bytesRead;
+                _Position += bytesRead;
+
+                if (count > 0)
+                {
+                    if (_Index < _UnderlyingStreams.Length - 1)
+                    {
+                        _Index++;
+#if DEBUG && SHOWDEBUGINFO
+                        Console.WriteLine($"[CombinedStream.Read()] Moving the stream to Index: {_Index}");
+#endif
+                    }
+                    else
+                        break;
+                }
+            }
+
+            return result;
+        }
+
         /// <summary>
         /// Reads a sequence of bytes from the current stream and advances the position within the stream by the number of bytes read.
         /// </summary>
@@ -324,6 +356,39 @@ namespace Hi3Helper.EncTool
             throw new NotSupportedException("The method or operation is not supported by CombinedStream.");
         }
 
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            int count = buffer.Length;
+            int offset = 0;
+            while (count > 0)
+            {
+                _UnderlyingStreams[_Index].Position = _Position - _UnderlyingStartingPositions[_Index];
+                int bytesWrite = count;
+                int remainedMaxLength = (int)(_UnderlyingStreams[_Index].Length - _UnderlyingStreams[_Index].Position);
+                if (remainedMaxLength < count)
+                {
+                    bytesWrite = remainedMaxLength;
+                }
+                _UnderlyingStreams[_Index].Write(buffer.Slice(offset, bytesWrite));
+                offset += bytesWrite;
+                count -= bytesWrite;
+                _Position += bytesWrite;
+
+                if (count > 0)
+                {
+                    if (_Index < _UnderlyingStreams.Length - 1)
+                    {
+                        _Index++;
+#if DEBUG && SHOWDEBUGINFO
+                        Console.WriteLine($"[CombinedStream.Write()] Moving the stream to Index: {_Index}");
+#endif
+                    }
+                    else
+                        break;
+                }
+            }
+        }
+
         /// <summary>
         /// Throws <see cref="NotSupportedException"/> since the <see cref="CombinedStream"/>
         /// class does not supports writing to the underlying streams.
@@ -339,16 +404,16 @@ namespace Hi3Helper.EncTool
             while (count > 0)
             {
                 _UnderlyingStreams[_Index].Position = _Position - _UnderlyingStartingPositions[_Index];
-                int bytesRead = count;
+                int bytesWrite = count;
                 int remainedMaxLength = (int)(_UnderlyingStreams[_Index].Length - _UnderlyingStreams[_Index].Position);
                 if (remainedMaxLength < count)
                 {
-                    bytesRead = remainedMaxLength;
+                    bytesWrite = remainedMaxLength;
                 }
-                _UnderlyingStreams[_Index].Write(buffer, offset, bytesRead);
-                offset += bytesRead;
-                count -= bytesRead;
-                _Position += bytesRead;
+                _UnderlyingStreams[_Index].Write(buffer, offset, bytesWrite);
+                offset += bytesWrite;
+                count -= bytesWrite;
+                _Position += bytesWrite;
 
                 if (count > 0)
                 {
