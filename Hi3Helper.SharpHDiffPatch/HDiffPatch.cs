@@ -161,6 +161,14 @@ namespace Hi3Helper.SharpHDiffPatch
             PatchEvent.UpdateEvent(currentSizePatched += read, totalSizePatched, read, _patchStopwatch.Elapsed.TotalSeconds);
             Event.PushEvent(PatchEvent);
         }
+
+        public static long GetHDiffNewSize(string path)
+        {
+            using FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+            using BinaryReader br = new BinaryReader(fs);
+            bool isDirPatch = Header.TryParseHeaderInfo(br, path, out TDirDiffInfo _tDirDiffInfo, out CompressedHDiffInfo _singleHDiffInfo, out HDiffHeaderInfo _headerInfo);
+            return (long)(isDirPatch ? _tDirDiffInfo.newDataSize : _singleHDiffInfo.newDataSize);
+        }
     }
 
     public class EventListener
