@@ -129,6 +129,10 @@ namespace Hi3Helper.SharpHDiffPatch
             BinaryReader inputReader = new BinaryReader(inputStream);
             BinaryWriter outputWriter = new BinaryWriter(outputStream);
 
+            oldPosBack = 0;
+            newPosBack = 0;
+            copyReaderOffset = 0;
+
             try
             {
                 long newPosBack = 0;
