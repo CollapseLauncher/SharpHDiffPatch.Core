@@ -101,8 +101,11 @@ namespace SharpHDiffPatchBin
 
                 Note:
                 - The output path is in "force" mode. Meaning that it will overwrite an existing file if exist.
-                - This patcher doesn't support patch file with compression.
-                - The support for directory patch is experimental. Please use it with pre-caution.
+                - This patcher only supports these compressions:
+                  * Zlib (Deflate)
+                  * ZStandard
+                  * BZip2
+                  * PBZip2
                 """);
         }
 

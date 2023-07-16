@@ -50,17 +50,7 @@ namespace Hi3Helper.SharpHDiffPatch
             return isPatchDir;
         }
 
-        private static bool TryParseCompressionEnum(string input, out CompressionMode compOut)
-        {
-            if (input == string.Empty)
-            {
-                compOut = CompressionMode.nocomp;
-                return true;
-            }
-
-            throw new NotSupportedException("This patcher doesn't support patching with compression at the moment");
-            // return Enum.TryParse(input, out compOut);
-        }
+        private static bool TryParseCompressionEnum(string input, out CompressionMode compOut) => Enum.TryParse(input, out compOut);
 
         private static void TryAssignDirHeaderExtents(BinaryReader sr, TDirDiffInfo tDirDiffInfo, HDiffHeaderInfo headerInfo)
         {
@@ -76,6 +66,12 @@ namespace Hi3Helper.SharpHDiffPatch
             curPos += tDirDiffInfo.externDataSize;
             headerInfo.hdiffDataOffset = curPos;
             headerInfo.hdiffDataSize = (ulong)sr.BaseStream.Length - curPos;
+
+            if (headerInfo.compMode == CompressionMode.zlib)
+            {
+                headerInfo.headDataOffset += 1;
+                headerInfo.headDataCompressedSize -= 1;
+            }
 
             TryReadTDirHDiffInfo(sr, tDirDiffInfo, headerInfo);
         }
@@ -113,6 +109,13 @@ namespace Hi3Helper.SharpHDiffPatch
             singleHDiffInfo.headInfo.compress_newDataDiff_size = sr.ReadUInt64VarInt();
 
             singleHDiffInfo.headInfo.headEndPos = (ulong)sr.BaseStream.Position;
+
+            if (singleHDiffInfo.compMode == CompressionMode.zlib)
+            {
+                singleHDiffInfo.headInfo.headEndPos += 1;
+                singleHDiffInfo.headInfo.compress_newDataDiff_size -= 1;
+            }
+
             singleHDiffInfo.compressedCount = (ulong)((singleHDiffInfo.headInfo.compress_cover_buf_size > 1) ? 1 : 0)
                                             + (ulong)((singleHDiffInfo.headInfo.compress_rle_ctrlBuf_size > 1) ? 1 : 0)
                                             + (ulong)((singleHDiffInfo.headInfo.compress_rle_codeBuf_size > 1) ? 1 : 0)

@@ -70,10 +70,10 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 Stream[] clips = new Stream[4];
 
-                PatchCore.FillBufferClip(patchStream, clips[0] = new MemoryStream(), (long)hDiffInfo.headInfo.cover_buf_size);
-                PatchCore.FillBufferClip(patchStream, clips[1] = new MemoryStream(), (long)hDiffInfo.headInfo.rle_ctrlBuf_size);
-                PatchCore.FillBufferClip(patchStream, clips[2] = new MemoryStream(), (long)hDiffInfo.headInfo.rle_codeBuf_size);
-                clips[3] = PatchCore.GetBufferClipsStream(patchStream, (long)hDiffInfo.headInfo.newDataDiff_size);
+                PatchCore.FillBufferClip(hDiffInfo.compMode, patchStream, clips[0] = new MemoryStream(), (long)hDiffInfo.headInfo.cover_buf_size, (long)hDiffInfo.headInfo.compress_cover_buf_size);
+                PatchCore.FillBufferClip(hDiffInfo.compMode, patchStream, clips[1] = new MemoryStream(), (long)hDiffInfo.headInfo.rle_ctrlBuf_size, (long)hDiffInfo.headInfo.compress_rle_ctrlBuf_size);
+                PatchCore.FillBufferClip(hDiffInfo.compMode, patchStream, clips[2] = new MemoryStream(), (long)hDiffInfo.headInfo.rle_codeBuf_size, (long)hDiffInfo.headInfo.compress_rle_codeBuf_size);
+                clips[3] = PatchCore.GetBufferClipsStream(hDiffInfo.compMode, patchStream, (long)hDiffInfo.headInfo.newDataDiff_size, (long)hDiffInfo.headInfo.compress_newDataDiff_size);
 
                 PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
             }
@@ -85,7 +85,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     + (long)hDiffInfo.headInfo.rle_codeBuf_size
                     + (long)hDiffInfo.headInfo.newDataDiff_size;
 
-                PatchCore.FillSingleBufferClip(patchStream, out Stream[] singleBufferClips, hDiffInfo.headInfo);
+                PatchCore.FillSingleBufferClip(hDiffInfo.compMode, patchStream, out Stream[] singleBufferClips, hDiffInfo.headInfo);
                 Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
 
                 PatchCore.UncoverBufferClipsStream(singleBufferClips, inputStream, outputStream, hDiffInfo, hDiffInfo.newDataSize);

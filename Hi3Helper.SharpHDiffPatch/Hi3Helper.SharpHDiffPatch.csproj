@@ -6,4 +6,11 @@
 		<Platforms>x64;x86;ARM64</Platforms>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <Content Include="Binary\Compression\Zstd\libzstd.dll">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <TargetPath>libzstd.dll</TargetPath>
+	  </Content>
+	</ItemGroup>
+
 </Project>

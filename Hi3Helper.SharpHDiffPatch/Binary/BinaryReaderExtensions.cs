@@ -1,20 +1,22 @@
-﻿using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Text;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
     public static class BinaryReaderExtensions
     {
+        private static byte[] StringBuffer = new byte[4 << 10];
+
         public static string ReadStringToNull(this BinaryReader reader)
         {
-            List<byte> list = new List<byte>();
-            byte item;
-            while (reader.BaseStream.Position != reader.BaseStream.Length && (item = reader.ReadByte()) != 0)
+            byte currentValue;
+            int i = 0;
+            while (StringBuffer.Length > i && (currentValue = reader.ReadByte()) != 0)
             {
-                list.Add(item);
+                StringBuffer[i++] = currentValue;
             }
-            return Encoding.UTF8.GetString(list.ToArray());
+
+            return Encoding.UTF8.GetString(StringBuffer, 0, i);
         }
 
         public static ulong ReadUInt64VarInt(this BinaryReader reader) => ToTarget(reader, 0);

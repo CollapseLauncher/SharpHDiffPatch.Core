@@ -46,10 +46,17 @@ namespace Hi3Helper.SharpHDiffPatch
             basePathOutput = output;
             this.useBufferedPatch = useBufferedPatch;
 
-            using (FileStream patchStream = spawnPatchStream())
-            using (BinaryReader patchReader = new BinaryReader(patchStream))
+            FileStream patchStream = spawnPatchStream();
+            patchStream.Position = (long)hdiffHeaderInfo.headDataOffset;
+            Stream decompHeadStream = new MemoryStream();
+            PatchCore.FillBufferClip(hdiffHeaderInfo.compMode, patchStream, decompHeadStream, (long)hdiffHeaderInfo.headDataSize, (long)hdiffHeaderInfo.headDataCompressedSize);
+            BinaryReader patchDecompReader = new BinaryReader(decompHeadStream);
+            BinaryReader patchReader = new BinaryReader(patchStream);
+
+            using (patchStream)
+            using (patchDecompReader)
             {
-                TDirPatcher dirData = InitializeDirPatcher(patchReader, (long)hdiffHeaderInfo.headDataOffset);
+                TDirPatcher dirData = InitializeDirPatcher(patchDecompReader);
                 // bool IsChecksumPassed = CheckDiffDataIntegration(patchReader, dirDiffInfo.checksumOffset);
 
                 // if (!IsChecksumPassed) throw new InvalidDataException("Checksum has failed and the patch file might be corrupted!");
@@ -137,7 +144,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     + (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size
                     + (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size;
 
-                PatchCore.FillSingleBufferClip(patchStream, out Stream[] singleBufferClips, dirDiffInfo.hdiffinfo.headInfo);
+                PatchCore.FillSingleBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, out Stream[] singleBufferClips, dirDiffInfo.hdiffinfo.headInfo);
                 Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
 
                 PatchCore.UncoverBufferClipsStream(singleBufferClips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
@@ -146,10 +153,11 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 Stream[] clips = new Stream[4];
 
-                PatchCore.FillBufferClip(patchStream, clips[0] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size);
-                PatchCore.FillBufferClip(patchStream, clips[1] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size);
-                PatchCore.FillBufferClip(patchStream, clips[2] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size);
-                clips[3] = PatchCore.GetBufferClipsStream(patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size);
+                PatchCore.FillBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, clips[0] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size);
+                PatchCore.FillBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, clips[1] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size);
+                PatchCore.FillBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, clips[2] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size);
+
+                clips[3] = PatchCore.GetBufferClipsStream(dirDiffInfo.hdiffinfo.compMode, patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size);
 
                 PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
             }
@@ -340,10 +348,9 @@ namespace Hi3Helper.SharpHDiffPatch
         }
         */
 
-        private TDirPatcher InitializeDirPatcher(BinaryReader reader, long startOffset)
+        private TDirPatcher InitializeDirPatcher(BinaryReader reader)
         {
             TDirPatcher returnValue = new TDirPatcher();
-            reader.BaseStream.Position = startOffset;
 
             GetListOfPaths(reader, out returnValue.oldUtf8PathList, hdiffHeaderInfo.inputDirCount);
             GetListOfPaths(reader, out returnValue.newUtf8PathList, hdiffHeaderInfo.outputDirCount);

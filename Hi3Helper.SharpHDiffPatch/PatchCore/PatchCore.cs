@@ -1,5 +1,9 @@
-﻿using System;
+﻿using SharpCompress.Compressors.BZip2;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using ZstdNet;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -41,7 +45,73 @@ namespace Hi3Helper.SharpHDiffPatch
         private static long coverCount;
         private static long copyReaderOffset;
 
-        internal static ChunkStream GetBufferClipsStream(Stream patchStream, long clipSize)
+        internal static long GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream, long length, long compLength)
+        {
+            (long returnLength, decompStream) = type switch
+            {
+                CompressionMode.nocomp => (length, sourceStream),
+                CompressionMode.zstd => (
+                    length,
+                    compLength > 0 ?
+                    new DecompressionStream(new ChunkStream(sourceStream, sourceStream.Position, sourceStream.Position + compLength, false), new DecompressionOptions(null, new Dictionary<ZSTD_dParameter, int>()
+                    {
+                        /* HACK: The default window log max size is 30. This is unacceptable since the native HPatch implementation
+                         * always use 31 as the size_t, which is 8 bytes length.
+                         * 
+                         * Code Snippets (decompress_plugin_demo.h:963):
+                         *     #define _ZSTD_WINDOWLOG_MAX ((sizeof(size_t)<=4)?30:31)
+                         */
+                        { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
+                    }), 0)
+                    : sourceStream),
+                // CompressionMode.lzma2 => (length, GetLzmaStream(sourceStream, length, compLength)),
+                CompressionMode.zlib => (length, GetZlibStream(sourceStream, length, compLength)),
+                CompressionMode.bz2 => (length, GetBZ2Stream(sourceStream, length, compLength, false)),
+                CompressionMode.pbz2 => (length, GetBZ2Stream(sourceStream, length, compLength, true)),
+                _ => throw new NotSupportedException($"Compression Type: {type} is not supported")
+            };
+
+            return returnLength;
+        }
+
+        /*
+        private static LzmaStream GetLzmaStream(Stream sourceStream, long length, long compLength)
+        {
+            char readProp = (char)sourceStream.ReadByte();
+            long dictSize = readProp == 40 ? 0xFFFFFFFF : LZMA2_DIC_SIZE_FROM_PROP(readProp);
+            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, sourceStream.Position + compLength, false);
+
+            byte[] props = new byte[5]
+            {
+                4,
+                (byte)dictSize,
+                (byte)(dictSize >> 8),
+                (byte)(dictSize >> 16),
+                (byte)(dictSize >> 24),
+            };
+
+            return new LzmaStream(props, rawStream);
+        }
+        */
+
+        private static CBZip2InputStream GetBZ2Stream(Stream sourceStream, long length, long compLength, bool isConcated)
+        {
+            long toCompLength = sourceStream.Position + compLength;
+            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, toCompLength, false);
+
+            return new CBZip2InputStream(rawStream, isConcated);
+        }
+
+        private static DeflateStream GetZlibStream(Stream sourceStream, long length, long compLength)
+        {
+            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, sourceStream.Position + compLength, false);
+
+            return new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true);
+        }
+
+        // private static long LZMA2_DIC_SIZE_FROM_PROP(int p) => ((UInt32)2 | ((p) & 1)) << ((p) / 2 + 11);
+
+        internal static Stream GetBufferClipsStream(CompressionMode compMode, Stream patchStream, long clipSize, long compClipSize)
         {
             long start = patchStream.Position;
             long end = patchStream.Position + clipSize;
@@ -50,58 +120,46 @@ namespace Hi3Helper.SharpHDiffPatch
             Console.WriteLine($"Start assigning chunk as Stream: start -> {start} end -> {end} size -> {size}");
 #endif
 
+            if (compClipSize > 0)
+            {
+                MemoryStream returnStream = new MemoryStream();
+                FillBufferClip(compMode, patchStream, returnStream, clipSize, compClipSize);
+                return returnStream;
+            }
+
             ChunkStream stream = new ChunkStream(patchStream, patchStream.Position, end, false);
             patchStream.Position += clipSize;
             return stream;
         }
 
-        internal static void FillSingleBufferClip(Stream patchStream, out Stream[] buffer, THDiffzHead headerInfo)
+        internal static void FillSingleBufferClip(CompressionMode compMode, Stream patchStream, out Stream[] buffer, THDiffzHead headerInfo)
         {
             buffer = new MemoryStream[4];
-            FillBufferClip(patchStream, buffer[0] = new MemoryStream(), (long)headerInfo.cover_buf_size);
-            FillBufferClip(patchStream, buffer[1] = new MemoryStream(), (long)headerInfo.rle_ctrlBuf_size);
-            FillBufferClip(patchStream, buffer[2] = new MemoryStream(), (long)headerInfo.rle_codeBuf_size);
-            FillBufferClip(patchStream, buffer[3] = new MemoryStream(), (long)headerInfo.newDataDiff_size);
+            FillBufferClip(compMode, patchStream, buffer[0] = new MemoryStream(), (long)headerInfo.cover_buf_size, (long)headerInfo.compress_cover_buf_size);
+            FillBufferClip(compMode, patchStream, buffer[1] = new MemoryStream(), (long)headerInfo.rle_ctrlBuf_size, (long)headerInfo.compress_rle_ctrlBuf_size);
+            FillBufferClip(compMode, patchStream, buffer[2] = new MemoryStream(), (long)headerInfo.rle_codeBuf_size, (long)headerInfo.compress_rle_codeBuf_size);
+            FillBufferClip(compMode, patchStream, buffer[3] = new MemoryStream(), (long)headerInfo.newDataDiff_size, (long)headerInfo.compress_newDataDiff_size);
         }
 
-        internal static void FillBufferClip(Stream patchStream, Stream buffer, long length)
+        internal static void FillBufferClip(CompressionMode compMode, Stream patchStream, Stream buffer, long length, long compLength)
         {
-            long offset = 0;
             int read;
-            long realLength = length;
-            byte[] bufferF = new byte[4 << 10];
+            byte[] bufferF = new byte[64 << 10];
+
+            long offset = 0;
+            long realLength = GetDecompressStreamPlugin(compMode, patchStream, out Stream readStream, length, compLength);
+
+            if (compLength > 0) Console.WriteLine($"Decompress {compMode} clip from pos: {patchStream.Position} -> {patchStream.Position + compLength} with compSize: {compLength} and decompSize: {length}...");
 
             while (length > 0)
             {
-                read = patchStream.Read(bufferF, 0, (int)Math.Min(bufferF.LongLength, realLength - offset));
+                read = readStream.Read(bufferF, 0, (int)Math.Min(bufferF.LongLength, realLength - offset));
                 buffer.Write(bufferF, 0, read);
                 length -= read;
                 offset += read;
             }
 
             buffer.Position = 0;
-        }
-
-        internal static byte[] GetBufferClips(Stream patchStream, long clipSize, long clipSizeCompress)
-        {
-            byte[] returnClip = new byte[clipSize];
-            int bufSize = 4 << 10;
-
-            long remainToRead = clipSize;
-            int offset = 0;
-            int read = 0;
-#if DEBUG && SHOWDEBUGINFO
-            Console.WriteLine($"Start reading buffer clip with buffer size: {bufSize} to size: {clipSize}");
-#endif
-            while ((remainToRead -= read = patchStream.Read(returnClip, offset, (int)Math.Min(bufSize, remainToRead))) > 0)
-            {
-                offset += read;
-#if DEBUG && SHOWDEBUGINFO
-                Console.WriteLine($"Reading remain {read}: Remain to read: {remainToRead}");
-#endif
-            }
-
-            return returnClip;
         }
 
         internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo, ulong newDataSize)

@@ -7,7 +7,12 @@ namespace Hi3Helper.SharpHDiffPatch
 {
     public enum CompressionMode
     {
-        nocomp
+        nocomp,
+        zstd,
+        lzma2,
+        zlib,
+        bz2,
+        pbz2
     }
 
     public enum ChecksumMode
