@@ -47,6 +47,9 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal static long GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream, long length, long compLength)
         {
+            long toCompLength = sourceStream.Position + compLength;
+            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, toCompLength, false);
+
             (long returnLength, decompStream) = type switch
             {
                 CompressionMode.nocomp => (length, sourceStream),
@@ -64,52 +67,14 @@ namespace Hi3Helper.SharpHDiffPatch
                         { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
                     }), 0)
                     : sourceStream),
-                // CompressionMode.lzma2 => (length, GetLzmaStream(sourceStream, length, compLength)),
-                CompressionMode.zlib => (length, GetZlibStream(sourceStream, length, compLength)),
-                CompressionMode.bz2 => (length, GetBZ2Stream(sourceStream, length, compLength, false)),
-                CompressionMode.pbz2 => (length, GetBZ2Stream(sourceStream, length, compLength, true)),
+                CompressionMode.zlib => (length, new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true)),
+                CompressionMode.bz2 => (length, new CBZip2InputStream(rawStream, false)),
+                CompressionMode.pbz2 => (length, new CBZip2InputStream(rawStream, true)),
                 _ => throw new NotSupportedException($"Compression Type: {type} is not supported")
             };
 
             return returnLength;
         }
-
-        /*
-        private static LzmaStream GetLzmaStream(Stream sourceStream, long length, long compLength)
-        {
-            char readProp = (char)sourceStream.ReadByte();
-            long dictSize = readProp == 40 ? 0xFFFFFFFF : LZMA2_DIC_SIZE_FROM_PROP(readProp);
-            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, sourceStream.Position + compLength, false);
-
-            byte[] props = new byte[5]
-            {
-                4,
-                (byte)dictSize,
-                (byte)(dictSize >> 8),
-                (byte)(dictSize >> 16),
-                (byte)(dictSize >> 24),
-            };
-
-            return new LzmaStream(props, rawStream);
-        }
-        */
-
-        private static CBZip2InputStream GetBZ2Stream(Stream sourceStream, long length, long compLength, bool isConcated)
-        {
-            long toCompLength = sourceStream.Position + compLength;
-            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, toCompLength, false);
-
-            return new CBZip2InputStream(rawStream, isConcated);
-        }
-
-        private static DeflateStream GetZlibStream(Stream sourceStream, long length, long compLength)
-        {
-            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, sourceStream.Position + compLength, false);
-
-            return new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true);
-        }
-
-        // private static long LZMA2_DIC_SIZE_FROM_PROP(int p) => ((UInt32)2 | ((p) & 1)) << ((p) / 2 + 11);
 
         internal static Stream GetBufferClipsStream(CompressionMode compMode, Stream patchStream, long clipSize, long compClipSize)
         {

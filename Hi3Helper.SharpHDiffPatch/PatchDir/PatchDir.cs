@@ -57,9 +57,6 @@ namespace Hi3Helper.SharpHDiffPatch
             using (patchDecompReader)
             {
                 TDirPatcher dirData = InitializeDirPatcher(patchDecompReader);
-                // bool IsChecksumPassed = CheckDiffDataIntegration(patchReader, dirDiffInfo.checksumOffset);
-
-                // if (!IsChecksumPassed) throw new InvalidDataException("Checksum has failed and the patch file might be corrupted!");
 
                 HDiffPatch.currentSizePatched = 0;
                 HDiffPatch.totalSizePatched = GetSameFileSize(dirData) + GetNewPatchedFileSize(dirData);
@@ -329,24 +326,6 @@ namespace Hi3Helper.SharpHDiffPatch
                 }
             }
         }
-
-        /*
-        private bool CheckDiffDataIntegration(BinaryReader reader, long checksumDataOffset)
-        {
-            reader.BaseStream.Position = checksumDataOffset;
-            (_, _) = hdiffHeaderInfo.checksumMode switch
-            {
-                ChecksumMode.fadler64 => (8, 4),
-                ChecksumMode.crc32 => (4, 4),
-                ChecksumMode.nochecksum => (0, 0),
-                _ => throw new NotSupportedException($"Checksum mode {hdiffHeaderInfo.checksumMode} is currently not supported!")
-            };
-
-            if (dirDiffInfo.checksumByteSize == 0) return true;
-
-            return true;
-        }
-        */
 
         private TDirPatcher InitializeDirPatcher(BinaryReader reader)
         {
