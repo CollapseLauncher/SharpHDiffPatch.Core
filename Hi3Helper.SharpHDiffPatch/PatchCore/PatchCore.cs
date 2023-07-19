@@ -217,7 +217,7 @@ namespace Hi3Helper.SharpHDiffPatch
                         inputReader.BaseStream.Position = cover.oldPos;
 
                         _TOutStreamCache_copyFromClip(cacheOutputStream, copyReader, copyLength);
-                        _rle_decode_skip(ref rleStruct, cacheOutputStream, copyLength);
+                        _TBytesRle_load_stream_decode_add(ref rleStruct, cacheOutputStream, copyLength);
                     }
                     _patch_add_old_with_rle(cacheOutputStream, ref rleStruct, cover.oldPos, cover.coverLength);
                     int read = (int)(cover.newPos + cover.coverLength - newPosBack);
@@ -242,7 +242,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 {
                     long copyLength = (long)newDataSize - newPosBack;
                     _TOutStreamCache_copyFromClip(outputStream, copyReader, copyLength);
-                    _rle_decode_skip(ref rleStruct, outputStream, copyLength);
+                    _TBytesRle_load_stream_decode_add(ref rleStruct, outputStream, copyLength);
                     HDiffPatch.UpdateEvent((int)copyLength);
                 }
             }
@@ -289,15 +289,6 @@ namespace Hi3Helper.SharpHDiffPatch
             long lastPos = outCache.Position;
             outCache.Write(buffer);
             outCache.Position = lastPos;
-        }
-
-        private static void _rle_decode_skip(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength)
-        {
-            while (copyLength > 0)
-            {
-                _TBytesRle_load_stream_decode_add(ref rleLoader, outCache, copyLength);
-                copyLength -= copyLength;
-            }
         }
 
         private static void _TBytesRle_load_stream_decode_add(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength)
