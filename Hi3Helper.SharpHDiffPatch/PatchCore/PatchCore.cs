@@ -110,6 +110,7 @@ namespace Hi3Helper.SharpHDiffPatch
             int read;
             while ((read = source.Read(buffer)) > 0)
             {
+                HDiffPatch._token.ThrowIfCancellationRequested();
                 returnStream.Write(buffer, 0, read);
             }
 
