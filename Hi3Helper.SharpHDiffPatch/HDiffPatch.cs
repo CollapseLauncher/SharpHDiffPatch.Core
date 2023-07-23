@@ -135,8 +135,8 @@ namespace Hi3Helper.SharpHDiffPatch
         public void Initialize(string diff)
         {
             diffPath = diff;
-            diffStream = new FileStream(diff, FileMode.Open, FileAccess.Read);
 
+            using (diffStream = new FileStream(diff, FileMode.Open, FileAccess.Read))
             using (BinaryReader sr = new BinaryReader(diffStream))
             {
                 isPatchDir = Header.TryParseHeaderInfo(sr, diffPath, out TDirDiffInfo _tDirDiffInfo, out CompressedHDiffInfo _singleHDiffInfo, out HDiffHeaderInfo _headerInfo);

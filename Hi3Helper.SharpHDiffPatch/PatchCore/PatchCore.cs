@@ -43,10 +43,9 @@ namespace Hi3Helper.SharpHDiffPatch
         private static long newPosBack;
         private static long coverCount;
 
-        internal static Stream GetBufferStreamFromOffset(CompressionMode compMode, Func<Stream> sourceStreamFunc,
+        internal static Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered)
         {
-            Stream sourceStream = sourceStreamFunc();
             sourceStream.Position = start;
 
             GetDecompressStreamPlugin(compMode, sourceStream, out Stream returnStream, length, compLength, out outLength);
@@ -56,7 +55,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 Console.Write($"Caching stream from offset: {start} with length: {(compLength > 0 ? compLength : length)}...");
                 MemoryStream stream = CreateAndCopyToMemoryStream(returnStream);
                 stream.Position = 0;
-                returnStream.Dispose();
+                returnStream?.Dispose();
                 Console.WriteLine($" Done! {stream.Length} bytes written");
                 return stream;
             }
