@@ -9,7 +9,7 @@
 	<ItemGroup>
 	  <Content Include="Binary\Compression\Zstd\libzstd.dll">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        <TargetPath>libzstd.dll</TargetPath>
+        <TargetPath>Lib\libzstd.dll</TargetPath>
 	  </Content>
 	</ItemGroup>
 

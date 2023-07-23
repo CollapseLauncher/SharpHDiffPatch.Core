@@ -1,44 +1,12 @@
 ﻿using System;
-using System.Diagnostics;
-using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using size_t = System.UIntPtr;
+using size_t = nuint;
 
 namespace ZstdNet
 {
     internal static class ExternMethods
     {
-        static ExternMethods()
-        {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-                SetWinDllDirectory();
-        }
-
-        private static void SetWinDllDirectory()
-        {
-            string path;
-
-            var location = Assembly.GetExecutingAssembly().Location;
-            if (string.IsNullOrEmpty(location) || (path = Path.GetDirectoryName(location)) == null)
-            {
-                Trace.TraceWarning($"{nameof(ZstdNet)}: Failed to get executing assembly location");
-                return;
-            }
-
-            // Nuget package
-            if (Path.GetFileName(path).StartsWith("net", StringComparison.Ordinal) && Path.GetFileName(Path.GetDirectoryName(path)) == "lib" && File.Exists(Path.Combine(path, "../../zstdnet.nuspec")))
-                path = Path.Combine(path, "../../build");
-
-            var platform = Environment.Is64BitProcess ? "x64" : "x86";
-            if (!SetDllDirectory(Path.Combine(path, platform)))
-                Trace.TraceWarning($"{nameof(ZstdNet)}: Failed to set DLL directory to '{path}'");
-        }
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern bool SetDllDirectory(string path);
-
-        private const string DllName = "libzstd";
+        private const string DllName = "Lib\\libzstd.dll";
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern size_t ZDICT_trainFromBuffer(byte[] dictBuffer, size_t dictBufferCapacity, byte[] samplesBuffer, size_t[] samplesSizes, uint nbSamples);
