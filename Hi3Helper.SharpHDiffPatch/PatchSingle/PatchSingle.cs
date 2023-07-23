@@ -73,15 +73,15 @@ namespace Hi3Helper.SharpHDiffPatch
                 (long)hDiffInfo.headInfo.cover_buf_size, (long)hDiffInfo.headInfo.compress_cover_buf_size, out long nextLength, this.isUseBufferedPatch);
 
             offset += nextLength;
-            clips[1] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset,
+            clips[1] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset + padding,
                 (long)hDiffInfo.headInfo.rle_ctrlBuf_size, (long)hDiffInfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.isUseBufferedPatch);
 
             offset += nextLength;
-            clips[2] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset,
+            clips[2] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset + padding,
                 (long)hDiffInfo.headInfo.rle_codeBuf_size, (long)hDiffInfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.isUseBufferedPatch);
 
             offset += nextLength;
-            clips[3] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset,
+            clips[3] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset + padding,
                 (long)hDiffInfo.headInfo.newDataDiff_size, (long)hDiffInfo.headInfo.compress_newDataDiff_size - padding, out _, false);
 
             PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
