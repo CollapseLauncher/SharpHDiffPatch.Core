@@ -23,12 +23,10 @@ namespace Hi3Helper.SharpHDiffPatch
 
             using (FileStream inputStream = new FileStream(input, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (FileStream outputStream = new FileStream(output, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
-            using (Stream patchStream = spawnPatchStream())
             {
-                patchStream.Seek((long)hDiffInfo.headInfo.headEndPos, SeekOrigin.Begin);
                 TryCheckMatchOldSize(inputStream);
 
-                StartPatchRoutine(inputStream, patchStream, outputStream);
+                StartPatchRoutine(inputStream, outputStream);
             }
         }
 
@@ -58,38 +56,35 @@ namespace Hi3Helper.SharpHDiffPatch
             Console.WriteLine();
         }
 
-        private void StartPatchRoutine(Stream inputStream, Stream patchStream, Stream outputStream)
+        private void StartPatchRoutine(Stream inputStream, Stream outputStream)
         {
-            patchStream.Seek((long)hDiffInfo.headInfo.headEndPos, SeekOrigin.Begin);
+            bool isCompressed = hDiffInfo.compMode != CompressionMode.nocomp;
 
             HDiffPatch.currentSizePatched = 0;
             HDiffPatch.totalSizePatched = (long)hDiffInfo.newDataSize;
 
             Stopwatch stopwatch = Stopwatch.StartNew();
-            if (!isUseBufferedPatch)
-            {
-                Stream[] clips = new Stream[4];
+            Stream[] clips = new Stream[4];
 
-                PatchCore.FillBufferClip(hDiffInfo.compMode, patchStream, clips[0] = new MemoryStream(), (long)hDiffInfo.headInfo.cover_buf_size, (long)hDiffInfo.headInfo.compress_cover_buf_size);
-                PatchCore.FillBufferClip(hDiffInfo.compMode, patchStream, clips[1] = new MemoryStream(), (long)hDiffInfo.headInfo.rle_ctrlBuf_size, (long)hDiffInfo.headInfo.compress_rle_ctrlBuf_size);
-                PatchCore.FillBufferClip(hDiffInfo.compMode, patchStream, clips[2] = new MemoryStream(), (long)hDiffInfo.headInfo.rle_codeBuf_size, (long)hDiffInfo.headInfo.compress_rle_codeBuf_size);
-                clips[3] = PatchCore.GetBufferClipsStream(hDiffInfo.compMode, patchStream, (long)hDiffInfo.headInfo.newDataDiff_size, (long)hDiffInfo.headInfo.compress_newDataDiff_size);
+            int padding = hDiffInfo.compMode == CompressionMode.zlib ? 1 : 0;
 
-                PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
-            }
-            else
-            {
-                Console.Write("Buffering clips data into memory... ");
-                long bufferTotalSize = (long)hDiffInfo.headInfo.cover_buf_size
-                    + (long)hDiffInfo.headInfo.rle_ctrlBuf_size
-                    + (long)hDiffInfo.headInfo.rle_codeBuf_size
-                    + (long)hDiffInfo.headInfo.newDataDiff_size;
+            long offset = (long)hDiffInfo.headInfo.headEndPos;
+            clips[0] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset + padding,
+                (long)hDiffInfo.headInfo.cover_buf_size, (long)hDiffInfo.headInfo.compress_cover_buf_size, out long nextLength, this.isUseBufferedPatch);
 
-                PatchCore.FillSingleBufferClip(hDiffInfo.compMode, patchStream, out Stream[] singleBufferClips, hDiffInfo.headInfo);
-                Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
+            offset += nextLength;
+            clips[1] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset,
+                (long)hDiffInfo.headInfo.rle_ctrlBuf_size, (long)hDiffInfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.isUseBufferedPatch);
 
-                PatchCore.UncoverBufferClipsStream(singleBufferClips, inputStream, outputStream, hDiffInfo, hDiffInfo.newDataSize);
-            }
+            offset += nextLength;
+            clips[2] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset,
+                (long)hDiffInfo.headInfo.rle_codeBuf_size, (long)hDiffInfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.isUseBufferedPatch);
+
+            offset += nextLength;
+            clips[3] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, spawnPatchStream, offset,
+                (long)hDiffInfo.headInfo.newDataDiff_size, (long)hDiffInfo.headInfo.compress_newDataDiff_size - padding, out _, false);
+
+            PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
             stopwatch.Stop();
 
             TimeSpan timeTaken = stopwatch.Elapsed;

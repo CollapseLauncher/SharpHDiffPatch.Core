@@ -24,7 +24,6 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal BinaryReader rleCodeClip;
         internal BinaryReader rleCtrlClip;
-        internal BinaryReader rleCopyClip;
         internal BinaryReader rleInputClip;
     };
 
@@ -43,18 +42,47 @@ namespace Hi3Helper.SharpHDiffPatch
         private static long oldPosBack;
         private static long newPosBack;
         private static long coverCount;
-        private static long copyReaderOffset;
 
-        internal static long GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream, long length, long compLength)
+        internal static Stream GetBufferStreamFromOffset(CompressionMode compMode, Func<Stream> sourceStreamFunc,
+            long start, long length, long compLength, out long outLength, bool isBuffered)
         {
-            long toCompLength = sourceStream.Position + compLength;
-            ChunkStream rawStream = new ChunkStream(sourceStream, sourceStream.Position, toCompLength, false);
+            Stream sourceStream = sourceStreamFunc();
+            sourceStream.Position = start;
 
-            (long returnLength, decompStream) = type switch
+            GetDecompressStreamPlugin(compMode, sourceStream, out Stream returnStream, length, compLength, out outLength);
+
+            if (isBuffered)
             {
-                CompressionMode.nocomp => (length, sourceStream),
-                CompressionMode.zstd => (
-                    length,
+                Console.Write($"Caching stream from offset: {start} with length: {(compLength > 0 ? compLength : length)}...");
+                MemoryStream stream = CreateAndCopyToMemoryStream(returnStream);
+                stream.Position = 0;
+                returnStream.Dispose();
+                Console.WriteLine($" Done! {stream.Length} bytes written");
+                return stream;
+            }
+
+            return returnStream;
+        }
+
+        internal static void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
+            long length, long compLength, out long outLength)
+        {
+            long toPosition = sourceStream.Position;
+            outLength = compLength > 0 ? compLength : length;
+            long toCompLength = sourceStream.Position + outLength;
+
+            ChunkStream rawStream = new ChunkStream(sourceStream, toPosition, toCompLength, false);
+
+            if (type != CompressionMode.nocomp && compLength == 0)
+            {
+                decompStream = rawStream;
+                return;
+            }
+
+            decompStream = type switch
+            {
+                CompressionMode.nocomp => rawStream,
+                CompressionMode.zstd =>
                     compLength > 0 ?
                     new DecompressionStream(new ChunkStream(sourceStream, sourceStream.Position, sourceStream.Position + compLength, false), new DecompressionOptions(null, new Dictionary<ZSTD_dParameter, int>()
                     {
@@ -66,65 +94,26 @@ namespace Hi3Helper.SharpHDiffPatch
                          */
                         { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
                     }), 0)
-                    : sourceStream),
-                CompressionMode.zlib => (length, new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true)),
-                CompressionMode.bz2 => (length, new CBZip2InputStream(rawStream, false)),
-                CompressionMode.pbz2 => (length, new CBZip2InputStream(rawStream, true)),
+                    : sourceStream,
+                CompressionMode.zlib => new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true),
+                CompressionMode.bz2 => new CBZip2InputStream(rawStream, false),
+                CompressionMode.pbz2 => new CBZip2InputStream(rawStream, true),
                 _ => throw new NotSupportedException($"Compression Type: {type} is not supported")
             };
-
-            return returnLength;
         }
 
-        internal static Stream GetBufferClipsStream(CompressionMode compMode, Stream patchStream, long clipSize, long compClipSize)
+        internal static MemoryStream CreateAndCopyToMemoryStream(Stream source)
         {
-            long start = patchStream.Position;
-            long end = patchStream.Position + clipSize;
-            long size = end - start;
-#if DEBUG && SHOWDEBUGINFO
-            Console.WriteLine($"Start assigning chunk as Stream: start -> {start} end -> {end} size -> {size}");
-#endif
+            MemoryStream returnStream = new MemoryStream();
+            byte[] buffer = new byte[16 << 10];
 
-            if (compClipSize > 0)
-            {
-                MemoryStream returnStream = new MemoryStream();
-                FillBufferClip(compMode, patchStream, returnStream, clipSize, compClipSize);
-                return returnStream;
-            }
-
-            ChunkStream stream = new ChunkStream(patchStream, patchStream.Position, end, false);
-            patchStream.Position += clipSize;
-            return stream;
-        }
-
-        internal static void FillSingleBufferClip(CompressionMode compMode, Stream patchStream, out Stream[] buffer, THDiffzHead headerInfo)
-        {
-            buffer = new MemoryStream[4];
-            FillBufferClip(compMode, patchStream, buffer[0] = new MemoryStream(), (long)headerInfo.cover_buf_size, (long)headerInfo.compress_cover_buf_size);
-            FillBufferClip(compMode, patchStream, buffer[1] = new MemoryStream(), (long)headerInfo.rle_ctrlBuf_size, (long)headerInfo.compress_rle_ctrlBuf_size);
-            FillBufferClip(compMode, patchStream, buffer[2] = new MemoryStream(), (long)headerInfo.rle_codeBuf_size, (long)headerInfo.compress_rle_codeBuf_size);
-            FillBufferClip(compMode, patchStream, buffer[3] = new MemoryStream(), (long)headerInfo.newDataDiff_size, (long)headerInfo.compress_newDataDiff_size);
-        }
-
-        internal static void FillBufferClip(CompressionMode compMode, Stream patchStream, Stream buffer, long length, long compLength)
-        {
             int read;
-            byte[] bufferF = new byte[64 << 10];
-
-            long offset = 0;
-            long realLength = GetDecompressStreamPlugin(compMode, patchStream, out Stream readStream, length, compLength);
-
-            if (compLength > 0) Console.WriteLine($"Decompress {compMode} clip from pos: {patchStream.Position} -> {patchStream.Position + compLength} with compSize: {compLength} and decompSize: {length}...");
-
-            while (length > 0)
+            while ((read = source.Read(buffer)) > 0)
             {
-                read = readStream.Read(bufferF, 0, (int)Math.Min(bufferF.LongLength, realLength - offset));
-                buffer.Write(bufferF, 0, read);
-                length -= read;
-                offset += read;
+                returnStream.Write(buffer, 0, read);
             }
 
-            buffer.Position = 0;
+            return returnStream;
         }
 
         internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo, ulong newDataSize)
@@ -191,7 +180,6 @@ namespace Hi3Helper.SharpHDiffPatch
 
             oldPosBack = 0;
             newPosBack = 0;
-            copyReaderOffset = 0;
 
             try
             {
@@ -201,7 +189,6 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 rleStruct.rleCtrlClip = ctrlReader;
                 rleStruct.rleCodeClip = codeReader;
-                rleStruct.rleCopyClip = copyReader;
                 rleStruct.rleInputClip = inputReader;
 
                 while (count > 0)
@@ -235,8 +222,8 @@ namespace Hi3Helper.SharpHDiffPatch
                         {
                             outputStream.Write(bufferCacheOutput, 0, readCache);
                         }
-                        cacheOutputStream.Dispose();
-                        cacheOutputStream = new MemoryStream();
+                        cacheOutputStream.Position = 0;
+                        cacheOutputStream.SetLength(0);
                     }
                 }
 
@@ -285,9 +272,7 @@ namespace Hi3Helper.SharpHDiffPatch
         private static void _TOutStreamCache_copyFromClip(Stream outCache, BinaryReader copyReader, long copyLength)
         {
             byte[] buffer = new byte[copyLength];
-            copyReaderOffset += copyLength;
-            copyReader.BaseStream.Read(buffer);
-            copyReader.BaseStream.Position = copyReaderOffset;
+            copyReader.BaseStream.Read(buffer, 0, buffer.Length);
             long lastPos = outCache.Position;
             outCache.Write(buffer);
             outCache.Position = lastPos;

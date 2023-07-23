@@ -32,6 +32,7 @@ namespace Hi3Helper.SharpHDiffPatch
         private string basePathInput;
         private string basePathOutput;
         private bool useBufferedPatch;
+        private int padding;
 
         public PatchDir(TDirDiffInfo dirDiffInfo, HDiffHeaderInfo hdiffHeaderInfo, string patchPath)
         {
@@ -47,23 +48,25 @@ namespace Hi3Helper.SharpHDiffPatch
             this.useBufferedPatch = useBufferedPatch;
 
             FileStream patchStream = spawnPatchStream();
-            patchStream.Position = (long)hdiffHeaderInfo.headDataOffset;
-            Stream decompHeadStream = new MemoryStream();
-            PatchCore.FillBufferClip(hdiffHeaderInfo.compMode, patchStream, decompHeadStream, (long)hdiffHeaderInfo.headDataSize, (long)hdiffHeaderInfo.headDataCompressedSize);
-            BinaryReader patchDecompReader = new BinaryReader(decompHeadStream);
-            BinaryReader patchReader = new BinaryReader(patchStream);
+            patchStream.Position = (long)hdiffHeaderInfo.headDataOffset + padding;
+            PatchCore.GetDecompressStreamPlugin(hdiffHeaderInfo.compMode, patchStream, out Stream decompHeadStream,
+                (long)hdiffHeaderInfo.headDataSize, (long)hdiffHeaderInfo.headDataCompressedSize - padding, out _);
 
-            using (patchStream)
+            using (BinaryReader patchReader = new BinaryReader(patchStream))
+            using (BinaryReader patchDecompReader = new BinaryReader(decompHeadStream))
             using (patchDecompReader)
             {
                 TDirPatcher dirData = InitializeDirPatcher(patchDecompReader);
 
                 HDiffPatch.currentSizePatched = 0;
                 HDiffPatch.totalSizePatched = GetSameFileSize(dirData) + GetNewPatchedFileSize(dirData);
-                patchStream.Position = (long)hdiffHeaderInfo.hdiffDataOffset;
 
                 FileStream[] mergedOldStream = GetRefOldStreams(dirData).ToArray();
                 NewFileCombinedStreamStruct[] mergedNewStream = GetRefNewStreams(dirData).ToArray();
+
+                patchStream.Position = (long)hdiffHeaderInfo.hdiffDataOffset;
+                _ = Header.TryParseHeaderInfo(patchReader, "", out _, out dirDiffInfo.hdiffinfo, out _);
+                padding = hdiffHeaderInfo.compMode == CompressionMode.zlib ? 1 : 0;
 
                 Stopwatch stopwatch = Stopwatch.StartNew();
                 using (Stream newStream = new CombinedStream(mergedNewStream))
@@ -72,8 +75,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     long oldFileSize = GetOldFileSize(dirData);
                     TryCheckMatchOldSize(oldStream, oldFileSize);
 
-                    _ = Header.TryParseHeaderInfo(patchReader, "", out _, out dirDiffInfo.hdiffinfo, out _);
-                    StartPatchRoutine(oldStream, patchStream, newStream, dirDiffInfo.hdiffinfo.newDataSize);
+                    long lastPos = patchStream.Position;
+                    StartPatchRoutine(oldStream, newStream, dirDiffInfo.hdiffinfo.newDataSize, lastPos);
                 }
 
                 TimeSpan timeTaken = stopwatch.Elapsed;
@@ -129,35 +132,27 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private long GetNewPatchedFileSize(TDirPatcher dirData) => dirData.newRefSizeList.Sum(x => (long)x);
 
-        private void StartPatchRoutine(Stream inputStream, Stream patchStream, Stream outputStream, ulong newDataSize)
+        private void StartPatchRoutine(Stream inputStream, Stream outputStream, ulong newDataSize, long offset)
         {
-            patchStream.Seek((long)dirDiffInfo.hdiffinfo.headInfo.headEndPos, SeekOrigin.Begin);
+            bool isCompressed = dirDiffInfo.hdiffinfo.compMode != CompressionMode.nocomp;
+            Stream[] clips = new Stream[4];
 
-            if (this.useBufferedPatch)
-            {
-                Console.Write("Buffering clips data into memory... ");
-                long bufferTotalSize = (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size
-                    + (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size
-                    + (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size
-                    + (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size;
+            clips[0] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, spawnPatchStream, offset,
+                (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size, out long nextLength, this.useBufferedPatch);
 
-                PatchCore.FillSingleBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, out Stream[] singleBufferClips, dirDiffInfo.hdiffinfo.headInfo);
-                Console.WriteLine($"Done!\r\n    Clips Buffer size in bytes: {bufferTotalSize}\r\n");
+            offset += nextLength;
+            clips[1] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, spawnPatchStream, offset,
+                (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.useBufferedPatch);
 
-                PatchCore.UncoverBufferClipsStream(singleBufferClips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
-            }
-            else
-            {
-                Stream[] clips = new Stream[4];
+            offset += nextLength;
+            clips[2] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, spawnPatchStream, offset,
+                (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.useBufferedPatch);
 
-                PatchCore.FillBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, clips[0] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size);
-                PatchCore.FillBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, clips[1] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size);
-                PatchCore.FillBufferClip(dirDiffInfo.hdiffinfo.compMode, patchStream, clips[2] = new MemoryStream(), (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size);
+            offset += nextLength;
+            clips[3] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, spawnPatchStream, offset,
+                (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size, out _, false);
 
-                clips[3] = PatchCore.GetBufferClipsStream(dirDiffInfo.hdiffinfo.compMode, patchStream, (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size);
-
-                PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
-            }
+            PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
         }
 
         private void TryCheckMatchOldSize(Stream inputStream, long oldFileSize)
@@ -214,7 +209,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 NewFileCombinedStreamStruct newStruct = new NewFileCombinedStreamStruct
                 {
-                    stream = File.Create(combinedNewPath),
+                    stream = new FileStream(combinedNewPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, 4096),
                     size = (long)dirData.newRefSizeList[i]
                 };
                 yield return newStruct;
