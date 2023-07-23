@@ -133,15 +133,11 @@ namespace Hi3Helper.SharpHDiffPatch
             UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
         }
 
-        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.newDataSize);
-
-        private static IEnumerable<CoverHeader> GetCoverHeader(BinaryReader reader)
+        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo)
         {
-            while (reader.BaseStream.Position < reader.BaseStream.Length)
-            {
-                ReadCover(out CoverHeader header, reader);
-                yield return header;
-            }
+            ulong uncoverCount = hDiffInfo.headInfo.coverCount;
+            coverCount = (long)hDiffInfo.headInfo.coverCount;
+            WriteCoverStreamToOutput(clips, inputStream, outputStream, uncoverCount, hDiffInfo.newDataSize);
         }
 
         private static void ReadCover(out CoverHeader coverHeader, BinaryReader coverReader)
@@ -181,7 +177,7 @@ namespace Hi3Helper.SharpHDiffPatch
             PatchCore.newPosBack = newPosBack;
         }
 
-        private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, ulong newDataSize)
+        private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, ulong count, ulong newDataSize)
         {
             byte[] bufferCacheOutput = new byte[16 << 10];
 
@@ -208,9 +204,15 @@ namespace Hi3Helper.SharpHDiffPatch
                 rleStruct.rleCopyClip = copyReader;
                 rleStruct.rleInputClip = inputReader;
 
-                foreach (CoverHeader cover in GetCoverHeader(coverReader))
+                while (count > 0)
                 {
                     HDiffPatch._token.ThrowIfCancellationRequested();
+                    ReadCover(out CoverHeader cover, coverReader);
+#if DEBUG && SHOWDEBUGINFO
+                    Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
+#endif
+                    CoverHeader coverUse = cover;
+
                     if (newPosBack < cover.newPos)
                     {
                         long copyLength = cover.newPos - newPosBack;
@@ -223,8 +225,9 @@ namespace Hi3Helper.SharpHDiffPatch
                     int read = (int)(cover.newPos + cover.coverLength - newPosBack);
                     HDiffPatch.UpdateEvent(read);
                     newPosBack = cover.newPos + cover.coverLength;
+                    count--;
 
-                    if (cacheOutputStream.Length > 20 << 20)
+                    if (cacheOutputStream.Length > 20 << 20 || count == 0)
                     {
                         int readCache;
                         cacheOutputStream.Position = 0;
