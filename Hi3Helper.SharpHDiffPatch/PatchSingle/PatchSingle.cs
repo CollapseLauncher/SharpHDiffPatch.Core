@@ -88,7 +88,7 @@ namespace Hi3Helper.SharpHDiffPatch
             stopwatch.Stop();
 
             TimeSpan timeTaken = stopwatch.Elapsed;
-            Console.WriteLine($"Patch has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.Milliseconds} ms)");
+            Console.WriteLine($"Patch has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
         }
     }
 }
