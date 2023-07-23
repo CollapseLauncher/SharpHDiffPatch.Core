@@ -334,11 +334,11 @@ namespace Hi3Helper.SharpHDiffPatch
             GetListOfPaths(reader, out returnValue.oldUtf8PathList, hdiffHeaderInfo.inputDirCount);
             GetListOfPaths(reader, out returnValue.newUtf8PathList, hdiffHeaderInfo.outputDirCount);
 
-            GetArrayOfIncULongTag(reader, out returnValue.oldRefList, hdiffHeaderInfo.inputRefFileCount, hdiffHeaderInfo.inputDirCount, 0);
-            GetArrayOfIncULongTag(reader, out returnValue.newRefList, hdiffHeaderInfo.outputRefFileCount, hdiffHeaderInfo.outputDirCount, 0);
-            GetArrayOfULongTag(reader, out returnValue.newRefSizeList, hdiffHeaderInfo.outputRefFileCount, 0);
+            GetArrayOfIncULongTag(reader, out returnValue.oldRefList, hdiffHeaderInfo.inputRefFileCount, hdiffHeaderInfo.inputDirCount);
+            GetArrayOfIncULongTag(reader, out returnValue.newRefList, hdiffHeaderInfo.outputRefFileCount, hdiffHeaderInfo.outputDirCount);
+            GetArrayOfULongTag(reader, out returnValue.newRefSizeList, hdiffHeaderInfo.outputRefFileCount);
             GetArrayOfSamePairULongTag(reader, out returnValue.dataSamePairList, hdiffHeaderInfo.sameFilePairCount, hdiffHeaderInfo.outputDirCount, hdiffHeaderInfo.inputDirCount);
-            GetArrayOfIncULongTag(reader, out returnValue.newExecuteList, (ulong)hdiffHeaderInfo.newExecuteCount, hdiffHeaderInfo.outputDirCount, 0);
+            GetArrayOfIncULongTag(reader, out returnValue.newExecuteList, (ulong)hdiffHeaderInfo.newExecuteCount, hdiffHeaderInfo.outputDirCount);
 
             return returnValue;
         }
@@ -354,14 +354,14 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private void GetArrayOfIncULongTag(BinaryReader reader, out ulong[] outarray, ulong count, ulong checkCount, int tagBit)
+        private void GetArrayOfIncULongTag(BinaryReader reader, out ulong[] outarray, ulong count, ulong checkCount)
         {
             outarray = new ulong[count];
             ulong backValue = ulong.MaxValue;
 
             for (ulong i = 0; i < count; i++)
             {
-                ulong num = reader.ReadUInt64VarInt(tagBit);
+                ulong num = reader.ReadUInt64VarInt();
                 backValue += 1 + num;
                 if (backValue > checkCount) throw new InvalidDataException($"[GetArrayOfIncULongTag] Given back value for the reference list is invalid! Having {i} refs while expecting max: {checkCount}");
 #if DEBUG && SHOWDEBUGINFO
@@ -371,12 +371,12 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private void GetArrayOfULongTag(BinaryReader reader, out ulong[] outarray, ulong count, int tagBit)
+        private void GetArrayOfULongTag(BinaryReader reader, out ulong[] outarray, ulong count)
         {
             outarray = new ulong[count];
             for (ulong i = 0; i < count; i++)
             {
-                ulong num = reader.ReadUInt64VarInt(tagBit);
+                ulong num = reader.ReadUInt64VarInt();
                 outarray[i] = num;
 #if DEBUG && SHOWDEBUGINFO
                 Console.WriteLine($"[GetArrayOfIncULongTag] value {i} - {count}: {num}");
@@ -389,18 +389,16 @@ namespace Hi3Helper.SharpHDiffPatch
             outPair = new pairStruct[pairCount];
             ulong backNewValue = ulong.MaxValue;
             ulong backOldValue = ulong.MaxValue;
-            ulong pSign;
 
             for (ulong i = 0; i < pairCount; ++i)
             {
-                ulong incNewValue = reader.ReadUInt64VarInt(0);
+                ulong incNewValue = reader.ReadUInt64VarInt();
 
                 backNewValue += 1 + incNewValue;
                 if (backNewValue > check_endNewValue) throw new InvalidDataException($"[GetArrayOfSamePairULongTag] Given back new value for the list is invalid! Having {backNewValue} value while expecting max: {check_endNewValue}");
 
-                pSign = reader.ReadByte();
-                --reader.BaseStream.Position;
-                ulong incOldValue = reader.ReadUInt64VarInt(1);
+                byte pSign = reader.ReadByte();
+                ulong incOldValue = reader.ReadUInt64VarInt(1, pSign);
 
                 if (pSign >> (8 - 1) == 0)
                     backOldValue += 1 + incOldValue;

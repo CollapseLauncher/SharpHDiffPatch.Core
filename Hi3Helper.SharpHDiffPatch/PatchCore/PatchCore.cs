@@ -133,14 +133,55 @@ namespace Hi3Helper.SharpHDiffPatch
             UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
         }
 
-        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo)
+        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.newDataSize);
+
+        private static IEnumerable<CoverHeader> GetCoverHeader(BinaryReader reader)
         {
-            ulong uncoverCount = hDiffInfo.headInfo.coverCount;
-            coverCount = (long)hDiffInfo.headInfo.coverCount;
-            WriteCoverStreamToOutput(clips, inputStream, outputStream, uncoverCount, hDiffInfo.newDataSize);
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
+            {
+                ReadCover(out CoverHeader header, reader);
+                yield return header;
+            }
         }
 
-        private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, ulong count, ulong newDataSize)
+        private static void ReadCover(out CoverHeader coverHeader, BinaryReader coverReader)
+        {
+            long oldPosBack = PatchCore.oldPosBack;
+            long newPosBack = PatchCore.newPosBack;
+            long coverCount = PatchCore.coverCount;
+
+            if (coverCount > 0)
+            {
+                PatchCore.coverCount = coverCount - 1;
+            }
+
+            byte pSign = coverReader.ReadByte();
+            long oldPos, copyLength, coverLength;
+
+            byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
+            long inc_oldPos = (long)coverReader.ReadUInt64VarInt(_kSignTagBit, pSign);
+            oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
+
+            copyLength = (long)coverReader.ReadUInt64VarInt();
+            coverLength = (long)coverReader.ReadUInt64VarInt();
+            newPosBack += copyLength;
+            oldPosBack = oldPos;
+
+            oldPosBack += true ? coverLength : 0;
+
+            coverHeader = new CoverHeader
+            {
+                oldPos = oldPos,
+                newPos = newPosBack,
+                coverLength = coverLength
+            };
+            newPosBack += coverLength;
+
+            PatchCore.oldPosBack = oldPosBack;
+            PatchCore.newPosBack = newPosBack;
+        }
+
+        private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, ulong newDataSize)
         {
             byte[] bufferCacheOutput = new byte[16 << 10];
 
@@ -167,15 +208,9 @@ namespace Hi3Helper.SharpHDiffPatch
                 rleStruct.rleCopyClip = copyReader;
                 rleStruct.rleInputClip = inputReader;
 
-                while (count > 0)
+                foreach (CoverHeader cover in GetCoverHeader(coverReader))
                 {
                     HDiffPatch._token.ThrowIfCancellationRequested();
-                    ReadCover(out CoverHeader cover, coverReader);
-#if DEBUG && SHOWDEBUGINFO
-                    Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
-#endif
-                    CoverHeader coverUse = cover;
-
                     if (newPosBack < cover.newPos)
                     {
                         long copyLength = cover.newPos - newPosBack;
@@ -188,9 +223,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     int read = (int)(cover.newPos + cover.coverLength - newPosBack);
                     HDiffPatch.UpdateEvent(read);
                     newPosBack = cover.newPos + cover.coverLength;
-                    count--;
 
-                    if (cacheOutputStream.Length > 20 << 20 || count == 0)
+                    if (cacheOutputStream.Length > 20 << 20)
                     {
                         int readCache;
                         cacheOutputStream.Position = 0;
@@ -264,10 +298,9 @@ namespace Hi3Helper.SharpHDiffPatch
 
             while (copyLength > 0)
             {
-                byte type = rleLoader.rleCtrlClip.ReadByte();
-                type = (byte)((type) >> (8 - _kByteRleType));
-                rleLoader.rleCtrlClip.BaseStream.Position--;
-                ulong length = rleLoader.rleCtrlClip.ReadUInt64VarInt(_kByteRleType);
+                byte pSign = rleLoader.rleCtrlClip.ReadByte();
+                byte type = (byte)((pSign) >> (8 - _kByteRleType));
+                ulong length = rleLoader.rleCtrlClip.ReadUInt64VarInt(_kByteRleType, pSign);
                 length++;
 
                 switch (rleLoader.type = (kByteRleType)type)
@@ -350,44 +383,6 @@ namespace Hi3Helper.SharpHDiffPatch
                 copyLength -= decodeStep;
                 rleLoader.memCopyLength -= (ulong)decodeStep;
             }
-        }
-
-        private static void ReadCover(out CoverHeader coverHeader, BinaryReader coverReader)
-        {
-            long oldPosBack = PatchCore.oldPosBack;
-            long newPosBack = PatchCore.newPosBack;
-            long coverCount = PatchCore.coverCount;
-
-            if (coverCount > 0)
-            {
-                PatchCore.coverCount = coverCount - 1;
-            }
-
-            byte pSign = coverReader.ReadByte();
-            long oldPos, copyLength, coverLength;
-
-            byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-            coverReader.BaseStream.Position--;
-            long inc_oldPos = (long)coverReader.ReadUInt64VarInt(_kSignTagBit);
-            oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
-
-            copyLength = (long)coverReader.ReadUInt64VarInt();
-            coverLength = (long)coverReader.ReadUInt64VarInt();
-            newPosBack += copyLength;
-            oldPosBack = oldPos;
-
-            oldPosBack += true ? coverLength : 0;
-
-            coverHeader = new CoverHeader
-            {
-                oldPos = oldPos,
-                newPos = newPosBack,
-                coverLength = coverLength
-            };
-            newPosBack += coverLength;
-
-            PatchCore.oldPosBack = oldPosBack;
-            PatchCore.newPosBack = newPosBack;
         }
     }
 }

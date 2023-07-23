@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Hi3Helper.SharpHDiffPatch
@@ -7,6 +8,7 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         private static byte[] StringBuffer = new byte[4 << 10];
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string ReadStringToNull(this BinaryReader reader)
         {
             byte currentValue;
@@ -19,12 +21,15 @@ namespace Hi3Helper.SharpHDiffPatch
             return Encoding.UTF8.GetString(StringBuffer, 0, i);
         }
 
-        public static ulong ReadUInt64VarInt(this BinaryReader reader) => ToTarget(reader, 0);
-        public static ulong ReadUInt64VarInt(this BinaryReader reader, int tagBit) => ToTarget(reader, tagBit);
+        public static ulong ReadUInt64VarInt(this BinaryReader reader) => ToTarget(reader, 0, 0);
+        public static ulong ReadUInt64VarInt(this BinaryReader reader, int tagBit, byte prevTagBit) => ToTarget(reader, tagBit, prevTagBit);
 
-        private static ulong ToTarget(BinaryReader reader, int tagBit)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ulong ToTarget(BinaryReader reader, int tagBit = 0, byte prevTagBit = 0)
         {
-            byte code = reader.ReadByte();
+            bool isUseTagBit = tagBit != 0;
+
+            byte code = isUseTagBit ? prevTagBit : reader.ReadByte();
             ulong value = code & (((ulong)1 << (7 - tagBit)) - 1);
 
             if ((code & (1 << (7 - tagBit))) != 0)
