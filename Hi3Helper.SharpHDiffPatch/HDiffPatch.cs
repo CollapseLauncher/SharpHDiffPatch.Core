@@ -24,19 +24,19 @@ namespace Hi3Helper.SharpHDiffPatch
 
     public class THDiffzHead
     {
-        public ulong typesEndPos;
-        public ulong coverCount;
-        public ulong compressSizeBeginPos;
-        public ulong cover_buf_size;
-        public ulong compress_cover_buf_size;
-        public ulong rle_ctrlBuf_size;
-        public ulong compress_rle_ctrlBuf_size;
-        public ulong rle_codeBuf_size;
-        public ulong compress_rle_codeBuf_size;
-        public ulong newDataDiff_size;
-        public ulong compress_newDataDiff_size;
-        public ulong headEndPos;
-        public ulong coverEndPos;
+        public long typesEndPos;
+        public long coverCount;
+        public long compressSizeBeginPos;
+        public long cover_buf_size;
+        public long compress_cover_buf_size;
+        public long rle_ctrlBuf_size;
+        public long compress_rle_ctrlBuf_size;
+        public long rle_codeBuf_size;
+        public long compress_rle_codeBuf_size;
+        public long newDataDiff_size;
+        public long compress_newDataDiff_size;
+        public long headEndPos;
+        public long coverEndPos;
     }
 
     public class TDirDiffInfo
@@ -45,17 +45,17 @@ namespace Hi3Helper.SharpHDiffPatch
         public bool isOutputDir;
         public bool isSingleCompressedDiff;
 
-        public ulong externDataOffset;
-        public ulong externDataSize;
+        public long externDataOffset;
+        public long externDataSize;
 
         public byte checksumByteSize;
         public long checksumOffset;
 
         public bool dirDataIsCompressed;
 
-        public ulong oldDataSize;
-        public ulong newDataSize;
-        public ulong compressedCount;
+        public long oldDataSize;
+        public long newDataSize;
+        public long compressedCount;
 
         public CompressedHDiffInfo hdiffinfo;
     }
@@ -65,10 +65,10 @@ namespace Hi3Helper.SharpHDiffPatch
         public CompressionMode compMode;
         public string patchPath;
         public string headerMagic;
-        public ulong stepMemSize;
-        public ulong compressedCount;
-        public ulong oldDataSize;
-        public ulong newDataSize;
+        public long stepMemSize;
+        public long compressedCount;
+        public long oldDataSize;
+        public long newDataSize;
 
         public THDiffzHead headInfo;
     }
@@ -78,34 +78,34 @@ namespace Hi3Helper.SharpHDiffPatch
         public CompressionMode compMode;
         public ChecksumMode checksumMode;
 
-        public ulong inputDirCount;
-        public ulong inputRefFileCount;
-        public ulong inputRefFileSize;
-        public ulong inputSumSize;
+        public long inputDirCount;
+        public long inputRefFileCount;
+        public long inputRefFileSize;
+        public long inputSumSize;
 
 
-        public ulong outputDirCount;
-        public ulong outputRefFileCount;
-        public ulong outputRefFileSize;
-        public ulong outputSumSize;
+        public long outputDirCount;
+        public long outputRefFileCount;
+        public long outputRefFileSize;
+        public long outputSumSize;
 
-        public ulong sameFilePairCount;
-        public ulong sameFileSize;
+        public long sameFilePairCount;
+        public long sameFileSize;
 
         public int newExecuteCount;
 
-        public ulong privateReservedDataSize;
-        public ulong privateExternDataSize;
-        public ulong privateExternDataOffset;
+        public long privateReservedDataSize;
+        public long privateExternDataSize;
+        public long privateExternDataOffset;
 
         public long compressSizeBeginPos;
 
-        public ulong headDataSize;
-        public ulong headDataOffset;
-        public ulong headDataCompressedSize;
+        public long headDataSize;
+        public long headDataOffset;
+        public long headDataCompressedSize;
 
-        public ulong hdiffDataOffset;
-        public ulong hdiffDataSize;
+        public long hdiffDataOffset;
+        public long hdiffDataSize;
     }
 
     public sealed partial class HDiffPatch

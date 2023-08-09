@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "-v"
+      "commandLineArgs": "F:\\CollapseData\\Hi3SEA\\BH3_v6.7.0_724d9675de4e F:\\CollapseData\\Hi3SEA\\Hi3SEA_6.7.0_6.8.0_zstd_a257d1d8849b_39A453B171752DADBBA1835F91EFBC3A.patch F:\\CollapseData\\Hi3SEA\\newnet"
     }
   }
 }

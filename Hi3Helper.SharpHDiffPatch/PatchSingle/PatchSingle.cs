@@ -32,7 +32,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private void TryCheckMatchOldSize(Stream inputStream)
         {
-            if (inputStream.Length != (long)hDiffInfo.oldDataSize)
+            if (inputStream.Length != hDiffInfo.oldDataSize)
             {
                 throw new InvalidDataException($"The patch file is expecting old size to be equivalent as: {hDiffInfo.oldDataSize} bytes, but the input file has unmatch size: {inputStream.Length} bytes!");
             }
@@ -61,7 +61,7 @@ namespace Hi3Helper.SharpHDiffPatch
             bool isCompressed = hDiffInfo.compMode != CompressionMode.nocomp;
 
             HDiffPatch.currentSizePatched = 0;
-            HDiffPatch.totalSizePatched = (long)hDiffInfo.newDataSize;
+            HDiffPatch.totalSizePatched = hDiffInfo.newDataSize;
 
             Stopwatch stopwatch = Stopwatch.StartNew();
             Stream[] clips = new Stream[4];
@@ -77,21 +77,21 @@ namespace Hi3Helper.SharpHDiffPatch
 
             try
             {
-                long offset = (long)hDiffInfo.headInfo.headEndPos;
+                long offset = hDiffInfo.headInfo.headEndPos;
                 clips[0] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[0], offset + padding,
-                    (long)hDiffInfo.headInfo.cover_buf_size, (long)hDiffInfo.headInfo.compress_cover_buf_size, out long nextLength, this.isUseBufferedPatch);
+                    hDiffInfo.headInfo.cover_buf_size, hDiffInfo.headInfo.compress_cover_buf_size, out long nextLength, this.isUseBufferedPatch);
 
                 offset += nextLength;
                 clips[1] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[1], offset + padding,
-                    (long)hDiffInfo.headInfo.rle_ctrlBuf_size, (long)hDiffInfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.isUseBufferedPatch);
+                    hDiffInfo.headInfo.rle_ctrlBuf_size, hDiffInfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.isUseBufferedPatch);
 
                 offset += nextLength;
                 clips[2] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[2], offset + padding,
-                    (long)hDiffInfo.headInfo.rle_codeBuf_size, (long)hDiffInfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.isUseBufferedPatch);
+                    hDiffInfo.headInfo.rle_codeBuf_size, hDiffInfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.isUseBufferedPatch);
 
                 offset += nextLength;
                 clips[3] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[3], offset + padding,
-                    (long)hDiffInfo.headInfo.newDataDiff_size, (long)hDiffInfo.headInfo.compress_newDataDiff_size - padding, out _, false);
+                    hDiffInfo.headInfo.newDataDiff_size, hDiffInfo.headInfo.compress_newDataDiff_size - padding, out _, false);
 
                 PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
 

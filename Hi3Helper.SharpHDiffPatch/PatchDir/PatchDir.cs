@@ -9,19 +9,19 @@ namespace Hi3Helper.SharpHDiffPatch
 {
     internal struct pairStruct
     {
-        public ulong oldIndex;
-        public ulong newIndex;
+        public long oldIndex;
+        public long newIndex;
     }
 
     internal class TDirPatcher
     {
         internal List<string> oldUtf8PathList;
         internal List<string> newUtf8PathList;
-        internal ulong[] oldRefList;
-        internal ulong[] newRefList;
-        internal ulong[] newRefSizeList;
+        internal long[] oldRefList;
+        internal long[] newRefList;
+        internal long[] newRefSizeList;
         internal pairStruct[] dataSamePairList;
-        internal ulong[] newExecuteList;
+        internal long[] newExecuteList;
     }
 
     public sealed class PatchDir : IPatch
@@ -134,7 +134,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private long GetNewPatchedFileSize(TDirPatcher dirData) => dirData.newRefSizeList.Sum(x => (long)x);
 
-        private void StartPatchRoutine(Stream inputStream, Stream outputStream, ulong newDataSize, long offset)
+        private void StartPatchRoutine(Stream inputStream, Stream outputStream, long newDataSize, long offset)
         {
             bool isCompressed = dirDiffInfo.hdiffinfo.compMode != CompressionMode.nocomp;
             Stream[] clips = new Stream[4];
@@ -149,19 +149,19 @@ namespace Hi3Helper.SharpHDiffPatch
             try
             {
                 clips[0] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[0], offset,
-                    (long)dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size, out long nextLength, this.useBufferedPatch);
+                    dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size, out long nextLength, this.useBufferedPatch);
 
                 offset += nextLength;
                 clips[1] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[1], offset,
-                    (long)dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.useBufferedPatch);
+                    dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.useBufferedPatch);
 
                 offset += nextLength;
                 clips[2] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[2], offset,
-                    (long)dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.useBufferedPatch);
+                    dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.useBufferedPatch);
 
                 offset += nextLength;
                 clips[3] = PatchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[3], offset,
-                    (long)dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, (long)dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size, out _, false);
+                    dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size, out _, false);
 
                 PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, dirDiffInfo.hdiffinfo, newDataSize);
             }
@@ -354,30 +354,30 @@ namespace Hi3Helper.SharpHDiffPatch
             GetArrayOfIncULongTag(reader, out returnValue.newRefList, hdiffHeaderInfo.outputRefFileCount, hdiffHeaderInfo.outputDirCount);
             GetArrayOfULongTag(reader, out returnValue.newRefSizeList, hdiffHeaderInfo.outputRefFileCount);
             GetArrayOfSamePairULongTag(reader, out returnValue.dataSamePairList, hdiffHeaderInfo.sameFilePairCount, hdiffHeaderInfo.outputDirCount, hdiffHeaderInfo.inputDirCount);
-            GetArrayOfIncULongTag(reader, out returnValue.newExecuteList, (ulong)hdiffHeaderInfo.newExecuteCount, hdiffHeaderInfo.outputDirCount);
+            GetArrayOfIncULongTag(reader, out returnValue.newExecuteList, hdiffHeaderInfo.newExecuteCount, hdiffHeaderInfo.outputDirCount);
 
             return returnValue;
         }
 
-        private void GetListOfPaths(BinaryReader reader, out List<string> outlist, ulong count)
+        private void GetListOfPaths(BinaryReader reader, out List<string> outlist, long count)
         {
             outlist = new List<string>();
 
-            for (ulong i = 0; i < count; i++)
+            for (long i = 0; i < count; i++)
             {
                 string filePath = reader.ReadStringToNull();
                 outlist.Add(filePath);
             }
         }
 
-        private void GetArrayOfIncULongTag(BinaryReader reader, out ulong[] outarray, ulong count, ulong checkCount)
+        private void GetArrayOfIncULongTag(BinaryReader reader, out long[] outarray, long count, long checkCount)
         {
-            outarray = new ulong[count];
-            ulong backValue = ulong.MaxValue;
+            outarray = new long[count];
+            long backValue = long.MaxValue;
 
-            for (ulong i = 0; i < count; i++)
+            for (long i = 0; i < count; i++)
             {
-                ulong num = reader.ReadUInt64VarInt();
+                long num = reader.ReadLong7bit();
                 backValue += 1 + num;
                 if (backValue > checkCount) throw new InvalidDataException($"[GetArrayOfIncULongTag] Given back value for the reference list is invalid! Having {i} refs while expecting max: {checkCount}");
 #if DEBUG && SHOWDEBUGINFO
@@ -387,12 +387,12 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private void GetArrayOfULongTag(BinaryReader reader, out ulong[] outarray, ulong count)
+        private void GetArrayOfULongTag(BinaryReader reader, out long[] outarray, long count)
         {
-            outarray = new ulong[count];
-            for (ulong i = 0; i < count; i++)
+            outarray = new long[count];
+            for (long i = 0; i < count; i++)
             {
-                ulong num = reader.ReadUInt64VarInt();
+                long num = reader.ReadLong7bit();
                 outarray[i] = num;
 #if DEBUG && SHOWDEBUGINFO
                 Console.WriteLine($"[GetArrayOfIncULongTag] value {i} - {count}: {num}");
@@ -400,21 +400,21 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private void GetArrayOfSamePairULongTag(BinaryReader reader, out pairStruct[] outPair, ulong pairCount, ulong check_endNewValue, ulong check_endOldValue)
+        private void GetArrayOfSamePairULongTag(BinaryReader reader, out pairStruct[] outPair, long pairCount, long check_endNewValue, long check_endOldValue)
         {
             outPair = new pairStruct[pairCount];
-            ulong backNewValue = ulong.MaxValue;
-            ulong backOldValue = ulong.MaxValue;
+            long backNewValue = long.MaxValue;
+            long backOldValue = long.MaxValue;
 
-            for (ulong i = 0; i < pairCount; ++i)
+            for (long i = 0; i < pairCount; ++i)
             {
-                ulong incNewValue = reader.ReadUInt64VarInt();
+                long incNewValue = reader.ReadLong7bit();
 
                 backNewValue += 1 + incNewValue;
                 if (backNewValue > check_endNewValue) throw new InvalidDataException($"[GetArrayOfSamePairULongTag] Given back new value for the list is invalid! Having {backNewValue} value while expecting max: {check_endNewValue}");
 
                 byte pSign = reader.ReadByte();
-                ulong incOldValue = reader.ReadUInt64VarInt(1, pSign);
+                long incOldValue = reader.ReadLong7bit(1, pSign);
 
                 if (pSign >> (8 - 1) == 0)
                     backOldValue += 1 + incOldValue;

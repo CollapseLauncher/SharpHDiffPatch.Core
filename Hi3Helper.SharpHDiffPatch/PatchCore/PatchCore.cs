@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Numerics;
 using ZstdNet;
 
 namespace Hi3Helper.SharpHDiffPatch
@@ -17,8 +18,8 @@ namespace Hi3Helper.SharpHDiffPatch
 
     internal ref struct RLERefClipStruct
     {
-        public ulong memCopyLength;
-        public ulong memSetLength;
+        public long memCopyLength;
+        public long memSetLength;
         public byte memSetValue;
         public kByteRleType type;
 
@@ -32,16 +33,14 @@ namespace Hi3Helper.SharpHDiffPatch
         internal long oldPos;
         internal long newPos;
         internal long coverLength;
+        internal int nextCoverIndex;
     }
 
     internal class PatchCore
     {
         private const int _kSignTagBit = 1;
         private const int _kByteRleType = 2;
-
-        private static long oldPosBack;
-        private static long newPosBack;
-        private static long coverCount;
+        private static int vecByteSize = Vector.IsHardwareAccelerated ? Vector<byte>.Count : 0;
 
         internal static Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered)
@@ -116,57 +115,57 @@ namespace Hi3Helper.SharpHDiffPatch
             return returnStream;
         }
 
-        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo, ulong newDataSize)
+        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo, long newDataSize)
         {
             hDiffInfo.newDataSize = newDataSize;
             UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
         }
 
-        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo)
-        {
-            ulong uncoverCount = hDiffInfo.headInfo.coverCount;
-            coverCount = (long)hDiffInfo.headInfo.coverCount;
-            WriteCoverStreamToOutput(clips, inputStream, outputStream, uncoverCount, hDiffInfo.newDataSize);
-        }
+        internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.newDataSize);
 
-        private static void ReadCover(out CoverHeader coverHeader, BinaryReader coverReader)
+        private static CoverHeader[] GetCoverHeaders(BinaryReader coverReader, int coverCount)
         {
-            long oldPosBack = PatchCore.oldPosBack;
-            long newPosBack = PatchCore.newPosBack;
-            long coverCount = PatchCore.coverCount;
+            CoverHeader[] returnCover = new CoverHeader[coverCount];
+            long _oldPosBack = 0,
+                 _newPosBack = 0;
 
-            if (coverCount > 0)
+            int i = 0;
+            while (coverCount-- > 0)
             {
-                PatchCore.coverCount = coverCount - 1;
+                long oldPosBack = _oldPosBack;
+                long newPosBack = _newPosBack;
+
+                byte pSign = coverReader.ReadByte();
+                long oldPos, copyLength, coverLength;
+
+                byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
+                long inc_oldPos = coverReader.ReadLong7bit(_kSignTagBit, pSign);
+                oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
+
+                copyLength = coverReader.ReadLong7bit();
+                coverLength = coverReader.ReadLong7bit();
+                newPosBack += copyLength;
+                oldPosBack = oldPos;
+
+                oldPosBack += true ? coverLength : 0;
+
+                returnCover[i++] = new CoverHeader
+                {
+                    oldPos = oldPos,
+                    newPos = newPosBack,
+                    coverLength = coverLength,
+                    nextCoverIndex = coverCount
+                };
+                newPosBack += coverLength;
+
+                _oldPosBack = oldPosBack;
+                _newPosBack = newPosBack;
             }
 
-            byte pSign = coverReader.ReadByte();
-            long oldPos, copyLength, coverLength;
-
-            byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-            long inc_oldPos = (long)coverReader.ReadUInt64VarInt(_kSignTagBit, pSign);
-            oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
-
-            copyLength = (long)coverReader.ReadUInt64VarInt();
-            coverLength = (long)coverReader.ReadUInt64VarInt();
-            newPosBack += copyLength;
-            oldPosBack = oldPos;
-
-            oldPosBack += true ? coverLength : 0;
-
-            coverHeader = new CoverHeader
-            {
-                oldPos = oldPos,
-                newPos = newPosBack,
-                coverLength = coverLength
-            };
-            newPosBack += coverLength;
-
-            PatchCore.oldPosBack = oldPosBack;
-            PatchCore.newPosBack = newPosBack;
+            return returnCover;
         }
 
-        private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, ulong count, ulong newDataSize)
+        private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long count, long newDataSize)
         {
             byte[] bufferCacheOutput = new byte[16 << 10];
 
@@ -178,9 +177,6 @@ namespace Hi3Helper.SharpHDiffPatch
             BinaryReader inputReader = new BinaryReader(inputStream);
             BinaryWriter outputWriter = new BinaryWriter(outputStream);
 
-            oldPosBack = 0;
-            newPosBack = 0;
-
             try
             {
                 long newPosBack = 0;
@@ -191,30 +187,29 @@ namespace Hi3Helper.SharpHDiffPatch
                 rleStruct.rleCodeClip = codeReader;
                 rleStruct.rleInputClip = inputReader;
 
-                while (count > 0)
+                CoverHeader[] cover = GetCoverHeaders(coverReader, (int)count);
+                for (int i = 0; i < cover.Length; i++)
                 {
                     HDiffPatch._token.ThrowIfCancellationRequested();
-                    ReadCover(out CoverHeader cover, coverReader);
 #if DEBUG && SHOWDEBUGINFO
                     Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
 #endif
-                    CoverHeader coverUse = cover;
 
-                    if (newPosBack < cover.newPos)
+                    if (newPosBack < cover[i].newPos)
                     {
-                        long copyLength = cover.newPos - newPosBack;
-                        inputReader.BaseStream.Position = cover.oldPos;
+                        long copyLength = cover[i].newPos - newPosBack;
+                        inputReader.BaseStream.Position = cover[i].oldPos;
 
                         _TOutStreamCache_copyFromClip(cacheOutputStream, copyReader, copyLength);
                         _TBytesRle_load_stream_decode_add(ref rleStruct, cacheOutputStream, copyLength);
                     }
-                    _patch_add_old_with_rle(cacheOutputStream, ref rleStruct, cover.oldPos, cover.coverLength);
-                    int read = (int)(cover.newPos + cover.coverLength - newPosBack);
-                    HDiffPatch.UpdateEvent(read);
-                    newPosBack = cover.newPos + cover.coverLength;
-                    count--;
 
-                    if (cacheOutputStream.Length > 20 << 20 || count == 0)
+                    _patch_add_old_with_rle(cacheOutputStream, ref rleStruct, cover[i].oldPos, cover[i].coverLength);
+                    int read = (int)(cover[i].newPos + cover[i].coverLength - newPosBack);
+                    HDiffPatch.UpdateEvent(read);
+                    newPosBack = cover[i].newPos + cover[i].coverLength;
+
+                    if (cacheOutputStream.Length > 20 << 20 || cover[i].nextCoverIndex == 0)
                     {
                         int readCache;
                         cacheOutputStream.Position = 0;
@@ -227,9 +222,9 @@ namespace Hi3Helper.SharpHDiffPatch
                     }
                 }
 
-                if (newPosBack < (long)newDataSize)
+                if (newPosBack < newDataSize)
                 {
-                    long copyLength = (long)newDataSize - newPosBack;
+                    long copyLength = newDataSize - newPosBack;
                     _TOutStreamCache_copyFromClip(outputStream, copyReader, copyLength);
                     _TBytesRle_load_stream_decode_add(ref rleStruct, outputStream, copyLength);
                     HDiffPatch.UpdateEvent((int)copyLength);
@@ -288,33 +283,33 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 byte pSign = rleLoader.rleCtrlClip.ReadByte();
                 byte type = (byte)((pSign) >> (8 - _kByteRleType));
-                ulong length = rleLoader.rleCtrlClip.ReadUInt64VarInt(_kByteRleType, pSign);
+                long length = rleLoader.rleCtrlClip.ReadLong7bit(_kByteRleType, pSign);
                 length++;
 
-                switch (rleLoader.type = (kByteRleType)type)
+                switch (type)
                 {
-                    case kByteRleType.rle0:
+                    case 0:
                         rleLoader.memSetLength = length;
                         rleLoader.memSetValue = 0x0;
                         break;
-                    case kByteRleType.rle255:
+                    case 1:
                         rleLoader.memSetLength = length;
                         rleLoader.memSetValue = 0xFF;
                         break;
-                    case kByteRleType.rle:
+                    case 2:
                         byte pSetValue = rleLoader.rleCodeClip.ReadByte();
                         rleLoader.memSetLength = length;
                         rleLoader.memSetValue = pSetValue;
                         break;
-                    case kByteRleType.unrle:
+                    case 3:
                         rleLoader.memCopyLength = length;
                         break;
                 }
 
 #if DEBUG && SHOWDEBUGINFO
-                if (rleLoader.type != kByteRleType.unrle)
+                if (type != 3)
                 {
-                    Console.WriteLine($"        RLE Type: {rleLoader.type} -> length: {rleLoader.memSetLength} -> code: {rleLoader.memSetValue}");
+                    Console.WriteLine($"        RLE Type: {(kByteRleType)type} -> length: {rleLoader.memSetLength} -> code: {rleLoader.memSetValue}");
                 }
                 else
                 {
@@ -329,17 +324,16 @@ namespace Hi3Helper.SharpHDiffPatch
         {
             if (rleLoader.memSetLength != 0)
             {
-                long memSetStep = (long)rleLoader.memSetLength <= copyLength ? (long)rleLoader.memSetLength : copyLength;
-                byte byteSetValue = rleLoader.memSetValue;
-                if (byteSetValue != 0)
+                long memSetStep = rleLoader.memSetLength <= copyLength ? rleLoader.memSetLength : copyLength;
+                if (rleLoader.memSetValue != 0)
                 {
-                    byte[] addToSetValueBuffer = new byte[(int)memSetStep];
+                    int length = (int)memSetStep;
+                    Span<byte> addToSetValueBuffer = stackalloc byte[length];
                     long lastPos = outCache.Position;
                     outCache.Read(addToSetValueBuffer);
                     outCache.Position = lastPos;
 
-                    int length = (int)memSetStep;
-                    for (int i = 0; i < length; i++) addToSetValueBuffer[i] += byteSetValue;
+                    while (length-- > 0) addToSetValueBuffer[length] += rleLoader.memSetValue;
 
                     outCache.Write(addToSetValueBuffer);
                 }
@@ -349,28 +343,35 @@ namespace Hi3Helper.SharpHDiffPatch
                 }
 
                 copyLength -= memSetStep;
-                rleLoader.memSetLength -= (ulong)memSetStep;
+                rleLoader.memSetLength -= memSetStep;
             }
 
-            while (rleLoader.memCopyLength > 0 && copyLength > 0)
+            long decodeStep = rleLoader.memCopyLength > copyLength ? copyLength : rleLoader.memCopyLength;
+            if (decodeStep == 0) return;
+
+            byte[] rleData = new byte[decodeStep];
+            byte[] oldData = new byte[decodeStep];
+            rleLoader.rleCodeClip.BaseStream.Read(rleData);
+
+            long lastPosCopy = outCache.Position;
+            outCache.Read(oldData);
+            outCache.Position = lastPosCopy;
+
+            long remaining = decodeStep % vecByteSize;
+            int iCopy;
+            for (iCopy = 0; iCopy < decodeStep - remaining; iCopy += vecByteSize)
             {
-                long decodeStep = (long)rleLoader.memCopyLength > copyLength ? copyLength : (long)rleLoader.memCopyLength;
-
-                byte[] rleData = new byte[decodeStep];
-                byte[] oldData = new byte[decodeStep];
-                rleLoader.rleCodeClip.BaseStream.Read(rleData);
-                long lastPos = outCache.Position;
-                outCache.Read(oldData);
-                outCache.Position = lastPos;
-
-                int length = (int)decodeStep;
-                for (int i = 0; i < length; i++) rleData[i] += oldData[i];
-
-                outCache.Write(rleData);
-
-                copyLength -= decodeStep;
-                rleLoader.memCopyLength -= (ulong)decodeStep;
+                var _srcVec = new Vector<byte>(oldData, iCopy);
+                var _toVec = new Vector<byte>(rleData, iCopy);
+                Vector.Add(_srcVec, _toVec).CopyTo(rleData, iCopy);
             }
+
+            while (iCopy < decodeStep) rleData[iCopy] += oldData[iCopy++];
+
+            outCache.Write(rleData);
+
+            rleLoader.memCopyLength -= decodeStep;
+            copyLength -= decodeStep;
         }
     }
 }

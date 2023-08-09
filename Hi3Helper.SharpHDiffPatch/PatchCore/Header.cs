@@ -54,7 +54,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private static void TryAssignDirHeaderExtents(BinaryReader sr, TDirDiffInfo tDirDiffInfo, HDiffHeaderInfo headerInfo)
         {
-            ulong curPos = (ulong)sr.BaseStream.Position;
+            long curPos = sr.BaseStream.Position;
             headerInfo.headDataOffset = curPos;
 
             curPos += (headerInfo.headDataCompressedSize > 0 ? headerInfo.headDataCompressedSize : headerInfo.headDataSize);
@@ -65,7 +65,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
             curPos += tDirDiffInfo.externDataSize;
             headerInfo.hdiffDataOffset = curPos;
-            headerInfo.hdiffDataSize = (ulong)sr.BaseStream.Length - curPos;
+            headerInfo.hdiffDataSize = sr.BaseStream.Length - curPos;
 
             TryReadTDirHDiffInfo(sr, tDirDiffInfo, headerInfo);
         }
@@ -87,27 +87,27 @@ namespace Hi3Helper.SharpHDiffPatch
         private static void GetSingleCompressedHDiffInfo(BinaryReader sr, string diffPath, CompressedHDiffInfo singleHDiffInfo)
         {
             singleHDiffInfo.patchPath = diffPath;
-            singleHDiffInfo.headInfo.typesEndPos = (ulong)sr.BaseStream.Position;
-            singleHDiffInfo.newDataSize = sr.ReadUInt64VarInt();
-            singleHDiffInfo.oldDataSize = sr.ReadUInt64VarInt();
+            singleHDiffInfo.headInfo.typesEndPos = sr.BaseStream.Position;
+            singleHDiffInfo.newDataSize = sr.ReadLong7bit();
+            singleHDiffInfo.oldDataSize = sr.ReadLong7bit();
 
-            singleHDiffInfo.headInfo.coverCount = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.compressSizeBeginPos = (ulong)sr.BaseStream.Position;
-            singleHDiffInfo.headInfo.cover_buf_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.compress_cover_buf_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.rle_ctrlBuf_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.compress_rle_ctrlBuf_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.rle_codeBuf_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.compress_rle_codeBuf_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.newDataDiff_size = sr.ReadUInt64VarInt();
-            singleHDiffInfo.headInfo.compress_newDataDiff_size = sr.ReadUInt64VarInt();
+            singleHDiffInfo.headInfo.coverCount = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.compressSizeBeginPos = sr.BaseStream.Position;
+            singleHDiffInfo.headInfo.cover_buf_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.compress_cover_buf_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.rle_ctrlBuf_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.compress_rle_ctrlBuf_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.rle_codeBuf_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.compress_rle_codeBuf_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.newDataDiff_size = sr.ReadLong7bit();
+            singleHDiffInfo.headInfo.compress_newDataDiff_size = sr.ReadLong7bit();
 
-            singleHDiffInfo.headInfo.headEndPos = (ulong)sr.BaseStream.Position;
+            singleHDiffInfo.headInfo.headEndPos = sr.BaseStream.Position;
 
-            singleHDiffInfo.compressedCount = (ulong)((singleHDiffInfo.headInfo.compress_cover_buf_size > 1) ? 1 : 0)
-                                            + (ulong)((singleHDiffInfo.headInfo.compress_rle_ctrlBuf_size > 1) ? 1 : 0)
-                                            + (ulong)((singleHDiffInfo.headInfo.compress_rle_codeBuf_size > 1) ? 1 : 0)
-                                            + (ulong)((singleHDiffInfo.headInfo.compress_newDataDiff_size > 1) ? 1 : 0);
+            singleHDiffInfo.compressedCount = ((singleHDiffInfo.headInfo.compress_cover_buf_size > 1) ? 1 : 0)
+                                            + ((singleHDiffInfo.headInfo.compress_rle_ctrlBuf_size > 1) ? 1 : 0)
+                                            + ((singleHDiffInfo.headInfo.compress_rle_codeBuf_size > 1) ? 1 : 0)
+                                            + ((singleHDiffInfo.headInfo.compress_newDataDiff_size > 1) ? 1 : 0);
 
             singleHDiffInfo.headInfo.coverEndPos = singleHDiffInfo.headInfo.headEndPos
                                                 + (singleHDiffInfo.headInfo.compress_cover_buf_size > 0 ?
@@ -122,26 +122,26 @@ namespace Hi3Helper.SharpHDiffPatch
 
             if (magicVersion != 13) throw new InvalidDataException($"The header chunk format: v{magicVersion} is not supported!");
 
-            tDirDiffInfo.hdiffinfo.headInfo.typesEndPos = (ulong)sr.BaseStream.Position;
-            tDirDiffInfo.newDataSize = sr.ReadUInt64VarInt();
-            tDirDiffInfo.oldDataSize = sr.ReadUInt64VarInt();
+            tDirDiffInfo.hdiffinfo.headInfo.typesEndPos = sr.BaseStream.Position;
+            tDirDiffInfo.newDataSize = sr.ReadLong7bit();
+            tDirDiffInfo.oldDataSize = sr.ReadLong7bit();
 
-            tDirDiffInfo.hdiffinfo.headInfo.coverCount = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.compressSizeBeginPos = (ulong)sr.BaseStream.Position;
-            tDirDiffInfo.hdiffinfo.headInfo.cover_buf_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.newDataDiff_size = sr.ReadUInt64VarInt();
-            tDirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size = sr.ReadUInt64VarInt();
+            tDirDiffInfo.hdiffinfo.headInfo.coverCount = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.compressSizeBeginPos = sr.BaseStream.Position;
+            tDirDiffInfo.hdiffinfo.headInfo.cover_buf_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.newDataDiff_size = sr.ReadLong7bit();
+            tDirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size = sr.ReadLong7bit();
 
-            tDirDiffInfo.hdiffinfo.headInfo.headEndPos = (ulong)sr.BaseStream.Position;
-            tDirDiffInfo.compressedCount = (ulong)((tDirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size > 1) ? 1 : 0)
-                                         + (ulong)((tDirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size > 1) ? 1 : 0)
-                                         + (ulong)((tDirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size > 1) ? 1 : 0)
-                                         + (ulong)((tDirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size > 1) ? 1 : 0);
+            tDirDiffInfo.hdiffinfo.headInfo.headEndPos = sr.BaseStream.Position;
+            tDirDiffInfo.compressedCount = ((tDirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size > 1) ? 1 : 0)
+                                         + ((tDirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size > 1) ? 1 : 0)
+                                         + ((tDirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size > 1) ? 1 : 0)
+                                         + ((tDirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size > 1) ? 1 : 0);
 
             tDirDiffInfo.hdiffinfo.headInfo.coverEndPos = tDirDiffInfo.hdiffinfo.headInfo.headEndPos
                                                         + (tDirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size > 0 ?
@@ -177,31 +177,31 @@ namespace Hi3Helper.SharpHDiffPatch
             tDirDiffInfo.isInputDir = sr.ReadBoolean();
             tDirDiffInfo.isOutputDir = sr.ReadBoolean();
 
-            headerInfo.inputDirCount = sr.ReadUInt64VarInt();
-            headerInfo.inputSumSize = sr.ReadUInt64VarInt();
+            headerInfo.inputDirCount = sr.ReadLong7bit();
+            headerInfo.inputSumSize = sr.ReadLong7bit();
 
-            headerInfo.outputDirCount = sr.ReadUInt64VarInt();
-            headerInfo.outputSumSize = sr.ReadUInt64VarInt();
+            headerInfo.outputDirCount = sr.ReadLong7bit();
+            headerInfo.outputSumSize = sr.ReadLong7bit();
 
-            headerInfo.inputRefFileCount = sr.ReadUInt64VarInt();
-            headerInfo.inputRefFileSize = sr.ReadUInt64VarInt();
+            headerInfo.inputRefFileCount = sr.ReadLong7bit();
+            headerInfo.inputRefFileSize = sr.ReadLong7bit();
 
-            headerInfo.outputRefFileCount = sr.ReadUInt64VarInt();
-            headerInfo.outputRefFileSize = sr.ReadUInt64VarInt();
+            headerInfo.outputRefFileCount = sr.ReadLong7bit();
+            headerInfo.outputRefFileSize = sr.ReadLong7bit();
 
-            headerInfo.sameFilePairCount = sr.ReadUInt64VarInt();
-            headerInfo.sameFileSize = sr.ReadUInt64VarInt();
+            headerInfo.sameFilePairCount = sr.ReadLong7bit();
+            headerInfo.sameFileSize = sr.ReadLong7bit();
 
-            headerInfo.newExecuteCount = (int)sr.ReadUInt64VarInt();
-            headerInfo.privateReservedDataSize = sr.ReadUInt64VarInt();
-            headerInfo.privateExternDataSize = sr.ReadUInt64VarInt();
-            tDirDiffInfo.externDataSize = sr.ReadUInt64VarInt();
+            headerInfo.newExecuteCount = sr.ReadInt7bit();
+            headerInfo.privateReservedDataSize = sr.ReadLong7bit();
+            headerInfo.privateExternDataSize = sr.ReadLong7bit();
+            tDirDiffInfo.externDataSize = sr.ReadLong7bit();
 
             headerInfo.compressSizeBeginPos = sr.BaseStream.Position;
 
-            headerInfo.headDataSize = sr.ReadUInt64VarInt();
-            headerInfo.headDataCompressedSize = sr.ReadUInt64VarInt();
-            tDirDiffInfo.checksumByteSize = (byte)sr.ReadUInt64VarInt();
+            headerInfo.headDataSize = sr.ReadLong7bit();
+            headerInfo.headDataCompressedSize = sr.ReadLong7bit();
+            tDirDiffInfo.checksumByteSize = (byte)sr.ReadLong7bit();
 
             tDirDiffInfo.checksumOffset = sr.BaseStream.Position;
             tDirDiffInfo.dirDataIsCompressed = headerInfo.headDataCompressedSize > 0;

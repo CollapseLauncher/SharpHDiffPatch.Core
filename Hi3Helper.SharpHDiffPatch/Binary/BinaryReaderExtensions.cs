@@ -21,16 +21,34 @@ namespace Hi3Helper.SharpHDiffPatch
             return Encoding.UTF8.GetString(StringBuffer, 0, i);
         }
 
-        public static ulong ReadUInt64VarInt(this BinaryReader reader) => ToTarget(reader, 0, 0);
-        public static ulong ReadUInt64VarInt(this BinaryReader reader, int tagBit, byte prevTagBit) => ToTarget(reader, tagBit, prevTagBit);
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static ulong ToTarget(BinaryReader reader, int tagBit = 0, byte prevTagBit = 0)
+        public static int ReadInt7bit(this BinaryReader reader, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
 
             byte code = isUseTagBit ? prevTagBit : reader.ReadByte();
-            ulong value = code & (((ulong)1 << (7 - tagBit)) - 1);
+            int value = code & ((1 << (7 - tagBit)) - 1);
+
+            if ((code & (1 << (7 - tagBit))) != 0)
+            {
+                do
+                {
+                    if ((value >> (4 * 4 - 7)) != 0) return 0;
+                    code = reader.ReadByte();
+                    value = (value << 7) | (code & ((1 << 7) - 1));
+                }
+                while ((code & (1 << 7)) != 0);
+            }
+            return value;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long ReadLong7bit(this BinaryReader reader, int tagBit = 0, byte prevTagBit = 0)
+        {
+            bool isUseTagBit = tagBit != 0;
+
+            byte code = isUseTagBit ? prevTagBit : reader.ReadByte();
+            long value = code & ((1 << (7 - tagBit)) - 1);
 
             if ((code & (1 << (7 - tagBit))) != 0)
             {
@@ -38,7 +56,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 {
                     if ((value >> (8 * 8 - 7)) != 0) return 0;
                     code = reader.ReadByte();
-                    value = (value << 7) | (code & (((ulong)1 << 7) - 1));
+                    value = (value << 7) | (code & (((long)1 << 7) - 1));
                 }
                 while ((code & (1 << 7)) != 0);
             }
