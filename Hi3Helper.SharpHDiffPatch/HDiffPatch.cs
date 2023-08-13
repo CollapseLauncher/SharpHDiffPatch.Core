@@ -161,7 +161,7 @@ namespace Hi3Helper.SharpHDiffPatch
         }
         #endregion
 
-        internal static void UpdateEvent(int read)
+        internal static void UpdateEvent(long read)
         {
             PatchEvent.UpdateEvent(currentSizePatched += read, totalSizePatched, read, _patchStopwatch.Elapsed.TotalSeconds);
             Event.PushEvent(PatchEvent);
