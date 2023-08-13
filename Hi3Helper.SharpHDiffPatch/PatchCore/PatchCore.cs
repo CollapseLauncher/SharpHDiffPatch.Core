@@ -164,15 +164,13 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long count, long newDataSize)
         {
-            MemoryStream cacheOutputStream = new MemoryStream();
-            BinaryReader coverReader = new BinaryReader(clips[0]);
-            BinaryReader ctrlReader = new BinaryReader(clips[1]);
-            BinaryReader codeReader = new BinaryReader(clips[2]);
-            BinaryReader copyReader = new BinaryReader(clips[3]);
-            BinaryReader inputReader = new BinaryReader(inputStream);
-            BinaryWriter outputWriter = new BinaryWriter(outputStream);
-
-            try
+            using (MemoryStream cacheOutputStream = new MemoryStream())
+            using (BinaryReader coverReader = new BinaryReader(clips[0]))
+            using (BinaryReader ctrlReader = new BinaryReader(clips[1]))
+            using (BinaryReader codeReader = new BinaryReader(clips[2]))
+            using (BinaryReader copyReader = new BinaryReader(clips[3]))
+            using (BinaryReader inputReader = new BinaryReader(inputStream))
+            using (BinaryWriter outputWriter = new BinaryWriter(outputStream))
             {
                 long newPosBack = 0;
 
@@ -223,19 +221,6 @@ namespace Hi3Helper.SharpHDiffPatch
                     _TBytesRle_load_stream_decode_add(ref rleStruct, outputStream, copyLength);
                     HDiffPatch.UpdateEvent((int)copyLength);
                 }
-            }
-            catch { throw; }
-            finally
-            {
-                coverReader?.Dispose();
-                ctrlReader?.Dispose();
-                codeReader?.Dispose();
-                copyReader?.Dispose();
-                inputReader?.Dispose();
-                outputWriter?.Dispose();
-                cacheOutputStream?.Dispose();
-
-                for (int i = 0; i < clips.Length; i++) clips[i]?.Dispose();
             }
         }
 
