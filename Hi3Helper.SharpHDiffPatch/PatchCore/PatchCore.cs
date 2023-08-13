@@ -123,9 +123,8 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal static void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, CompressedHDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.newDataSize);
 
-        private static CoverHeader[] GetCoverHeaders(BinaryReader coverReader, int coverCount)
+        private static IEnumerable<CoverHeader> EnumerateCoverHeaders(BinaryReader coverReader, int coverCount)
         {
-            CoverHeader[] returnCover = new CoverHeader[coverCount];
             long _oldPosBack = 0,
                  _newPosBack = 0;
 
@@ -149,7 +148,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 oldPosBack += true ? coverLength : 0;
 
-                returnCover[i++] = new CoverHeader
+                yield return new CoverHeader
                 {
                     oldPos = oldPos,
                     newPos = newPosBack,
@@ -161,14 +160,10 @@ namespace Hi3Helper.SharpHDiffPatch
                 _oldPosBack = oldPosBack;
                 _newPosBack = newPosBack;
             }
-
-            return returnCover;
         }
 
         private static void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long count, long newDataSize)
         {
-            byte[] bufferCacheOutput = new byte[16 << 10];
-
             MemoryStream cacheOutputStream = new MemoryStream();
             BinaryReader coverReader = new BinaryReader(clips[0]);
             BinaryReader ctrlReader = new BinaryReader(clips[1]);
@@ -187,38 +182,37 @@ namespace Hi3Helper.SharpHDiffPatch
                 rleStruct.rleCodeClip = codeReader;
                 rleStruct.rleInputClip = inputReader;
 
-                CoverHeader[] cover = GetCoverHeaders(coverReader, (int)count);
-                for (int i = 0; i < cover.Length; i++)
+                foreach (CoverHeader cover in EnumerateCoverHeaders(coverReader, (int)count))
                 {
                     HDiffPatch._token.ThrowIfCancellationRequested();
 #if DEBUG && SHOWDEBUGINFO
-                    Console.WriteLine($"Cover {i++}: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
+                    Console.WriteLine($"Cover: oldPos -> {cover.oldPos} newPos -> {cover.newPos} length -> {cover.coverLength}");
 #endif
 
-                    if (newPosBack < cover[i].newPos)
+                    if (newPosBack < cover.newPos)
                     {
-                        long copyLength = cover[i].newPos - newPosBack;
-                        inputReader.BaseStream.Position = cover[i].oldPos;
+                        long copyLength = cover.newPos - newPosBack;
+                        inputReader.BaseStream.Position = cover.oldPos;
 
                         _TOutStreamCache_copyFromClip(cacheOutputStream, copyReader, copyLength);
                         _TBytesRle_load_stream_decode_add(ref rleStruct, cacheOutputStream, copyLength);
                     }
 
-                    _patch_add_old_with_rle(cacheOutputStream, ref rleStruct, cover[i].oldPos, cover[i].coverLength);
-                    int read = (int)(cover[i].newPos + cover[i].coverLength - newPosBack);
-                    HDiffPatch.UpdateEvent(read);
-                    newPosBack = cover[i].newPos + cover[i].coverLength;
+                    _patch_add_old_with_rle(cacheOutputStream, ref rleStruct, cover.oldPos, cover.coverLength);
+                    newPosBack = cover.newPos + cover.coverLength;
 
-                    if (cacheOutputStream.Length > 20 << 20 || cover[i].nextCoverIndex == 0)
+                    if (cacheOutputStream.Length > 4 << 20 || cover.nextCoverIndex == 0)
                     {
-                        int readCache;
+                        long oldPos = outputStream.Position;
+
                         cacheOutputStream.Position = 0;
-                        while ((readCache = cacheOutputStream.Read(bufferCacheOutput, 0, bufferCacheOutput.Length)) > 0)
-                        {
-                            outputStream.Write(bufferCacheOutput, 0, readCache);
-                        }
-                        cacheOutputStream.Position = 0;
+                        cacheOutputStream.CopyTo(outputStream);
                         cacheOutputStream.SetLength(0);
+
+                        long newPos = outputStream.Position;
+                        long read = newPos - oldPos;
+
+                        HDiffPatch.UpdateEvent(read);
                     }
                 }
 
