@@ -3,7 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Numerics;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 using ZstdNet;
 
 namespace Hi3Helper.SharpHDiffPatch
@@ -40,7 +41,6 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         private const int _kSignTagBit = 1;
         private const int _kByteRleType = 2;
-        private static int vecByteSize = Vector.IsHardwareAccelerated ? Vector<byte>.Count : 0;
 
         internal static Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered)
@@ -320,7 +320,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private static void _TBytesRle_load_stream_mem_add(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength)
+        private static unsafe void _TBytesRle_load_stream_mem_add(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength)
         {
             if (rleLoader.memSetLength != 0)
             {
@@ -346,29 +346,35 @@ namespace Hi3Helper.SharpHDiffPatch
                 rleLoader.memSetLength -= memSetStep;
             }
 
-            long decodeStep = rleLoader.memCopyLength > copyLength ? copyLength : rleLoader.memCopyLength;
+            int decodeStep = (int)(rleLoader.memCopyLength > copyLength ? copyLength : rleLoader.memCopyLength);
             if (decodeStep == 0) return;
 
-            byte[] rleData = new byte[decodeStep];
-            byte[] oldData = new byte[decodeStep];
+            Span<byte> rleData = stackalloc byte[decodeStep];
+            Span<byte> oldData = stackalloc byte[decodeStep];
             rleLoader.rleCodeClip.BaseStream.Read(rleData);
 
             long lastPosCopy = outCache.Position;
             outCache.Read(oldData);
             outCache.Position = lastPosCopy;
 
-            long remaining = decodeStep % vecByteSize;
-            int iCopy;
-            for (iCopy = 0; iCopy < decodeStep - remaining; iCopy += vecByteSize)
+            fixed (byte* rlePtr = rleData)
+            fixed (byte* oldPtr = oldData)
             {
-                var _srcVec = new Vector<byte>(oldData, iCopy);
-                var _toVec = new Vector<byte>(rleData, iCopy);
-                Vector.Add(_srcVec, _toVec).CopyTo(rleData, iCopy);
+                int offset;
+                long offsetRemained = decodeStep % Vector128<byte>.Count;
+                for (offset = 0; offset < decodeStep - offsetRemained; offset += Vector128<byte>.Count)
+                {
+                    Vector128<byte> rleVector = Sse2.LoadVector128(rlePtr + offset);
+                    Vector128<byte> oldVector = Sse2.LoadVector128(oldPtr + offset);
+                    Vector128<byte> resultVector = Sse2.Add(rleVector, oldVector);
+
+                    Sse2.Store(rlePtr + offset, resultVector);
+                }
+
+                while (offset < decodeStep) rleData[offset] += oldData[offset++];
+
+                outCache.Write(rleData);
             }
-
-            while (iCopy < decodeStep) rleData[iCopy] += oldData[iCopy++];
-
-            outCache.Write(rleData);
 
             rleLoader.memCopyLength -= decodeStep;
             copyLength -= decodeStep;
