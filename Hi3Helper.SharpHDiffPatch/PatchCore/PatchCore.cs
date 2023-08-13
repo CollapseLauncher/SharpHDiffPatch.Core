@@ -248,20 +248,14 @@ namespace Hi3Helper.SharpHDiffPatch
         private static void _patch_add_old_with_rle(Stream outCache, ref RLERefClipStruct rleLoader, long oldPos, long addLength)
         {
             long lastPos = outCache.Position;
-            while (addLength > 0)
-            {
-                long decodeStep = addLength;
-                rleLoader.rleInputClip.BaseStream.Position = oldPos;
+            long decodeStep = addLength;
+            rleLoader.rleInputClip.BaseStream.Position = oldPos;
 
-                byte[] tempBuffer = new byte[decodeStep];
-                rleLoader.rleInputClip.BaseStream.Read(tempBuffer);
-                outCache.Write(tempBuffer);
-                outCache.Position = lastPos;
-                _TBytesRle_load_stream_decode_add(ref rleLoader, outCache, decodeStep);
-
-                oldPos += decodeStep;
-                addLength -= decodeStep;
-            }
+            byte[] tempBuffer = new byte[decodeStep];
+            rleLoader.rleInputClip.BaseStream.Read(tempBuffer);
+            outCache.Write(tempBuffer);
+            outCache.Position = lastPos;
+            _TBytesRle_load_stream_decode_add(ref rleLoader, outCache, decodeStep);
         }
 
         private static void _TOutStreamCache_copyFromClip(Stream outCache, BinaryReader copyReader, long copyLength)
