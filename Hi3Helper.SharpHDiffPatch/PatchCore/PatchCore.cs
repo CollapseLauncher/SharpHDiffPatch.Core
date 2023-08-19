@@ -128,7 +128,6 @@ namespace Hi3Helper.SharpHDiffPatch
             long _oldPosBack = 0,
                  _newPosBack = 0;
 
-            int i = 0;
             while (coverCount-- > 0)
             {
                 long oldPosBack = _oldPosBack;
@@ -230,7 +229,7 @@ namespace Hi3Helper.SharpHDiffPatch
             long decodeStep = addLength;
             rleLoader.rleInputClip.BaseStream.Position = oldPos;
 
-            byte[] tempBuffer = new byte[decodeStep];
+            Span<byte> tempBuffer = new byte[decodeStep];
             rleLoader.rleInputClip.BaseStream.Read(tempBuffer);
             outCache.Write(tempBuffer);
             outCache.Position = lastPos;
@@ -239,8 +238,8 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private static void _TOutStreamCache_copyFromClip(Stream outCache, BinaryReader copyReader, long copyLength)
         {
-            byte[] buffer = new byte[copyLength];
-            copyReader.BaseStream.Read(buffer, 0, buffer.Length);
+            Span<byte> buffer = new byte[copyLength];
+            copyReader.BaseStream.Read(buffer);
             long lastPos = outCache.Position;
             outCache.Write(buffer);
             outCache.Position = lastPos;
@@ -248,8 +247,6 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private static void _TBytesRle_load_stream_decode_add(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength)
         {
-            long num = outCache.Position;
-
             _TBytesRle_load_stream_mem_add(ref rleLoader, outCache, ref copyLength);
 
             while (copyLength > 0)
@@ -259,36 +256,30 @@ namespace Hi3Helper.SharpHDiffPatch
                 long length = rleLoader.rleCtrlClip.ReadLong7bit(_kByteRleType, pSign);
                 length++;
 
-                switch (type)
+                if (type == 3)
                 {
-                    case 0:
-                        rleLoader.memSetLength = length;
-                        rleLoader.memSetValue = 0x0;
-                        break;
-                    case 1:
-                        rleLoader.memSetLength = length;
-                        rleLoader.memSetValue = 0xFF;
-                        break;
-                    case 2:
-                        byte pSetValue = rleLoader.rleCodeClip.ReadByte();
-                        rleLoader.memSetLength = length;
-                        rleLoader.memSetValue = pSetValue;
-                        break;
-                    case 3:
-                        rleLoader.memCopyLength = length;
-                        break;
+                    rleLoader.memCopyLength = length;
+                    _TBytesRle_load_stream_mem_add(ref rleLoader, outCache, ref copyLength);
+                    continue;
                 }
 
-#if DEBUG && SHOWDEBUGINFO
-                if (type != 3)
+                rleLoader.memSetLength = length;
+                if (type == 2)
                 {
-                    Console.WriteLine($"        RLE Type: {(kByteRleType)type} -> length: {rleLoader.memSetLength} -> code: {rleLoader.memSetValue}");
+                    rleLoader.memSetValue = rleLoader.rleCodeClip.ReadByte();
+                    _TBytesRle_load_stream_mem_add(ref rleLoader, outCache, ref copyLength);
+                    continue;
                 }
-                else
-                {
-                    Console.WriteLine($"        MemCopy length: {rleLoader.memCopyLength}");
-                }
-#endif
+
+                /* If the type is 1, then 0 - 1. This should result -1 in int but since
+                 * we cast it to byte, then it will underflow and set it to 255.
+                 * This method is the same as:
+                 * if (type == 0)
+                 *     rleLoader.memSetValue = 0x00; // or 0 in byte
+                 * else
+                 *     rleLoader.memSetValue = 0xFF; // or 255 in byte
+                 */
+                rleLoader.memSetValue = (byte)(0x00 - type);
                 _TBytesRle_load_stream_mem_add(ref rleLoader, outCache, ref copyLength);
             }
         }
