@@ -37,7 +37,7 @@ namespace SharpCompress.Compressors.BZip2;
   * start of the BZIP2 stream to make it compatible with other PGP programs.
   */
 
-internal class CBZip2InputStream : Stream
+public class CBZip2InputStream : Stream
 {
     private static void Cadvise()
     {
@@ -154,12 +154,14 @@ internal class CBZip2InputStream : Stream
     private int j2;
     private char z;
     private bool isDisposed;
+    private bool isLeaveOpen;
 
-    public CBZip2InputStream(Stream zStream, bool decompressConcatenated)
+    public CBZip2InputStream(Stream zStream, bool decompressConcatenated, bool leaveOpen = false)
     {
         this.decompressConcatenated = decompressConcatenated;
         ll8 = null;
         tt = null;
+        isLeaveOpen = leaveOpen;
         BsSetStream(zStream);
         Initialize(true);
         InitBlock();
@@ -174,7 +176,7 @@ internal class CBZip2InputStream : Stream
         }
         isDisposed = true;
         base.Dispose(disposing);
-        bsStream?.Dispose();
+        if (!isLeaveOpen) bsStream?.Dispose();
     }
 
     internal static int[][] InitIntArray(int n1, int n2)
