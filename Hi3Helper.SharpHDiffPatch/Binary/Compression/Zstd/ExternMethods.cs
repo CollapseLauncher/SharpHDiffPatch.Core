@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using size_t = nuint;
 
 namespace ZstdNet
 {
@@ -9,69 +8,69 @@ namespace ZstdNet
         private const string DllName = "Lib\\libzstd.dll";
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZDICT_trainFromBuffer(byte[] dictBuffer, size_t dictBufferCapacity, byte[] samplesBuffer, size_t[] samplesSizes, uint nbSamples);
+        public static extern nuint ZDICT_trainFromBuffer(byte[] dictBuffer, nuint dictBufferCapacity, byte[] samplesBuffer, nuint[] samplesSizes, uint nbSamples);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint ZDICT_isError(size_t code);
+        public static extern uint ZDICT_isError(nuint code);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr ZDICT_getErrorName(size_t code);
+        public static extern IntPtr ZDICT_getErrorName(nuint code);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr ZSTD_createCCtx();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_freeCCtx(IntPtr cctx);
+        public static extern nuint ZSTD_freeCCtx(IntPtr cctx);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr ZSTD_createDCtx();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_freeDCtx(IntPtr cctx);
+        public static extern nuint ZSTD_freeDCtx(IntPtr cctx);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compressCCtx(IntPtr ctx, IntPtr dst, size_t dstCapacity, IntPtr src, size_t srcSize, int compressionLevel);
+        public static extern nuint ZSTD_compressCCtx(IntPtr ctx, IntPtr dst, nuint dstCapacity, IntPtr src, nuint srcSize, int compressionLevel);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compressCCtx(IntPtr ctx, ref byte dst, size_t dstCapacity, ref byte src, size_t srcSize, int compressionLevel);
-        public static size_t ZSTD_compressCCtx(IntPtr ctx, Span<byte> dst, size_t dstCapacity, ReadOnlySpan<byte> src, size_t srcSize, int compressionLevel)
+        public static extern nuint ZSTD_compressCCtx(IntPtr ctx, ref byte dst, nuint dstCapacity, ref byte src, nuint srcSize, int compressionLevel);
+        public static nuint ZSTD_compressCCtx(IntPtr ctx, Span<byte> dst, nuint dstCapacity, ReadOnlySpan<byte> src, nuint srcSize, int compressionLevel)
             => ZSTD_compressCCtx(ctx, ref MemoryMarshal.GetReference(dst), dstCapacity, ref MemoryMarshal.GetReference(src), srcSize, compressionLevel);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_decompressDCtx(IntPtr ctx, IntPtr dst, size_t dstCapacity, IntPtr src, size_t srcSize);
+        public static extern nuint ZSTD_decompressDCtx(IntPtr ctx, IntPtr dst, nuint dstCapacity, IntPtr src, nuint srcSize);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_decompressDCtx(IntPtr ctx, ref byte dst, size_t dstCapacity, ref byte src, size_t srcSize);
-        public static size_t ZSTD_decompressDCtx(IntPtr ctx, Span<byte> dst, size_t dstCapacity, ReadOnlySpan<byte> src, size_t srcSize)
+        public static extern nuint ZSTD_decompressDCtx(IntPtr ctx, ref byte dst, nuint dstCapacity, ref byte src, nuint srcSize);
+        public static nuint ZSTD_decompressDCtx(IntPtr ctx, Span<byte> dst, nuint dstCapacity, ReadOnlySpan<byte> src, nuint srcSize)
             => ZSTD_decompressDCtx(ctx, ref MemoryMarshal.GetReference(dst), dstCapacity, ref MemoryMarshal.GetReference(src), srcSize);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compress2(IntPtr ctx, ref byte dst, size_t dstCapacity, ref byte src, size_t srcSize);
-        public static size_t ZSTD_compress2(IntPtr ctx, Span<byte> dst, size_t dstCapacity, ReadOnlySpan<byte> src, size_t srcSize)
+        public static extern nuint ZSTD_compress2(IntPtr ctx, ref byte dst, nuint dstCapacity, ref byte src, nuint srcSize);
+        public static nuint ZSTD_compress2(IntPtr ctx, Span<byte> dst, nuint dstCapacity, ReadOnlySpan<byte> src, nuint srcSize)
             => ZSTD_compress2(ctx, ref MemoryMarshal.GetReference(dst), dstCapacity, ref MemoryMarshal.GetReference(src), srcSize);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr ZSTD_createCDict(byte[] dict, size_t dictSize, int compressionLevel);
+        public static extern IntPtr ZSTD_createCDict(byte[] dict, nuint dictSize, int compressionLevel);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_freeCDict(IntPtr cdict);
+        public static extern nuint ZSTD_freeCDict(IntPtr cdict);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compress_usingCDict(IntPtr cctx, IntPtr dst, size_t dstCapacity, IntPtr src, size_t srcSize, IntPtr cdict);
+        public static extern nuint ZSTD_compress_usingCDict(IntPtr cctx, IntPtr dst, nuint dstCapacity, IntPtr src, nuint srcSize, IntPtr cdict);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compress_usingCDict(IntPtr cctx, ref byte dst, size_t dstCapacity, ref byte src, size_t srcSize, IntPtr cdict);
-        public static size_t ZSTD_compress_usingCDict(IntPtr cctx, Span<byte> dst, size_t dstCapacity, ReadOnlySpan<byte> src, size_t srcSize, IntPtr cdict)
+        public static extern nuint ZSTD_compress_usingCDict(IntPtr cctx, ref byte dst, nuint dstCapacity, ref byte src, nuint srcSize, IntPtr cdict);
+        public static nuint ZSTD_compress_usingCDict(IntPtr cctx, Span<byte> dst, nuint dstCapacity, ReadOnlySpan<byte> src, nuint srcSize, IntPtr cdict)
             => ZSTD_compress_usingCDict(cctx, ref MemoryMarshal.GetReference(dst), dstCapacity, ref MemoryMarshal.GetReference(src), srcSize, cdict);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr ZSTD_createDDict(byte[] dict, size_t dictSize);
+        public static extern IntPtr ZSTD_createDDict(byte[] dict, nuint dictSize);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_freeDDict(IntPtr ddict);
+        public static extern nuint ZSTD_freeDDict(IntPtr ddict);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_decompress_usingDDict(IntPtr dctx, IntPtr dst, size_t dstCapacity, IntPtr src, size_t srcSize, IntPtr ddict);
+        public static extern nuint ZSTD_decompress_usingDDict(IntPtr dctx, IntPtr dst, nuint dstCapacity, IntPtr src, nuint srcSize, IntPtr ddict);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_decompress_usingDDict(IntPtr dctx, ref byte dst, size_t dstCapacity, ref byte src, size_t srcSize, IntPtr ddict);
-        public static size_t ZSTD_decompress_usingDDict(IntPtr dctx, Span<byte> dst, size_t dstCapacity, ReadOnlySpan<byte> src, size_t srcSize, IntPtr ddict)
+        public static extern nuint ZSTD_decompress_usingDDict(IntPtr dctx, ref byte dst, nuint dstCapacity, ref byte src, nuint srcSize, IntPtr ddict);
+        public static nuint ZSTD_decompress_usingDDict(IntPtr dctx, Span<byte> dst, nuint dstCapacity, ReadOnlySpan<byte> src, nuint srcSize, IntPtr ddict)
             => ZSTD_decompress_usingDDict(dctx, ref MemoryMarshal.GetReference(dst), dstCapacity, ref MemoryMarshal.GetReference(src), srcSize, ddict);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern ulong ZSTD_getDecompressedSize(IntPtr src, size_t srcSize);
+        public static extern ulong ZSTD_getDecompressedSize(IntPtr src, nuint srcSize);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern ulong ZSTD_getFrameContentSize(IntPtr src, size_t srcSize);
+        public static extern ulong ZSTD_getFrameContentSize(IntPtr src, nuint srcSize);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern ulong ZSTD_getFrameContentSize(ref byte src, size_t srcSize);
-        public static ulong ZSTD_getFrameContentSize(ReadOnlySpan<byte> src, size_t srcSize)
+        public static extern ulong ZSTD_getFrameContentSize(ref byte src, nuint srcSize);
+        public static ulong ZSTD_getFrameContentSize(ReadOnlySpan<byte> src, nuint srcSize)
             => ZSTD_getFrameContentSize(ref MemoryMarshal.GetReference(src), srcSize);
 
         public const ulong ZSTD_CONTENTSIZE_UNKNOWN = unchecked(0UL - 1);
@@ -82,37 +81,37 @@ namespace ZstdNet
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int ZSTD_minCLevel();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compressBound(size_t srcSize);
+        public static extern nuint ZSTD_compressBound(nuint srcSize);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint ZSTD_isError(size_t code);
+        public static extern uint ZSTD_isError(nuint code);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr ZSTD_getErrorName(size_t code);
+        public static extern IntPtr ZSTD_getErrorName(nuint code);
 
         #region Advanced APIs
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_CCtx_reset(IntPtr cctx, ZSTD_ResetDirective reset);
+        public static extern nuint ZSTD_CCtx_reset(IntPtr cctx, ZSTD_ResetDirective reset);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern ZSTD_bounds ZSTD_cParam_getBounds(ZSTD_cParameter cParam);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_CCtx_setParameter(IntPtr cctx, ZSTD_cParameter param, int value);
+        public static extern nuint ZSTD_CCtx_setParameter(IntPtr cctx, ZSTD_cParameter param, int value);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_DCtx_reset(IntPtr dctx, ZSTD_ResetDirective reset);
+        public static extern nuint ZSTD_DCtx_reset(IntPtr dctx, ZSTD_ResetDirective reset);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern ZSTD_bounds ZSTD_dParam_getBounds(ZSTD_dParameter dParam);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_DCtx_setParameter(IntPtr dctx, ZSTD_dParameter param, int value);
+        public static extern nuint ZSTD_DCtx_setParameter(IntPtr dctx, ZSTD_dParameter param, int value);
 
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct ZSTD_bounds
         {
-            public size_t error;
+            public nuint error;
             public int lowerBound;
             public int upperBound;
         }
@@ -131,34 +130,34 @@ namespace ZstdNet
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr ZSTD_createCStream();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_freeCStream(IntPtr zcs);
+        public static extern nuint ZSTD_freeCStream(IntPtr zcs);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_initCStream(IntPtr zcs, int compressionLevel);
+        public static extern nuint ZSTD_initCStream(IntPtr zcs, int compressionLevel);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compressStream(IntPtr zcs, ref ZSTD_Buffer output, ref ZSTD_Buffer input);
+        public static extern nuint ZSTD_compressStream(IntPtr zcs, ref ZSTD_Buffer output, ref ZSTD_Buffer input);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_flushStream(IntPtr zcs, ref ZSTD_Buffer output);
+        public static extern nuint ZSTD_flushStream(IntPtr zcs, ref ZSTD_Buffer output);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_endStream(IntPtr zcs, ref ZSTD_Buffer output);
+        public static extern nuint ZSTD_endStream(IntPtr zcs, ref ZSTD_Buffer output);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_CStreamInSize();
+        public static extern nuint ZSTD_CStreamInSize();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_CStreamOutSize();
+        public static extern nuint ZSTD_CStreamOutSize();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr ZSTD_createDStream();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_freeDStream(IntPtr zds);
+        public static extern nuint ZSTD_freeDStream(IntPtr zds);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_initDStream(IntPtr zds);
+        public static extern nuint ZSTD_initDStream(IntPtr zds);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_decompressStream(IntPtr zds, ref ZSTD_Buffer output, ref ZSTD_Buffer input);
+        public static extern nuint ZSTD_decompressStream(IntPtr zds, ref ZSTD_Buffer output, ref ZSTD_Buffer input);
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_DStreamInSize();
+        public static extern nuint ZSTD_DStreamInSize();
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_DStreamOutSize();
+        public static extern nuint ZSTD_DStreamOutSize();
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_compressStream2(IntPtr zcs, ref ZSTD_Buffer output, ref ZSTD_Buffer input, ZSTD_EndDirective endOp);
+        public static extern nuint ZSTD_compressStream2(IntPtr zcs, ref ZSTD_Buffer output, ref ZSTD_Buffer input, ZSTD_EndDirective endOp);
 
         public enum ZSTD_EndDirective
         {
@@ -168,21 +167,21 @@ namespace ZstdNet
         }
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_initDStream_usingDDict(IntPtr zds, IntPtr dict);
+        public static extern nuint ZSTD_initDStream_usingDDict(IntPtr zds, IntPtr dict);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_initCStream_usingCDict(IntPtr zds, IntPtr dict);
+        public static extern nuint ZSTD_initCStream_usingCDict(IntPtr zds, IntPtr dict);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_CCtx_refCDict(IntPtr cctx, IntPtr cdict);
+        public static extern nuint ZSTD_CCtx_refCDict(IntPtr cctx, IntPtr cdict);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern size_t ZSTD_DCtx_refDDict(IntPtr cctx, IntPtr cdict);
+        public static extern nuint ZSTD_DCtx_refDDict(IntPtr cctx, IntPtr cdict);
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct ZSTD_Buffer
         {
-            public ZSTD_Buffer(size_t pos, size_t size)
+            public ZSTD_Buffer(nuint pos, nuint size)
             {
                 this.buffer = IntPtr.Zero;
                 this.size = size;
@@ -190,8 +189,8 @@ namespace ZstdNet
             }
 
             public IntPtr buffer;
-            public size_t size;
-            public size_t pos;
+            public nuint size;
+            public nuint pos;
 
             public bool IsFullyConsumed => (ulong)size <= (ulong)pos;
         }
