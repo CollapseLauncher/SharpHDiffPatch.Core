@@ -37,6 +37,28 @@ namespace Hi3Helper.SharpHDiffPatch
         internal int nextCoverIndex;
     }
 
+#if !NET7_0_OR_GREATER
+    internal static class StreamExtension
+    {
+        public static int ReadExactly(this Stream stream, Span<byte> buffer)
+        {
+            int totalRead = 0;
+            while (totalRead < buffer.Length)
+            {
+                int read = stream.Read(buffer.Slice(totalRead));
+                if (read == 0)
+                {
+                    return totalRead;
+                }
+
+                totalRead += read;
+            }
+
+            return totalRead;
+        }
+    }
+#endif
+
     internal class PatchCore
     {
         private const int _kSignTagBit = 1;
@@ -230,7 +252,7 @@ namespace Hi3Helper.SharpHDiffPatch
             rleLoader.rleInputClip.BaseStream.Position = oldPos;
 
             Span<byte> tempBuffer = new byte[decodeStep];
-            rleLoader.rleInputClip.BaseStream.Read(tempBuffer);
+            rleLoader.rleInputClip.BaseStream.ReadExactly(tempBuffer);
             outCache.Write(tempBuffer);
             outCache.Position = lastPos;
             _TBytesRle_load_stream_decode_add(ref rleLoader, outCache, decodeStep);
@@ -239,7 +261,7 @@ namespace Hi3Helper.SharpHDiffPatch
         private static void _TOutStreamCache_copyFromClip(Stream outCache, BinaryReader copyReader, long copyLength)
         {
             Span<byte> buffer = new byte[copyLength];
-            copyReader.BaseStream.Read(buffer);
+            copyReader.BaseStream.ReadExactly(buffer);
             long lastPos = outCache.Position;
             outCache.Write(buffer);
             outCache.Position = lastPos;
@@ -315,10 +337,10 @@ namespace Hi3Helper.SharpHDiffPatch
 
             Span<byte> rleData = stackalloc byte[decodeStep];
             Span<byte> oldData = stackalloc byte[decodeStep];
-            rleLoader.rleCodeClip.BaseStream.Read(rleData);
+            rleLoader.rleCodeClip.BaseStream.ReadExactly(rleData);
 
             long lastPosCopy = outCache.Position;
-            outCache.Read(oldData);
+            outCache.ReadExactly(oldData);
             outCache.Position = lastPosCopy;
 
             fixed (byte* rlePtr = rleData)
