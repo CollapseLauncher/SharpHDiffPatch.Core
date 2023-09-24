@@ -9,20 +9,11 @@ using ZstdNet;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
-    internal enum kByteRleType
-    {
-        rle0 = 0,
-        rle255 = 1,
-        rle = 2,
-        unrle = 3
-    }
-
     internal ref struct RLERefClipStruct
     {
         public long memCopyLength;
         public long memSetLength;
         public byte memSetValue;
-        public kByteRleType type;
 
         internal BinaryReader rleCodeClip;
         internal BinaryReader rleCtrlClip;
