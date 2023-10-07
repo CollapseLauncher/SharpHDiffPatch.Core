@@ -13,10 +13,10 @@ namespace Hi3Helper.SharpHDiffPatch
         public long newIndex;
     }
 
-    internal class TDirPatcher
+    internal struct TDirPatcher
     {
-        internal List<string> oldUtf8PathList;
-        internal List<string> newUtf8PathList;
+        internal string[] oldUtf8PathList;
+        internal string[] newUtf8PathList;
         internal long[] oldRefList;
         internal long[] newRefList;
         internal long[] newRefSizeList;
@@ -65,8 +65,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     HDiffPatch.currentSizePatched = 0;
                     HDiffPatch.totalSizePatched = GetSameFileSize(dirData) + GetNewPatchedFileSize(dirData);
 
-                    FileStream[] mergedOldStream = GetRefOldStreams(dirData).ToArray();
-                    NewFileCombinedStreamStruct[] mergedNewStream = GetRefNewStreams(dirData).ToArray();
+                    FileStream[] mergedOldStream = GetRefOldStreams(dirData);
+                    NewFileCombinedStreamStruct[] mergedNewStream = GetRefNewStreams(dirData);
 
                     patchStream.Position = hdiffHeaderInfo.hdiffDataOffset;
                     _ = Header.TryParseHeaderInfo(patchReader, "", out _, out dirDiffInfo.hdiffinfo, out _);
@@ -101,14 +101,14 @@ namespace Hi3Helper.SharpHDiffPatch
         private long GetOldFileSize(TDirPatcher dirData)
         {
             long fileSize = 0;
-            for (int i = 0; i < dirData.oldUtf8PathList.Count; i++)
+            for (int i = 0; i < dirData.oldUtf8PathList.Length; i++)
             {
-                ReadOnlySpan<char> basePath = dirData.oldUtf8PathList[i];
+                ref string basePath = ref dirData.oldUtf8PathList[i];
                 if (basePath.Length == 0) continue;
                 bool isPathADir = IsPathADir(basePath);
                 if (isPathADir) continue;
 
-                string sourceFullPath = Path.Combine(basePathInput, basePath.ToString());
+                string sourceFullPath = Path.Combine(basePathInput, basePath);
                 if (!File.Exists(sourceFullPath)) continue;
 
                 fileSize += new FileInfo(sourceFullPath).Length;
@@ -122,11 +122,11 @@ namespace Hi3Helper.SharpHDiffPatch
             long fileSize = 0;
             foreach (pairStruct pair in dirData.dataSamePairList)
             {
-                ReadOnlySpan<char> basePath = dirData.newUtf8PathList[(int)pair.newIndex];
+                ref string basePath = ref dirData.newUtf8PathList[pair.newIndex];
                 bool isPathADir = IsPathADir(basePath);
                 if (isPathADir) continue;
 
-                string sourceFullPath = Path.Combine(basePathInput, basePath.ToString());
+                string sourceFullPath = Path.Combine(basePathInput, basePath);
                 if (!File.Exists(sourceFullPath)) continue;
 
                 fileSize += new FileInfo(sourceFullPath).Length;
@@ -185,7 +185,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private void TryCheckMatchOldSize(Stream inputStream, long oldFileSize)
         {
-            if (inputStream.Length != (long)dirDiffInfo.oldDataSize)
+            if (inputStream.Length != dirDiffInfo.oldDataSize)
             {
                 throw new InvalidDataException($"The patch file is expecting old size to be equivalent as: {dirDiffInfo.oldDataSize} bytes, but the input file has unmatch size: {inputStream.Length} bytes!");
             }
@@ -208,26 +208,30 @@ namespace Hi3Helper.SharpHDiffPatch
             Console.WriteLine();
         }
 
-        private IEnumerable<FileStream> GetRefOldStreams(TDirPatcher dirData)
+        private FileStream[] GetRefOldStreams(TDirPatcher dirData)
         {
+            FileStream[] streams = new FileStream[dirData.oldRefList.Length];
             for (int i = 0; i < dirData.oldRefList.Length; i++)
             {
-                ReadOnlySpan<char> oldPathByIndex = NewPathByIndex(dirData.oldUtf8PathList, (int)dirData.oldRefList[i]);
-                string combinedOldPath = Path.Combine(basePathInput, oldPathByIndex.ToString());
+                ref string oldPathByIndex = ref NewPathByIndex(dirData.oldUtf8PathList, dirData.oldRefList[i]);
+                string combinedOldPath = Path.Combine(basePathInput, oldPathByIndex);
 
 #if DEBUG && SHOWDEBUGINFO
                 Console.WriteLine($"[GetRefOldStreams] Assigning stream to the old path: {combinedOldPath}");
 #endif
-                yield return File.OpenRead(combinedOldPath);
+                streams[i] = File.OpenRead(combinedOldPath);
             }
+
+            return streams;
         }
 
-        private IEnumerable<NewFileCombinedStreamStruct> GetRefNewStreams(TDirPatcher dirData)
+        private NewFileCombinedStreamStruct[] GetRefNewStreams(TDirPatcher dirData)
         {
+            NewFileCombinedStreamStruct[] streams = new NewFileCombinedStreamStruct[dirData.newRefList.Length];
             for (int i = 0; i < dirData.newRefList.Length; i++)
             {
-                ReadOnlySpan<char> newPathByIndex = NewPathByIndex(dirData.newUtf8PathList, (int)dirData.newRefList[i]);
-                string combinedNewPath = Path.Combine(basePathOutput, newPathByIndex.ToString());
+                ref string newPathByIndex = ref NewPathByIndex(dirData.newUtf8PathList, dirData.newRefList[i]);
+                string combinedNewPath = Path.Combine(basePathOutput, newPathByIndex);
                 string newPathDirectory = Path.GetDirectoryName(combinedNewPath);
                 if (!Directory.Exists(newPathDirectory)) Directory.CreateDirectory(newPathDirectory);
 
@@ -238,10 +242,12 @@ namespace Hi3Helper.SharpHDiffPatch
                 NewFileCombinedStreamStruct newStruct = new NewFileCombinedStreamStruct
                 {
                     stream = new FileStream(combinedNewPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, 4096),
-                    size = (long)dirData.newRefSizeList[i]
+                    size = dirData.newRefSizeList[i]
                 };
-                yield return newStruct;
+                streams[i] = newStruct;
             }
+
+            return streams;
         }
 
         private void CopyOldSimilarToNewFiles(TDirPatcher dirData)
@@ -251,16 +257,16 @@ namespace Hi3Helper.SharpHDiffPatch
             int _curSamePairIndex = 0;
             int _newRefCount = dirData.newRefList.Length;
             int _samePairCount = dirData.dataSamePairList.Length;
-            int _pathCount = dirData.newUtf8PathList.Count;
+            int _pathCount = dirData.newUtf8PathList.Length;
 
             try
             {
                 Parallel.ForEach(dirData.dataSamePairList, (pair) =>
                 {
-                    bool isPathADir = IsPathADir(dirData.newUtf8PathList[(int)pair.newIndex]);
+                    bool isPathADir = IsPathADir(dirData.newUtf8PathList[pair.newIndex]);
                     if (isPathADir) return;
 
-                    CopyFileByPairIndex(dirData.oldUtf8PathList, dirData.newUtf8PathList, (int)pair.oldIndex, (int)pair.newIndex);
+                    CopyFileByPairIndex(dirData.oldUtf8PathList, dirData.newUtf8PathList, pair.oldIndex, pair.newIndex);
                 });
             }
             catch (AggregateException ex)
@@ -312,12 +318,12 @@ namespace Hi3Helper.SharpHDiffPatch
             return endOfChar == '/';
         }
 
-        private ReadOnlySpan<char> NewPathByIndex(IList<string> source, int index) => source[index];
+        private ref string NewPathByIndex(string[] source, long index) => ref source[index];
 
-        private void CopyFileByPairIndex(IList<string> oldList, IList<string> newList, int oldIndex, int newIndex)
+        private void CopyFileByPairIndex(string[] oldList, string[] newList, long oldIndex, long newIndex)
         {
-            string oldPath = oldList[oldIndex];
-            string newPath = newList[newIndex];
+            ref string oldPath = ref oldList[oldIndex];
+            ref string newPath = ref newList[newIndex];
             string oldFullPath = Path.Combine(this.basePathInput, oldPath);
             string newFullPath = Path.Combine(this.basePathOutput, newPath);
             string newDirFullPath = Path.GetDirectoryName(newFullPath);
@@ -354,8 +360,11 @@ namespace Hi3Helper.SharpHDiffPatch
         {
             TDirPatcher returnValue = new TDirPatcher();
 
-            GetListOfPaths(reader, out returnValue.oldUtf8PathList, hdiffHeaderInfo.inputDirCount);
-            GetListOfPaths(reader, out returnValue.newUtf8PathList, hdiffHeaderInfo.outputDirCount);
+            byte[] pathListInput = reader.ReadBytes((int)hdiffHeaderInfo.inputSumSize);
+            byte[] pathListOutput = reader.ReadBytes((int)hdiffHeaderInfo.outputSumSize);
+
+            GetListOfPaths(pathListInput, out returnValue.oldUtf8PathList, hdiffHeaderInfo.inputDirCount);
+            GetListOfPaths(pathListOutput, out returnValue.newUtf8PathList, hdiffHeaderInfo.outputDirCount);
 
             GetArrayOfIncULongTag(reader, out returnValue.oldRefList, hdiffHeaderInfo.inputRefFileCount, hdiffHeaderInfo.inputDirCount);
             GetArrayOfIncULongTag(reader, out returnValue.newRefList, hdiffHeaderInfo.outputRefFileCount, hdiffHeaderInfo.outputDirCount);
@@ -366,21 +375,36 @@ namespace Hi3Helper.SharpHDiffPatch
             return returnValue;
         }
 
-        private void GetListOfPaths(BinaryReader reader, out List<string> outlist, long count)
+        private unsafe void GetListOfPaths(ReadOnlySpan<byte> input, out string[] outlist, long count)
         {
-            outlist = new List<string>();
+            outlist = new string[count];
+            int bufLen = 1 << 10;
+            int inLen = input.Length;
+            Span<char> buffer = stackalloc char[bufLen];
 
-            for (long i = 0; i < count; i++)
+            int i = 0, j = 0, k = 0;
+            fixed (byte* inputPtr = input)
+            fixed (char* bufferPtr = buffer)
             {
-                string filePath = reader.ReadStringToNull();
-                outlist.Add(filePath);
+                do
+                {
+                    if (j > bufLen) throw new OverflowException($"The path has more characters than the allowed maximum buffer length: {bufLen} bytes");
+
+                    *(bufferPtr + j++) = (char)*(inputPtr + i);
+                    if (*(inputPtr + i++) == 0)
+                    {
+                        outlist[k++] = new string(bufferPtr, 0, j - 1);
+                        j = 0;
+                    }
+                }
+                while (i < inLen);
             }
         }
 
         private void GetArrayOfIncULongTag(BinaryReader reader, out long[] outarray, long count, long checkCount)
         {
             outarray = new long[count];
-            long backValue = long.MaxValue;
+            long backValue = -1;
 
             for (long i = 0; i < count; i++)
             {
@@ -410,8 +434,8 @@ namespace Hi3Helper.SharpHDiffPatch
         private void GetArrayOfSamePairULongTag(BinaryReader reader, out pairStruct[] outPair, long pairCount, long check_endNewValue, long check_endOldValue)
         {
             outPair = new pairStruct[pairCount];
-            long backNewValue = long.MaxValue;
-            long backOldValue = long.MaxValue;
+            long backNewValue = -1;
+            long backOldValue = -1;
 
             for (long i = 0; i < pairCount; ++i)
             {
