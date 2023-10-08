@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -378,26 +377,22 @@ namespace Hi3Helper.SharpHDiffPatch
         private unsafe void GetListOfPaths(ReadOnlySpan<byte> input, out string[] outlist, long count)
         {
             outlist = new string[count];
-            int bufLen = 1 << 10;
             int inLen = input.Length;
-            Span<char> buffer = stackalloc char[bufLen];
 
-            int i = 0, j = 0, k = 0;
+            int idx = 0, len = 0, strIdx = 0;
             fixed (byte* inputPtr = input)
-            fixed (char* bufferPtr = buffer)
             {
+                sbyte* inputSignedPtr = (sbyte*)inputPtr;
                 do
                 {
-                    if (j > bufLen) throw new OverflowException($"The path has more characters than the allowed maximum buffer length: {bufLen} bytes");
-
-                    *(bufferPtr + j++) = (char)*(inputPtr + i);
-                    if (*(inputPtr + i++) == 0)
+                    if (*(inputSignedPtr + idx++) == 0)
                     {
-                        outlist[k++] = new string(bufferPtr, 0, j - 1);
-                        j = 0;
+                        outlist[strIdx++] = new string(inputSignedPtr, idx - (len + 1), len);
+                        len = 0;
+                        continue;
                     }
-                }
-                while (i < inLen);
+                    ++len;
+                } while (idx < inLen);
             }
         }
 
