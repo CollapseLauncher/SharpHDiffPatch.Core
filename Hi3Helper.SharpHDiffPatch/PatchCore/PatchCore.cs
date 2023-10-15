@@ -305,7 +305,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 if (rleLoader.memSetValue != 0)
                 {
                     int length = (int)memSetStep;
-                    Span<byte> addToSetValueBuffer = stackalloc byte[length];
+                    byte[] addToSetValueBuffer = ArrayPool<byte>.Shared.Rent(length);
                     long lastPos = outCache.Position;
                     outCache.Read(addToSetValueBuffer);
                     outCache.Position = lastPos;
@@ -313,6 +313,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     while (length-- > 0) addToSetValueBuffer[length] += rleLoader.memSetValue;
 
                     outCache.Write(addToSetValueBuffer);
+                    ArrayPool<byte>.Shared.Return(addToSetValueBuffer);
                 }
                 else
                 {
@@ -326,7 +327,7 @@ namespace Hi3Helper.SharpHDiffPatch
             int decodeStep = (int)(rleLoader.memCopyLength > copyLength ? copyLength : rleLoader.memCopyLength);
             if (decodeStep == 0) return;
 
-            Span<byte> rleData = stackalloc byte[decodeStep];
+            byte[] rleData = ArrayPool<byte>.Shared.Rent(decodeStep);
             Span<byte> oldData = stackalloc byte[decodeStep];
             rleLoader.rleCodeClip.BaseStream.ReadExactly(rleData);
 
@@ -352,6 +353,8 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 outCache.Write(rleData);
             }
+
+            ArrayPool<byte>.Shared.Return(rleData);
 
             rleLoader.memCopyLength -= decodeStep;
             copyLength -= decodeStep;
