@@ -40,15 +40,15 @@ namespace Hi3Helper.SharpHDiffPatch
         public CombinedStream(params Stream[] underlyingStreams)
         {
             if (underlyingStreams == null)
-                throw new ArgumentNullException("underlyingStreams");
+                throw new ArgumentNullException("[CombinedStream::ctor()] underlyingStreams");
             foreach (Stream stream in underlyingStreams)
             {
                 if (stream == null)
-                    throw new ArgumentException("underlyingStreams contains a null stream reference", "underlyingStreams");
+                    throw new ArgumentException("[CombinedStream::ctor()] underlyingStreams contains a null stream reference", "underlyingStreams");
                 if (!stream.CanRead)
-                    throw new InvalidOperationException("CanRead not true for all streams");
+                    throw new InvalidOperationException("[CombinedStream::ctor()] CanRead not true for all streams");
                 if (!stream.CanSeek)
-                    throw new InvalidOperationException("CanSeek not true for all streams");
+                    throw new InvalidOperationException("[CombinedStream::ctor()] CanSeek not true for all streams");
             }
 
             _UnderlyingStreams = new Stream[underlyingStreams.Length];
@@ -63,6 +63,10 @@ namespace Hi3Helper.SharpHDiffPatch
                 _UnderlyingStartingPositions[index] = _UnderlyingStartingPositions[index - 1] + _UnderlyingStreams[index - 1].Length;
 
             _TotalLength = _UnderlyingStartingPositions[_UnderlyingStartingPositions.Length - 1] + _UnderlyingStreams[_UnderlyingStreams.Length - 1].Length;
+
+#if SHOWMOREDEBUGINFO
+            HDiffPatch.Event.PushLog($"[CombinedStream::ctor()] Total length of the CombinedStream: {_TotalLength} bytes with total of {underlyingStreams.Length} streams", Verbosity.Debug);
+#endif
         }
 
         /// <summary>
@@ -76,7 +80,7 @@ namespace Hi3Helper.SharpHDiffPatch
         public CombinedStream(params NewFileCombinedStreamStruct[] underlyingStreams)
         {
             if (underlyingStreams == null)
-                throw new ArgumentNullException("underlyingStreams");
+                throw new ArgumentNullException("[CombinedStream::ctor()] underlyingStreams");
 
             _UnderlyingStreams = new Stream[underlyingStreams.Length];
             _UnderlyingStartingPositions = new long[underlyingStreams.Length];
@@ -84,15 +88,15 @@ namespace Hi3Helper.SharpHDiffPatch
             foreach (NewFileCombinedStreamStruct stream in underlyingStreams)
             {
                 if (stream.stream == null)
-                    throw new ArgumentException("underlyingStreams contains a null stream reference", "underlyingStreams");
+                    throw new ArgumentException("[CombinedStream::ctor()] underlyingStreams contains a null stream reference", "underlyingStreams");
                 if (!stream.stream.CanRead)
-                    throw new InvalidOperationException("CanRead not true for all streams");
+                    throw new InvalidOperationException("[CombinedStream::ctor()] CanRead not true for all streams");
                 if (!stream.stream.CanSeek)
-                    throw new InvalidOperationException("CanSeek not true for all streams");
+                    throw new InvalidOperationException("[CombinedStream::ctor()] CanSeek not true for all streams");
 
                 stream.stream.SetLength(stream.size);
-#if DEBUG && SHOWDEBUGINFO
-                Console.WriteLine($"[CombinedStream.ctor()] Initializing file with length {stream.size} bytes: {stream.stream.Name}");
+#if SHOWMOREDEBUGINFO
+                HDiffPatch.Event.PushLog($"[CombinedStream::ctor()] Initializing file with length {stream.size} bytes: {stream.stream.Name}", Verbosity.Debug);
 #endif
             }
 
@@ -107,8 +111,8 @@ namespace Hi3Helper.SharpHDiffPatch
 
             _TotalLength = _UnderlyingStartingPositions[_UnderlyingStartingPositions.Length - 1] + underlyingStreams[_UnderlyingStreams.Length - 1].size;
 
-#if DEBUG && SHOWDEBUGINFO
-            Console.WriteLine($"[CombinedStream.ctor()] Total length of the CombinedStream: {_TotalLength} bytes with total of {underlyingStreams.Length} streams");
+#if SHOWMOREDEBUGINFO
+            HDiffPatch.Event.PushLog($"[CombinedStream::ctor()] Total length of the CombinedStream: {_TotalLength} bytes with total of {underlyingStreams.Length} streams", Verbosity.Debug);
 #endif
         }
 
@@ -256,8 +260,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     if (_Index < _UnderlyingStreams.Length - 1)
                     {
                         _Index++;
-#if DEBUG && SHOWDEBUGINFO
-                        Console.WriteLine($"[CombinedStream.Read()] Moving the stream to Index: {_Index}");
+#if SHOWMOREDEBUGINFO
+                        HDiffPatch.Event.PushLog($"[CombinedStream::Read] Moving the stream to Index: {_Index}", Verbosity.Debug);
 #endif
                     }
                     else
@@ -300,8 +304,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     if (_Index < _UnderlyingStreams.Length - 1)
                     {
                         _Index++;
-#if DEBUG && SHOWDEBUGINFO
-                        Console.WriteLine($"[CombinedStream.Read()] Moving the stream to Index: {_Index}");
+#if SHOWMOREDEBUGINFO
+                        HDiffPatch.Event.PushLog($"[CombinedStream::Read] Moving the stream to Index: {_Index}", Verbosity.Debug);
 #endif
                     }
                     else
@@ -353,7 +357,7 @@ namespace Hi3Helper.SharpHDiffPatch
         /// </exception>
         public override void SetLength(long value)
         {
-            throw new NotSupportedException("The method or operation is not supported by CombinedStream.");
+            throw new NotSupportedException("[CombinedStream::SetLength] The method or operation is not supported by CombinedStream.");
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
@@ -379,8 +383,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     if (_Index < _UnderlyingStreams.Length - 1)
                     {
                         _Index++;
-#if DEBUG && SHOWDEBUGINFO
-                        Console.WriteLine($"[CombinedStream.Write()] Moving the stream to Index: {_Index}");
+#if SHOWMOREDEBUGINFO
+                        HDiffPatch.Event.PushLog($"[CombinedStream::Write] Moving the stream to Index: {_Index}", Verbosity.Debug);
 #endif
                     }
                     else
@@ -420,8 +424,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     if (_Index < _UnderlyingStreams.Length - 1)
                     {
                         _Index++;
-#if DEBUG && SHOWDEBUGINFO
-                        Console.WriteLine($"[CombinedStream.Write()] Moving the stream to Index: {_Index}");
+#if SHOWMOREDEBUGINFO
+                        HDiffPatch.Event.PushLog($"[CombinedStream::Write] Moving the stream to Index: {_Index}", Verbosity.Debug);
 #endif
                     }
                     else

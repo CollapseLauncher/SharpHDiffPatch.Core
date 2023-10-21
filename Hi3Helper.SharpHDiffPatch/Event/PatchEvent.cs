@@ -2,6 +2,18 @@
 
 namespace Hi3Helper.SharpHDiffPatch
 {
+    public struct LoggerEvent
+    {
+        public LoggerEvent(string message, Verbosity logLevel)
+        {
+            Message = message;
+            LogLevel = logLevel;
+        }
+
+        public Verbosity LogLevel;
+        public string Message;
+    }
+
     public sealed class PatchEvent
     {
         public PatchEvent()

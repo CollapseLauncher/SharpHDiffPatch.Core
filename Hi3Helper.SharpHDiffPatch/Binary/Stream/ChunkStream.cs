@@ -1,7 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -51,18 +49,6 @@ namespace Hi3Helper.SharpHDiffPatch
             return read;
         }
 
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken token)
-        {
-            if (_remain == 0) return 0;
-
-            int toSlice = (int)(buffer.Length > _remain ? _remain : buffer.Length);
-            _stream.Position = _start + _curPos;
-            int read = await _stream.ReadAsync(buffer.Slice(0, toSlice), token);
-            _curPos += read;
-
-            return read;
-        }
-
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (_remain == 0) return 0;
@@ -72,17 +58,6 @@ namespace Hi3Helper.SharpHDiffPatch
             int read = _stream.Read(buffer, offset, toRead);
             _curPos += read;
             return read;
-        }
-
-        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken token)
-        {
-            if (_remain == 0) return 0;
-
-            int toRead = (int)(_remain < count ? _remain : count);
-            _curPos += toRead;
-            _stream.Position = _start + _curPos;
-
-            return await _stream.ReadAsync(buffer, offset, toRead, token);
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
@@ -95,16 +70,6 @@ namespace Hi3Helper.SharpHDiffPatch
             _stream.Write(buffer.Slice(0, toSlice));
         }
 
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken token)
-        {
-            if (_remain == 0) return;
-
-            int toSlice = (int)(buffer.Length > _remain ? _remain : buffer.Length);
-            _curPos += toSlice;
-
-            await _stream.WriteAsync(buffer.Slice(0, toSlice), token);
-        }
-
         public override void Write(byte[] buffer, int offset, int count)
         {
             int toRead = (int)(_remain < count ? _remain : count);
@@ -113,16 +78,6 @@ namespace Hi3Helper.SharpHDiffPatch
             _curPos += toOffset + toRead;
 
             _stream.Write(buffer, offset, toRead);
-        }
-
-        public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken token)
-        {
-            int toRead = (int)(_remain < count ? _remain : count);
-            int toOffset = offset > _remain ? 0 : offset;
-            _stream.Position += toOffset;
-            _curPos += toOffset + toRead;
-
-            await _stream.WriteAsync(buffer, offset, toRead, token);
         }
 
         public override void CopyTo(Stream destination, int bufferSize)

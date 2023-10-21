@@ -29,7 +29,7 @@ namespace SharpCompress.Compressors.BZip2;
   * @author <a href="mailto:keiron@aftexsw.com">Keiron Liddle</a>
   */
 
-internal class CRC
+internal sealed class CRC
 {
     public static int[] crc32Table =
     {

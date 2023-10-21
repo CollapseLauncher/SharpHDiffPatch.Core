@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "\"F:\\CollapseData\\Hi3CN\\BH3_v6.8.0_fe00767f5f60\" \"F:\\CollapseData\\Hi3CN\\Hi3CN_6.8.0_6.9.0_zstd_d09f54ae2822_9D62742233D6BD846236F27DE767AF77.patch\" \"F:\\CollapseData\\Hi3CN\\newNet\""
+      "commandLineArgs": "\"F:\\CollapseData\\Hi3CN\\BH3_v6.8.0_fe00767f5f60\" \"F:\\CollapseData\\Hi3CN\\Hi3CN_6.8.0_6.9.0_zstd_d09f54ae2822_9D62742233D6BD846236F27DE767AF77.patch\" C:\\Intel\\new -b partial -B"
     }
   }
 }

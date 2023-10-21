@@ -29,7 +29,7 @@ namespace SharpCompress.Compressors.BZip2;
 * @author <a href="mailto:keiron@aftexsw.com">Keiron Liddle</a>
 */
 
-internal class BZip2Constants
+internal sealed class BZip2Constants
 {
     public const int baseBlockSize = 100000;
     public const int MAX_ALPHA_SIZE = 258;

@@ -37,7 +37,7 @@ namespace SharpCompress.Compressors.BZip2;
   * start of the BZIP2 stream to make it compatible with other PGP programs.
   */
 
-public class CBZip2InputStream : Stream
+public sealed class CBZip2InputStream : Stream
 {
     private static void Cadvise()
     {

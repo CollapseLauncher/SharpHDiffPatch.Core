@@ -1,115 +1,144 @@
 ﻿using Hi3Helper.SharpHDiffPatch;
 using System;
-using System.IO;
-using System.Reflection;
+using System.CommandLine;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace SharpHDiffPatchBin
 {
     public static class PatcherBin
     {
         private static readonly string[] SizeSuffixes = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
-        public static void Main(params string[] args)
+        private static readonly Stopwatch RefreshStopwatch = Stopwatch.StartNew();
+        private const int RefreshInterval = 100;
+        private static RootCommand Command = new RootCommand();
+
+        public static int Main(params string[] args)
         {
-            if (args.Length == 0)
-            {
-                ShowUsage();
-                return;
-            }
+            Argument<string> _inputPathArg, _patchPathArg, _outputPathArg;
+            Option<BufferMode> _bufferModeOpt;
+            Option<bool> _bufferFastOpt;
+            Option<Verbosity> _logLevelOpt;
 
-            if (args.Length == 1 && (args[0].ToLower() == "-v" || args[0].ToLower() == "--version" || args[0].ToLower() == "-version"))
-            {
-                ShowVersion();
-                return;
-            }
+            string inputPath, patchPath, outputPath;
+            bool isUseBufferedPatch, isUseFullBuffer, isUseFastBuffer;
 
-            if (args.Length < 3)
-            {
-                Console.WriteLine("Argument is incomplete/incorrect!");
-                ShowUsage();
-                return;
-            }
+            Command.AddArgument(_inputPathArg = new Argument<string>("Input File", "Input path of the old file/folder to patch"));
+            Command.AddArgument(_patchPathArg = new Argument<string>("Patch File", "Patch file path to produce the new version of the file/folder"));
+            Command.AddArgument(_outputPathArg = new Argument<string>("Output File", "Output path of the new version to be produced"));
+            Command.AddOption(_bufferModeOpt = new Option<BufferMode>(new string[] { "-b", "--buffer-mode" }, () => BufferMode.Partial,
+                @"Determines the buffering mode for reading the clips of the patch files.
+[None]
+No buffering and read the clips directly from the disk stream
 
-            string inputPath = args[0];
-            string patchPath = args[1];
-            string outputPath = args[2];
-            bool isUseBufferedPatch = false;
+[Partial]
+Buffers only the Cover Code, RLE Control and RLE Code clips only into memory. Read the New Data clip directly from the disk stream.
 
-            if (args.Length == 4)
+[Full]
+Buffers all clips into memory. This option is the fastest but it requires more memory depending on the patch size."));
+            Command.AddOption(_bufferFastOpt = new Option<bool>(new string[] { "-B", "--fast-buffer" }, () => false, "Use array-based buffer for RLE Control and Code clips."));
+            Command.AddOption(_logLevelOpt = new Option<Verbosity>(new string[] { "-l", "--log-level" }, () => Verbosity.Info, "Defines the verbosity of the info to be displayed."));
+
+            Command.SetHandler((context) =>
             {
-                if (!bool.TryParse(args[3], out isUseBufferedPatch))
+                inputPath = context.ParseResult.GetValueForArgument(_inputPathArg);
+                patchPath = context.ParseResult.GetValueForArgument(_patchPathArg);
+                outputPath = context.ParseResult.GetValueForArgument(_outputPathArg);
+
+                (isUseBufferedPatch, isUseFullBuffer) = context.ParseResult.GetValueForOption(_bufferModeOpt) switch
                 {
-                    Console.WriteLine("Invalid parameter for useBuffer!");
-                    ShowUsage();
-                    return;
+                    BufferMode.Full => (true, true),
+                    BufferMode.Partial => (true, false),
+                    _ => (false, false)
+                };
+
+                isUseFastBuffer = context.ParseResult.GetValueForOption(_bufferFastOpt);
+                HDiffPatch.LogVerbosity = context.ParseResult.GetValueForOption(_logLevelOpt);
+
+                try
+                {
+                    HDiffPatch patcher = new HDiffPatch();
+                    if (HDiffPatch.LogVerbosity != Verbosity.Quiet)
+                    {
+                        EventListener.LoggerEvent += EventListener_LoggerEvent;
+                        EventListener.PatchEvent += EventListener_PatchEvent;
+                    }
+                    patcher.Initialize(patchPath);
+                    RefreshStopwatch?.Restart();
+                    patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer);
                 }
-            }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error has occured! [{ex.GetType().Name}]: {ex.Message}\r\nStack Trace:\r\n{ex.StackTrace}");
+                    context.ExitCode = int.MinValue;
+#if DEBUG
+                    throw;
+#endif
+                }
+                finally
+                {
+                    RefreshStopwatch?.Stop();
+                    if (HDiffPatch.LogVerbosity != Verbosity.Quiet)
+                    {
+                        EventListener.LoggerEvent -= EventListener_LoggerEvent;
+                        EventListener.PatchEvent -= EventListener_PatchEvent;
+                    }
+                }
+            });
 
-            if (!(File.Exists(inputPath) || Directory.Exists(inputPath)))
-            {
-                Console.WriteLine("Input file doesn't exist!");
-                return;
-            }
-
-            if (!File.Exists(patchPath))
-            {
-                Console.WriteLine("Patch file doesn't exist!");
-                return;
-            }
-
-            try
-            {
-                HDiffPatch patcher = new HDiffPatch();
-                patcher.Initialize(patchPath);
-                EventListener.PatchEvent += EventListener_PatchEvent;
-                patcher.Patch(inputPath, outputPath, isUseBufferedPatch);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"An error has occured!\r\n{ex}");
-                Console.WriteLine("\r\nPress any key to exit...");
-                Console.Read();
-            }
+            return Command.Invoke(args);
         }
 
-        private static void EventListener_PatchEvent(object? sender, PatchEvent e)
+        private static void EventListener_LoggerEvent(object? sender, LoggerEvent e)
         {
-            Console.Write($"Patching: {e.ProgressPercentage}% | Speed: {SummarizeSizeSimple(e.Speed)}/s    \r");
+            if (HDiffPatch.LogVerbosity == Verbosity.Quiet
+            || (HDiffPatch.LogVerbosity == Verbosity.Debug
+            && !(e.LogLevel == Verbosity.Debug ||
+                 e.LogLevel == Verbosity.Verbose ||
+                 e.LogLevel == Verbosity.Info))
+            || (HDiffPatch.LogVerbosity == Verbosity.Verbose
+            && !(e.LogLevel == Verbosity.Verbose ||
+                 e.LogLevel == Verbosity.Info))
+            || (HDiffPatch.LogVerbosity == Verbosity.Info
+            && !(e.LogLevel == Verbosity.Info))) return;
+
+            PrintLog(e);
         }
 
-        private static void ShowVersion()
+        private static void PrintLog(LoggerEvent e)
         {
-            string version = Assembly.GetExecutingAssembly().GetName()?.Version?.ToString() ?? "";
-            Console.WriteLine($"Sharp-HDiffPatch v{version}");
+            string label = e.LogLevel switch
+            {
+                Verbosity.Info => $"[Info] ",
+                Verbosity.Verbose => $"[Verbose] ",
+                Verbosity.Debug => $"[Debug] ",
+                _ => ""
+            };
+
+            Console.WriteLine($"{label}{e.Message}");
         }
 
-        private static void ShowUsage()
+        private static async void EventListener_PatchEvent(object? sender, PatchEvent e)
         {
-            string exeName = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
-
-            ShowVersion();
-            Console.WriteLine($"""
-                Usage: {exeName} [input_file/folder] [patch_path] [output_file/folder] (useBuffer: true/false [default: false])
-                    
-                Example:
-                    {exeName} Bank01.pck Bank01.pck.diff Bank01.pcknew
-
-                Or if you want to enable buffer for patching process:
-                    {exeName} Bank01.pck Bank01.pck.diff Bank01.pcknew true
-
-                Or if you want to patch a directory
-                    {exeName} C:\MyFolder\Release1.2 C:\MyFolder\1.2-1.3patch.diff C:\MyFolder\Release1.3
-
-                Note:
-                - The output path is in "force" mode. Meaning that it will overwrite an existing file if exist.
-                - This patcher only supports these compressions:
-                  * Zlib (Deflate)
-                  * ZStandard
-                  * BZip2
-                  * PBZip2
-                """);
+            if (await CheckIfNeedRefreshStopwatch(e.ProgressPercentage))
+            {
+                Console.Write($"Patching: {e.ProgressPercentage}% | {SummarizeSizeSimple(e.CurrentSizePatched)}/{SummarizeSizeSimple(e.TotalSizeToBePatched)} @{SummarizeSizeSimple(e.Speed)}/s    \r");
+            }
         }
 
-        public static string SummarizeSizeSimple(double value, int decimalPlaces = 2)
+        private static async Task<bool> CheckIfNeedRefreshStopwatch(double progress)
+        {
+            if (RefreshStopwatch.ElapsedMilliseconds > RefreshInterval)
+            {
+                RefreshStopwatch.Restart();
+                return true;
+            }
+
+            await Task.Delay(RefreshInterval);
+            return false;
+        }
+
+        private static string SummarizeSizeSimple(double value, int decimalPlaces = 2)
         {
             byte mag = (byte)Math.Log(value, 1000);
 

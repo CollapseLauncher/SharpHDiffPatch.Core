@@ -1,69 +1,54 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
     public sealed class PatchSingle : IPatch
     {
-        private CompressedHDiffInfo hDiffInfo;
+        private HDiffInfo hDiffInfo;
         private Func<Stream> spawnPatchStream;
+        private PatchCore patchCore;
+        private CancellationToken token;
 
         private bool isUseBufferedPatch = false;
+        private bool isUseFullBuffer = false;
+        private bool isUseFastBuffer = false;
 
-        public PatchSingle(CompressedHDiffInfo hDiffInfo)
+        public PatchSingle(HDiffInfo hDiffInfo, CancellationToken token)
         {
+            this.token = token;
             this.hDiffInfo = hDiffInfo;
             this.spawnPatchStream = new Func<Stream>(() => new FileStream(hDiffInfo.patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
         }
 
-        public void Patch(string input, string output, bool useBufferedPatch)
+        public void Patch(string input, string output, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
         {
             isUseBufferedPatch = useBufferedPatch;
+            isUseFullBuffer = useFullBuffer;
+            isUseFastBuffer = useFastBuffer;
 
             using (FileStream inputStream = new FileStream(input, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (FileStream outputStream = new FileStream(output, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
-                TryCheckMatchOldSize(inputStream);
+                if (inputStream.Length != hDiffInfo.oldDataSize)
+                    throw new InvalidDataException($"[PatchSingle::Patch] The patch directory is expecting old size to be equivalent as: {hDiffInfo.oldDataSize} bytes, but the input file has unmatch size: {inputStream.Length} bytes!");
 
+                HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Existing old file size: {inputStream.Length} is matched!", Verbosity.Verbose);
+                HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Staring patching routine at position: {hDiffInfo.headInfo.headEndPos}", Verbosity.Verbose);
+
+                this.patchCore = isUseFastBuffer ? new PatchCoreFastBuffer(token, hDiffInfo.newDataSize, Stopwatch.StartNew(), input, output) :
+                                                   new PatchCore(token, hDiffInfo.newDataSize, Stopwatch.StartNew(), input, output);
+                HDiffPatch.DisplayDirPatchInformation(inputStream.Length, hDiffInfo.newDataSize, hDiffInfo.headInfo);
                 StartPatchRoutine(inputStream, outputStream);
             }
-        }
-
-        private void TryCheckMatchOldSize(Stream inputStream)
-        {
-            if (inputStream.Length != hDiffInfo.oldDataSize)
-            {
-                throw new InvalidDataException($"The patch file is expecting old size to be equivalent as: {hDiffInfo.oldDataSize} bytes, but the input file has unmatch size: {inputStream.Length} bytes!");
-            }
-
-            Console.WriteLine("Patch Information:");
-            Console.WriteLine($"    Old Size: {hDiffInfo.oldDataSize} bytes");
-            Console.WriteLine($"    New Size: {hDiffInfo.newDataSize} bytes");
-            Console.WriteLine($"    Is Use Buffered Patch: {isUseBufferedPatch}");
-
-            Console.WriteLine();
-            Console.WriteLine("Technical Information:");
-            Console.WriteLine($"    Cover Data Offset: {hDiffInfo.headInfo.headEndPos}");
-            Console.WriteLine($"    Cover Data Size: {hDiffInfo.headInfo.cover_buf_size}");
-            Console.WriteLine($"    Cover Count: {hDiffInfo.headInfo.coverCount}");
-
-            Console.WriteLine($"    RLE Data Offset: {hDiffInfo.headInfo.coverEndPos}");
-            Console.WriteLine($"    RLE Control Data Size: {hDiffInfo.headInfo.rle_ctrlBuf_size}");
-            Console.WriteLine($"    RLE Code Data Size: {hDiffInfo.headInfo.rle_codeBuf_size}");
-
-            Console.WriteLine($"    New Diff Data Size: {hDiffInfo.headInfo.newDataDiff_size}");
-            Console.WriteLine();
         }
 
         private void StartPatchRoutine(Stream inputStream, Stream outputStream)
         {
             bool isCompressed = hDiffInfo.compMode != CompressionMode.nocomp;
 
-            HDiffPatch.currentSizePatched = 0;
-            HDiffPatch.totalSizePatched = hDiffInfo.newDataSize;
-
-            Stopwatch stopwatch = Stopwatch.StartNew();
             Stream[] clips = new Stream[4];
             Stream[] sourceClips = new Stream[4]
             {
@@ -79,28 +64,25 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 long offset = hDiffInfo.headInfo.headEndPos;
                 int coverPadding = hDiffInfo.headInfo.compress_cover_buf_size > 0 ? padding : 0;
-                clips[0] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[0], offset + coverPadding,
+                clips[0] = patchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[0], offset + coverPadding,
                     hDiffInfo.headInfo.cover_buf_size, hDiffInfo.headInfo.compress_cover_buf_size, out long nextLength, this.isUseBufferedPatch);
 
                 offset += nextLength;
                 int rle_ctrlBufPadding = hDiffInfo.headInfo.compress_rle_ctrlBuf_size > 0 ? padding : 0;
-                clips[1] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[1], offset + rle_ctrlBufPadding,
+                clips[1] = patchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[1], offset + rle_ctrlBufPadding,
                     hDiffInfo.headInfo.rle_ctrlBuf_size, hDiffInfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.isUseBufferedPatch);
 
                 offset += nextLength;
                 int rle_codeBufPadding = hDiffInfo.headInfo.compress_rle_codeBuf_size > 0 ? padding : 0;
-                clips[2] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[2], offset + rle_codeBufPadding,
+                clips[2] = patchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[2], offset + rle_codeBufPadding,
                     hDiffInfo.headInfo.rle_codeBuf_size, hDiffInfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.isUseBufferedPatch);
 
                 offset += nextLength;
                 int newDataDiffPadding = hDiffInfo.headInfo.compress_newDataDiff_size > 0 ? padding : 0;
-                clips[3] = PatchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[3], offset + newDataDiffPadding,
-                    hDiffInfo.headInfo.newDataDiff_size, hDiffInfo.headInfo.compress_newDataDiff_size - padding, out _, false);
+                clips[3] = patchCore.GetBufferStreamFromOffset(hDiffInfo.compMode, sourceClips[3], offset + newDataDiffPadding,
+                    hDiffInfo.headInfo.newDataDiff_size, hDiffInfo.headInfo.compress_newDataDiff_size - padding, out _, this.isUseBufferedPatch && this.isUseFullBuffer);
 
-                PatchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
-
-                TimeSpan timeTaken = stopwatch.Elapsed;
-                Console.WriteLine($"Patch has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
+                patchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, hDiffInfo);
             }
             catch
             {
@@ -108,7 +90,6 @@ namespace Hi3Helper.SharpHDiffPatch
             }
             finally
             {
-                stopwatch.Stop();
                 foreach (Stream clip in clips) clip?.Dispose();
                 foreach (Stream clip in sourceClips) clip?.Dispose();
             }
