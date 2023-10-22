@@ -66,7 +66,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {hdiffHeaderInfo.headDataSize} bytes ({hdiffHeaderInfo.headDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
 
-                patchCore = this.useFastBuffer ? new PatchCoreFastBuffer(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput) :
+                patchCore = this.useFastBuffer && this.useBufferedPatch ? new PatchCoreFastBuffer(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput) :
                                                  new PatchCore(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
                 patchCore.GetDecompressStreamPlugin(hdiffHeaderInfo.compMode, patchStream, out Stream decompHeadStream,
                     hdiffHeaderInfo.headDataSize, hdiffHeaderInfo.headDataCompressedSize - headerPadding, out _, this.useBufferedPatch);
@@ -170,22 +170,22 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 int coverPadding = dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size > 0 ? padding : 0;
                 clips[0] = patchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[0], offset + coverPadding,
-                    dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size, out long nextLength, this.useBufferedPatch);
+                    dirDiffInfo.hdiffinfo.headInfo.cover_buf_size, dirDiffInfo.hdiffinfo.headInfo.compress_cover_buf_size, out long nextLength, this.useBufferedPatch, false);
 
                 offset += nextLength;
                 int rle_ctrlBufPadding = dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size > 0 ? padding : 0;
                 clips[1] = patchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[1], offset + rle_ctrlBufPadding,
-                    dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.useBufferedPatch);
+                    dirDiffInfo.hdiffinfo.headInfo.rle_ctrlBuf_size, dirDiffInfo.hdiffinfo.headInfo.compress_rle_ctrlBuf_size, out nextLength, this.useBufferedPatch, this.useFastBuffer);
 
                 offset += nextLength;
                 int rle_codeBufPadding = dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size > 0 ? padding : 0;
                 clips[2] = patchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[2], offset + rle_codeBufPadding,
-                    dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.useBufferedPatch);
+                    dirDiffInfo.hdiffinfo.headInfo.rle_codeBuf_size, dirDiffInfo.hdiffinfo.headInfo.compress_rle_codeBuf_size, out nextLength, this.useBufferedPatch, this.useFastBuffer);
 
                 offset += nextLength;
                 int newDataDiffPadding = dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size > 0 ? padding : 0;
                 clips[3] = patchCore.GetBufferStreamFromOffset(dirDiffInfo.hdiffinfo.compMode, sourceClips[3], offset + newDataDiffPadding,
-                    dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size - padding, out _, this.useBufferedPatch && this.useFullBuffer);
+                    dirDiffInfo.hdiffinfo.headInfo.newDataDiff_size, dirDiffInfo.hdiffinfo.headInfo.compress_newDataDiff_size - padding, out _, this.useBufferedPatch && this.useFullBuffer, false);
 
                 dirDiffInfo.hdiffinfo.newDataSize = newDataSize;
                 patchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, dirDiffInfo.hdiffinfo);

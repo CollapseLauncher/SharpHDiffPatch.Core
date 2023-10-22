@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -22,7 +21,7 @@ namespace Hi3Helper.SharpHDiffPatch
             return Encoding.UTF8.GetString(StringBuffer, 0, i);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public static int ReadInt7bit(this Stream reader, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
@@ -43,7 +42,7 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public static long ReadLong7bit(this Stream reader, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
@@ -64,11 +63,10 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-
-        public static long ReadLong7bit(this ReadOnlySpan<byte> buffer, int offset, out int read, int tagBit = 0, byte prevTagBit = 0)
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public static long ReadLong7bit(this ReadOnlySpan<byte> buffer, ref int offset, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
-            read = 1;
 
             byte code = isUseTagBit ? prevTagBit : buffer[offset++];
             long value = code & ((1 << (7 - tagBit)) - 1);
@@ -79,7 +77,6 @@ namespace Hi3Helper.SharpHDiffPatch
                 {
                     if ((value >> (8 * 8 - 7)) != 0) return 0;
                     code = buffer[offset++];
-                    read++;
                     value = (value << 7) | (code & (((long)1 << 7) - 1));
                 }
                 while ((code & (1 << 7)) != 0);
@@ -87,7 +84,6 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool ReadBoolean(this Stream stream) => stream.ReadByte() != 0;
     }
 }

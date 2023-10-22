@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Threading;
@@ -19,7 +20,6 @@ namespace Hi3Helper.SharpHDiffPatch
         public long memCopyLength;
         public long memSetLength;
         public byte memSetValue;
-        public long memCopyIndex;
     }
 
     internal struct CoverHeader
@@ -59,7 +59,7 @@ namespace Hi3Helper.SharpHDiffPatch
         protected const int _kSignTagBit = 1;
         protected const int _kByteRleType = 2;
         protected const int _maxArrayCopyLen = 4 << 20;
-        protected static int _maxArrayPoolLen = (1 << 20) - Environment.ProcessorCount;
+        protected static int _maxArrayPoolLen = (4 << 20) - Environment.ProcessorCount;
         protected static int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
 
         protected CancellationToken _token;
@@ -89,13 +89,13 @@ namespace Hi3Helper.SharpHDiffPatch
         }
 
         internal Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
-            long start, long length, long compLength, out long outLength, bool isBuffered)
+            long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed)
         {
             sourceStream.Position = start;
 
             GetDecompressStreamPlugin(compMode, sourceStream, out Stream returnStream, length, compLength, out outLength, isBuffered);
 
-            if (isBuffered)
+            if (isBuffered && !isFastBufferUsed)
             {
                 HDiffPatch.Event.PushLog($"[PatchCore::GetBufferStreamFromOffset] Caching stream from offset: {start} with length: {(compLength > 0 ? compLength : length)}");
                 using (returnStream)
@@ -335,6 +335,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private void TBytesDetermineRleType(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength, byte[] sharedBuffer,
             Stream rleCtrlStream, Stream rleCodeStream)
         {
@@ -375,6 +376,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private unsafe void TBytesSetRle(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer, Stream rleCodeStream)
         {
             TBytesSetRleSingle(ref rleLoader, outCache, ref copyLength, sharedBuffer);
@@ -390,11 +392,12 @@ namespace Hi3Helper.SharpHDiffPatch
             fixed (byte* rlePtr = sharedBuffer)
             fixed (byte* oldPtr = &sharedBuffer[_maxArrayPoolSecondOffset])
             {
-                TBytesSetRleVector(ref rleLoader, outCache, ref copyLength, decodeStep, rlePtr, sharedBuffer, oldPtr);
+                TBytesSetRleVector(ref rleLoader, outCache, ref copyLength, decodeStep, rlePtr, sharedBuffer, 0, oldPtr);
             }
         }
 
-        protected void TBytesSetRleSingle(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer)
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        protected void TBytesSetRleSingle(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, Span<byte> sharedBuffer)
         {
             if (rleLoader.memSetLength != 0)
             {
@@ -403,12 +406,12 @@ namespace Hi3Helper.SharpHDiffPatch
                 {
                     int length = (int)memSetStep;
                     long lastPos = outCache.Position;
-                    outCache.Read(sharedBuffer, 0, length);
+                    outCache.Read(sharedBuffer.Slice(0, length));
                     outCache.Position = lastPos;
 
                     while (length-- > 0) sharedBuffer[length] += rleLoader.memSetValue;
 
-                    outCache.Write(sharedBuffer, 0, (int)memSetStep);
+                    outCache.Write(sharedBuffer.Slice(0, (int)memSetStep));
                 }
                 else
                 {
@@ -420,7 +423,8 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        protected unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, byte* oldPtr)
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        protected unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
         {
             int offset;
             long offsetRemained = decodeStep % Vector128<byte>.Count;
@@ -435,7 +439,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
             while (offset < decodeStep) *(rlePtr + offset) += *(oldPtr + offset++);
 
-            outCache.Write(rleBuffer, 0, decodeStep);
+            outCache.Write(rleBuffer, rleBufferIdx, decodeStep);
 
             rleLoader.memCopyLength -= decodeStep;
             copyLength -= decodeStep;
