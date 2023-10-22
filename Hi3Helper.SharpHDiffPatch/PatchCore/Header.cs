@@ -41,7 +41,8 @@ namespace Hi3Helper.SharpHDiffPatch
                 if (hInfoVer != 19) throw new FormatException($"[Header::TryParseHeaderInfo] HDiff version is unsupported. This patcher only supports the directory patch file with version: 19 only!");
 
                 if (hInfoArr[1] != "" && !Enum.TryParse(hInfoArr[1], true, out headerInfo.compMode)) throw new FormatException($"[Header::TryParseHeaderInfo] This patcher doesn't support {hInfoArr[1]} compression!");
-                if (!Enum.TryParse(hInfoArr[2], true, out headerInfo.checksumMode)) throw new FormatException($"[Header::TryParseHeaderInfo] This patcher doesn't support {hInfoArr[2]} checksum!");
+                if (string.IsNullOrEmpty(hInfoArr[2])) headerInfo.checksumMode = ChecksumMode.nochecksum;
+                else if (!Enum.TryParse(hInfoArr[2], true, out headerInfo.checksumMode)) throw new FormatException($"[Header::TryParseHeaderInfo] This patcher doesn't support {hInfoArr[2]} checksum!");
                 HDiffPatch.Event.PushLog($"[Header::TryParseHeaderInfo] Version: {hInfoVer} ChecksumMode: {headerInfo.checksumMode} Compression: {headerInfo.compMode}", Verbosity.Debug);
 
                 TryReadDirHeaderNumInfo(sr, tDirDiffInfo, headerInfo);
