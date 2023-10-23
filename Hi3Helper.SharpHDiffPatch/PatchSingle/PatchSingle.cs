@@ -9,7 +9,7 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         private HDiffInfo hDiffInfo;
         private Func<Stream> spawnPatchStream;
-        private PatchCore patchCore;
+        private IPatchCore patchCore;
         private CancellationToken token;
 
         private bool isUseBufferedPatch = false;

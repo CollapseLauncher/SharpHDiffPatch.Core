@@ -36,7 +36,7 @@ namespace Hi3Helper.SharpHDiffPatch
         private bool useFullBuffer;
         private bool useFastBuffer;
         private int padding;
-        private PatchCore patchCore;
+        private IPatchCore patchCore;
         private CancellationToken token;
 
         public PatchDir(DirectoryHDiffInfo dirDiffInfo, HDiffHeaderInfo hdiffHeaderInfo, string patchPath, CancellationToken token)

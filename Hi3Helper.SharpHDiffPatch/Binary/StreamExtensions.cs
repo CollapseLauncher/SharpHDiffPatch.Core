@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Hi3Helper.SharpHDiffPatch
@@ -21,7 +20,6 @@ namespace Hi3Helper.SharpHDiffPatch
             return Encoding.UTF8.GetString(StringBuffer, 0, i);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public static int ReadInt7bit(this Stream reader, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
@@ -42,7 +40,6 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public static long ReadLong7bit(this Stream reader, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
@@ -63,7 +60,6 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public static long ReadLong7bit(this ReadOnlySpan<byte> buffer, ref int offset, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;

@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
 using System.Threading;
@@ -54,22 +53,39 @@ namespace Hi3Helper.SharpHDiffPatch
     }
 #endif
 
-    internal class PatchCore
+    internal interface IPatchCore
     {
-        protected const int _kSignTagBit = 1;
-        protected const int _kByteRleType = 2;
-        protected const int _maxArrayCopyLen = 4 << 20;
-        protected static int _maxArrayPoolLen = (4 << 20) - Environment.ProcessorCount;
-        protected static int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
+        void SetTDirPatcher(TDirPatcher input);
 
-        protected CancellationToken _token;
-        protected long _sizeToBePatched;
-        protected long _sizePatched;
-        protected Stopwatch _stopwatch;
-        protected string _pathInput;
-        protected string _pathOutput;
-        protected TDirPatcher? _dirPatchInfo;
-        protected long _rleCodeOffset;
+        void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0);
+
+        void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
+            long length, long compLength, out long outLength, bool isBuffered);
+
+        void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo);
+
+        Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
+            long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed);
+    }
+
+    internal sealed class PatchCore : IPatchCore
+    {
+        internal const int _kSignTagBit = 1;
+        internal const int _kByteRleType = 2;
+        internal const int _maxMemBufferLen = 7 << 20;
+        internal const int _maxMemBufferLimit = 4 << 20;
+        internal const int _maxArrayCopyLen = 1 << 18;
+        internal static int _maxArrayPoolLen = 4 << 20;
+        internal static int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
+
+        internal CancellationToken _token;
+        internal long _sizeToBePatched;
+        internal long _sizePatched;
+        internal Stopwatch _stopwatch;
+        internal string _pathInput;
+        internal string _pathOutput;
+        internal TDirPatcher? _dirPatchInfo;
+        internal long _rleCodeOffset;
 
         internal PatchCore(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
         {
@@ -81,14 +97,14 @@ namespace Hi3Helper.SharpHDiffPatch
             _pathOutput = outputPath;
         }
 
-        internal void SetTDirPatcher(TDirPatcher input) => _dirPatchInfo = input;
-        internal void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0)
+        public void SetTDirPatcher(TDirPatcher input) => _dirPatchInfo = input;
+        public void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0)
         {
             _sizeToBePatched = sizeToBePatched;
             _sizePatched = sizeToPatch;
         }
 
-        internal Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
+        public Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed)
         {
             sourceStream.Position = start;
@@ -109,7 +125,7 @@ namespace Hi3Helper.SharpHDiffPatch
             return returnStream;
         }
 
-        internal void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
+        public void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
             long length, long compLength, out long outLength, bool isBuffered)
         {
             long toPosition = sourceStream.Position;
@@ -152,7 +168,7 @@ namespace Hi3Helper.SharpHDiffPatch
             };
         }
 
-        internal MemoryStream CreateAndCopyToMemoryStream(Stream source)
+        private MemoryStream CreateAndCopyToMemoryStream(Stream source)
         {
             MemoryStream returnStream = new MemoryStream();
             byte[] buffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolLen);
@@ -175,9 +191,9 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        internal virtual void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.newDataSize);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.newDataSize);
 
-        protected IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, int coverCount)
+        internal IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, int coverCount)
         {
             long _oldPosBack = 0,
                  _newPosBack = 0;
@@ -215,7 +231,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        protected void RunCopySimilarFilesRoutine()
+        internal void RunCopySimilarFilesRoutine()
         {
             if (_dirPatchInfo.HasValue)
             {
@@ -225,6 +241,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 TimeSpan timeTaken = _stopwatch.Elapsed;
                 HDiffPatch.Event.PushLog($"Copying similar data has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
                 HDiffPatch.Event.PushLog($"Starting patching process...");
+                _stopwatch.Restart();
             }
         }
 
@@ -256,7 +273,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     TBytesCopyOldClipPatch(cacheOutputStream, inputStream, ref rleStruct, cover.oldPos, cover.coverLength, sharedBuffer, clips[1], clips[2]);
                     newPosBack = cover.newPos + cover.coverLength;
 
-                    WriteInMemoryOutputToStream(cacheOutputStream, outputStream, cover);
+                    if (cacheOutputStream.Length > _maxMemBufferLimit || cover.nextCoverIndex == 0)
+                        WriteInMemoryOutputToStream(cacheOutputStream, outputStream, cover);
                 }
 
                 if (newPosBack < newDataSize)
@@ -281,24 +299,21 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        protected void WriteInMemoryOutputToStream(Stream cacheOutputStream, Stream outputStream, CoverHeader cover)
+        internal void WriteInMemoryOutputToStream(MemoryStream cacheOutputStream, Stream outputStream, CoverHeader cover)
         {
-            if (cacheOutputStream.Length > 8 << 20 || cover.nextCoverIndex == 0)
-            {
-                long oldPos = outputStream.Position;
+            long oldPos = outputStream.Position;
 
-                cacheOutputStream.Position = 0;
-                cacheOutputStream.CopyTo(outputStream);
-                cacheOutputStream.SetLength(0);
+            cacheOutputStream.Position = 0;
+            cacheOutputStream.CopyTo(outputStream);
+            cacheOutputStream.SetLength(0);
 
-                long newPos = outputStream.Position;
-                long read = newPos - oldPos;
+            long newPos = outputStream.Position;
+            long read = newPos - oldPos;
 
-                HDiffPatch.UpdateEvent(read, ref _sizePatched, ref _sizeToBePatched, _stopwatch);
-            }
+            HDiffPatch.UpdateEvent(read, ref _sizePatched, ref _sizeToBePatched, _stopwatch);
         }
 
-        protected void SpawnCorePatchFinishedMsg()
+        internal void SpawnCorePatchFinishedMsg()
         {
             TimeSpan timeTaken = _stopwatch.Elapsed;
             HDiffPatch.Event.PushLog($"Patching has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
@@ -317,15 +332,22 @@ namespace Hi3Helper.SharpHDiffPatch
             TBytesDetermineRleType(ref rleLoader, outCache, decodeStep, sharedBuffer, rleCtrlStream, rleCodeStream);
         }
 
-        protected void TBytesCopyStreamFromOldClip(Stream outCache, Stream copyReader, long copyLength, byte[] sharedBuffer)
+        internal void TBytesCopyStreamFromOldClip(Stream outCache, Stream copyReader, long copyLength, byte[] sharedBuffer)
         {
             long lastPos = outCache.Position;
             TBytesCopyStreamInner(copyReader, outCache, sharedBuffer, (int)copyLength);
             outCache.Position = lastPos;
         }
 
-        protected void TBytesCopyStreamInner(Stream input, Stream output, byte[] sharedBuffer, int readLen)
+        internal void TBytesCopyStreamInner(Stream input, Stream output, byte[] sharedBuffer, int readLen)
         {
+            if (sharedBuffer.Length >= readLen)
+            {
+                input.ReadExactly(sharedBuffer, 0, readLen);
+                output.Write(sharedBuffer, 0, readLen);
+                return;
+            }
+
             while (readLen > 0)
             {
                 int toRead = Math.Min(sharedBuffer.Length, readLen);
@@ -335,7 +357,6 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private void TBytesDetermineRleType(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength, byte[] sharedBuffer,
             Stream rleCtrlStream, Stream rleCodeStream)
         {
@@ -376,7 +397,6 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private unsafe void TBytesSetRle(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer, Stream rleCodeStream)
         {
             TBytesSetRleSingle(ref rleLoader, outCache, ref copyLength, sharedBuffer);
@@ -396,8 +416,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        protected void TBytesSetRleSingle(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, Span<byte> sharedBuffer)
+        internal void TBytesSetRleSingle(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer)
         {
             if (rleLoader.memSetLength != 0)
             {
@@ -406,12 +425,12 @@ namespace Hi3Helper.SharpHDiffPatch
                 {
                     int length = (int)memSetStep;
                     long lastPos = outCache.Position;
-                    outCache.Read(sharedBuffer.Slice(0, length));
+                    outCache.Read(sharedBuffer, 0, length);
                     outCache.Position = lastPos;
 
                     while (length-- > 0) sharedBuffer[length] += rleLoader.memSetValue;
 
-                    outCache.Write(sharedBuffer.Slice(0, (int)memSetStep));
+                    outCache.Write(sharedBuffer, 0, (int)memSetStep);
                 }
                 else
                 {
@@ -423,8 +442,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        protected unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
+        internal unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
         {
             int offset;
             long offsetRemained = decodeStep % Vector128<byte>.Count;
@@ -449,7 +467,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal static ref string NewPathByIndex(string[] source, long index) => ref source[index];
 
-        protected void CopyOldSimilarToNewFiles(TDirPatcher dirData)
+        private void CopyOldSimilarToNewFiles(TDirPatcher dirData)
         {
             int _curNewRefIndex = 0;
             int _curPathIndex = 0;
