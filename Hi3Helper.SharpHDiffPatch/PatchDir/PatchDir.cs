@@ -246,12 +246,12 @@ namespace Hi3Helper.SharpHDiffPatch
 
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> OldPath: {(int)hdiffHeaderInfo.inputSumSize}", Verbosity.Verbose);
             byte[] pathListInput = new byte[(int)hdiffHeaderInfo.inputSumSize];
-            reader.ReadExactly(pathListInput);
+            reader.ReadExactly(pathListInput, 0, pathListInput.Length);
             GetListOfPaths(pathListInput, out returnValue.oldUtf8PathList, hdiffHeaderInfo.inputDirCount);
 
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> NewPath: {(int)hdiffHeaderInfo.outputSumSize}", Verbosity.Verbose);
             byte[] pathListOutput = new byte[(int)hdiffHeaderInfo.outputSumSize];
-            reader.ReadExactly(pathListOutput);
+            reader.ReadExactly(pathListOutput, 0, pathListOutput.Length);
             GetListOfPaths(pathListOutput, out returnValue.newUtf8PathList, hdiffHeaderInfo.outputDirCount);
 
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Path string counts -> OldPath: {returnValue.oldUtf8PathList.Length} paths & NewPath: {returnValue.newUtf8PathList.Length} paths", Verbosity.Verbose);
