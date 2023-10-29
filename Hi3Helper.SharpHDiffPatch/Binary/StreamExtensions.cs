@@ -4,9 +4,23 @@ using System.Text;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
-    public static class StreamExtensions
+    public static class StreamExtension
     {
         private static byte[] StringBuffer = new byte[4 << 10];
+
+        public static int ReadExactly(this Stream stream, byte[] buffer, int offset, int count)
+        {
+            int totalRead = 0;
+            while (totalRead < buffer.Length)
+            {
+                int read = stream.Read(buffer, offset, count);
+                if (read == 0) return totalRead;
+
+                totalRead += read;
+            }
+
+            return totalRead;
+        }
 
         public static string ReadStringToNull(this Stream reader)
         {
