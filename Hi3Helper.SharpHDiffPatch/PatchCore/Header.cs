@@ -243,12 +243,12 @@ namespace Hi3Helper.SharpHDiffPatch
         private static byte TryGetVersion(ReadOnlySpan<char> str)
         {
             int lastIndexOf = str.IndexOf(HDIFF_HEAD);
-            if (lastIndexOf < 0) throw new IndexOutOfRangeException($"[Header::TryGetVersion] Version string is invalid! Cannot find the matching start of \"HDIFF\". Getting: {str} instead");
+            if (lastIndexOf < 0) throw new IndexOutOfRangeException($"[Header::TryGetVersion] Version string is invalid! Cannot find the matching start of \"HDIFF\". Getting: {str.ToString()} instead");
 
             ReadOnlySpan<char> numSpan = str.Slice(lastIndexOf + HDIFF_HEAD.Length);
             if (byte.TryParse(numSpan, out byte ret)) return ret;
 
-            throw new InvalidDataException($"[Header::TryGetVersion] Version string is invalid! Value: {numSpan} (Raw: {str})");
+            throw new InvalidDataException($"[Header::TryGetVersion] Version string is invalid! Value: {numSpan.ToString()} (Raw: {str.ToString()})");
         }
     }
 }

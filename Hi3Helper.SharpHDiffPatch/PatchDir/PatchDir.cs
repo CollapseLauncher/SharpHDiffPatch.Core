@@ -36,7 +36,6 @@ namespace Hi3Helper.SharpHDiffPatch
         private bool useFullBuffer;
         private bool useFastBuffer;
         private int padding;
-        private IPatchCore patchCore;
         private CancellationToken token;
 
         public PatchDir(DirectoryHDiffInfo dirDiffInfo, HDiffHeaderInfo hdiffHeaderInfo, string patchPath, CancellationToken token)
@@ -66,8 +65,12 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {hdiffHeaderInfo.headDataSize} bytes ({hdiffHeaderInfo.headDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
 
-                patchCore = this.useFastBuffer && this.useBufferedPatch ? new PatchCoreFastBuffer(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput) :
-                                                 new PatchCore(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+                IPatchCore patchCore = null;
+                if (this.useFastBuffer && this.useBufferedPatch)
+                    patchCore = new PatchCoreFastBuffer(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+                else
+                    patchCore = new PatchCore(token, dirDiffInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+
                 patchCore.GetDecompressStreamPlugin(hdiffHeaderInfo.compMode, patchStream, out Stream decompHeadStream,
                     hdiffHeaderInfo.headDataSize, hdiffHeaderInfo.headDataCompressedSize - headerPadding, out _, this.useBufferedPatch);
 
@@ -108,7 +111,7 @@ namespace Hi3Helper.SharpHDiffPatch
                         HDiffPatch.Event.PushLog($"[PatchDir::Patch] Staring patching routine at position: {lastPos}", Verbosity.Verbose);
 
                         HDiffPatch.DisplayDirPatchInformation(oldFileSize, totalSizePatched, dirDiffInfo.hdiffinfo.headInfo);
-                        StartPatchRoutine(oldStream, newStream, dirDiffInfo.hdiffinfo.newDataSize, lastPos);
+                        StartPatchRoutine(oldStream, newStream, dirDiffInfo.hdiffinfo.newDataSize, lastPos, patchCore);
                     }
                 }
             }
@@ -154,7 +157,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private long GetNewPatchedFileSize(TDirPatcher dirData) => dirData.newRefSizeList.Sum();
 
-        private void StartPatchRoutine(Stream inputStream, Stream outputStream, long newDataSize, long offset)
+        private void StartPatchRoutine(Stream inputStream, Stream outputStream, long newDataSize, long offset, IPatchCore patchCore)
         {
             bool isCompressed = dirDiffInfo.hdiffinfo.compMode != CompressionMode.nocomp;
             Stream[] clips = new Stream[4];

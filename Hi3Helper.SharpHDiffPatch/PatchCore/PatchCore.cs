@@ -63,7 +63,6 @@ namespace Hi3Helper.SharpHDiffPatch
         internal string _pathInput;
         internal string _pathOutput;
         internal TDirPatcher? _dirPatchInfo;
-        internal long _rleCodeOffset;
 
         internal PatchCore(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
         {
