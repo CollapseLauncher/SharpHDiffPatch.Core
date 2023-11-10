@@ -40,7 +40,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 _core.RunCopySimilarFilesRoutine();
 
-                cacheOutputStream = new MemoryStream(PatchCore._maxMemBufferLen);
+                cacheOutputStream = new MemoryStream();
                 sharedBuffer = ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset);
 
                 int rleCtrlIdx = 0, rleCodeIdx = 0;

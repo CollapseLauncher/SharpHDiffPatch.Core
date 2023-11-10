@@ -50,10 +50,9 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         internal const int _kSignTagBit = 1;
         internal const int _kByteRleType = 2;
-        internal const int _maxMemBufferLen = 7 << 20;
-        internal const int _maxMemBufferLimit = 4 << 20;
+        internal const int _maxMemBufferLimit = 10 << 20;
         internal const int _maxArrayCopyLen = 1 << 18;
-        internal static int _maxArrayPoolLen = 4 << 20;
+        internal static int _maxArrayPoolLen = 1 << 20;
         internal static int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
 
         internal CancellationToken _token;
