@@ -59,7 +59,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 long newPosBack = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
 
-                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], (int)hDiffInfo.headInfo.coverCount))
+                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], hDiffInfo.headInfo.cover_buf_size, hDiffInfo.headInfo.coverCount))
                 {
                     _core._token.ThrowIfCancellationRequested();
 
