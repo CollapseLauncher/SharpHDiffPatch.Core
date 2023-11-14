@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -107,8 +108,8 @@ namespace Hi3Helper.SharpHDiffPatch
             if (magicVersion != 13) throw new InvalidDataException($"[Header::GetNonSingleDirHDiffInfo] The header chunk format: v{magicVersion} is not supported!");
 
             long typeEndPos = sr.Position;
-            tDirDiffInfo.newDataSize = sr.ReadLong7bit();
-            tDirDiffInfo.oldDataSize = sr.ReadLong7bit();
+            tDirDiffInfo.newDataSize = ReadLong7bit(sr);
+            tDirDiffInfo.oldDataSize = ReadLong7bit(sr);
 
             GetHDiffDataInfo(sr, tDirDiffInfo.hdiffinfo.headInfo, typeEndPos);
 
@@ -125,8 +126,8 @@ namespace Hi3Helper.SharpHDiffPatch
             singleHDiffInfo.patchPath = diffPath;
             long typeEndPos = sr.Position;
 
-            singleHDiffInfo.newDataSize = sr.ReadLong7bit();
-            singleHDiffInfo.oldDataSize = sr.ReadLong7bit();
+            singleHDiffInfo.newDataSize = ReadLong7bit(sr);
+            singleHDiffInfo.oldDataSize = ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::GetSingleHDiffInfo] oldDataSize: {singleHDiffInfo.oldDataSize} | newDataSize: {singleHDiffInfo.newDataSize}", Verbosity.Debug);
 
@@ -145,19 +146,19 @@ namespace Hi3Helper.SharpHDiffPatch
             headInfo.typesEndPos = typeEndPos;
             HDiffPatch.Event.PushLog($"[Header::GetHDiffDataInfo] typesEndPos: {typeEndPos}", Verbosity.Debug);
 
-            headInfo.coverCount = sr.ReadLong7bit();
+            headInfo.coverCount = ReadLong7bit(sr);
             headInfo.compressSizeBeginPos = sr.Position;
 
             HDiffPatch.Event.PushLog($"[Header::GetHDiffDataInfo] coverCount: {headInfo.coverCount} | compressSizeBeginPos: {headInfo.compressSizeBeginPos}", Verbosity.Debug);
 
-            headInfo.cover_buf_size = sr.ReadLong7bit();
-            headInfo.compress_cover_buf_size = sr.ReadLong7bit();
-            headInfo.rle_ctrlBuf_size = sr.ReadLong7bit();
-            headInfo.compress_rle_ctrlBuf_size = sr.ReadLong7bit();
-            headInfo.rle_codeBuf_size = sr.ReadLong7bit();
-            headInfo.compress_rle_codeBuf_size = sr.ReadLong7bit();
-            headInfo.newDataDiff_size = sr.ReadLong7bit();
-            headInfo.compress_newDataDiff_size = sr.ReadLong7bit();
+            headInfo.cover_buf_size = ReadLong7bit(sr);
+            headInfo.compress_cover_buf_size = ReadLong7bit(sr);
+            headInfo.rle_ctrlBuf_size = ReadLong7bit(sr);
+            headInfo.compress_rle_ctrlBuf_size = ReadLong7bit(sr);
+            headInfo.rle_codeBuf_size = ReadLong7bit(sr);
+            headInfo.compress_rle_codeBuf_size = ReadLong7bit(sr);
+            headInfo.newDataDiff_size = ReadLong7bit(sr);
+            headInfo.compress_newDataDiff_size = ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::GetHDiffDataInfo] cover_buf_size: {headInfo.cover_buf_size} |  compress_cover_buf_size: {headInfo.compress_cover_buf_size}", Verbosity.Debug);
             HDiffPatch.Event.PushLog($"[Header::GetHDiffDataInfo] rle_ctrlBuf_size: {headInfo.rle_ctrlBuf_size} | compress_rle_ctrlBuf_size: {headInfo.compress_rle_ctrlBuf_size}", Verbosity.Debug);
@@ -180,39 +181,39 @@ namespace Hi3Helper.SharpHDiffPatch
 
             HDiffPatch.Event.PushLog($"[Header::TryReadDirHeaderNumInfo] Is In/Out a Dir -> Input: {tDirDiffInfo.isInputDir} / Output: {tDirDiffInfo.isOutputDir}", Verbosity.Debug);
 
-            headerInfo.inputDirCount = sr.ReadLong7bit();
-            headerInfo.inputSumSize = sr.ReadLong7bit();
+            headerInfo.inputDirCount = ReadLong7bit(sr);
+            headerInfo.inputSumSize = ReadLong7bit(sr);
 
-            headerInfo.outputDirCount = sr.ReadLong7bit();
-            headerInfo.outputSumSize = sr.ReadLong7bit();
+            headerInfo.outputDirCount = ReadLong7bit(sr);
+            headerInfo.outputSumSize = ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::TryReadDirHeaderNumInfo] InDir Count/SumSize: {headerInfo.inputDirCount}/{headerInfo.inputSumSize} | OutDir Count/SumSize: {headerInfo.outputSumSize}/{headerInfo.inputSumSize}", Verbosity.Debug);
 
-            headerInfo.inputRefFileCount = sr.ReadLong7bit();
-            headerInfo.inputRefFileSize = sr.ReadLong7bit();
+            headerInfo.inputRefFileCount = ReadLong7bit(sr);
+            headerInfo.inputRefFileSize = ReadLong7bit(sr);
 
-            headerInfo.outputRefFileCount = sr.ReadLong7bit();
-            headerInfo.outputRefFileSize = sr.ReadLong7bit();
+            headerInfo.outputRefFileCount = ReadLong7bit(sr);
+            headerInfo.outputRefFileSize = ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::TryReadDirHeaderNumInfo] InRef Count/Size: {headerInfo.inputRefFileCount}/{headerInfo.inputRefFileSize} | OutRef Count/Size: {headerInfo.outputRefFileCount}/{headerInfo.outputRefFileSize}", Verbosity.Debug);
 
-            headerInfo.sameFilePairCount = sr.ReadLong7bit();
-            headerInfo.sameFileSize = sr.ReadLong7bit();
+            headerInfo.sameFilePairCount = ReadLong7bit(sr);
+            headerInfo.sameFileSize = ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::TryReadDirHeaderNumInfo] IdenticalPair Count/Size: {headerInfo.sameFilePairCount}/{headerInfo.sameFileSize}", Verbosity.Debug);
 
-            headerInfo.newExecuteCount = sr.ReadInt7bit();
-            headerInfo.privateReservedDataSize = sr.ReadLong7bit();
-            headerInfo.privateExternDataSize = sr.ReadLong7bit();
-            tDirDiffInfo.externDataSize = sr.ReadLong7bit();
+            headerInfo.newExecuteCount = ReadInt7bit(sr);
+            headerInfo.privateReservedDataSize = ReadLong7bit(sr);
+            headerInfo.privateExternDataSize = ReadLong7bit(sr);
+            tDirDiffInfo.externDataSize = ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::TryReadDirHeaderNumInfo] newExecuteCount: {headerInfo.newExecuteCount} | privateReservedDataSize: {headerInfo.privateReservedDataSize} | privateExternDataSize: {headerInfo.privateExternDataSize} | privateExternDataSize: {tDirDiffInfo.externDataSize}", Verbosity.Debug);
 
             headerInfo.compressSizeBeginPos = sr.Position;
 
-            headerInfo.headDataSize = sr.ReadLong7bit();
-            headerInfo.headDataCompressedSize = sr.ReadLong7bit();
-            tDirDiffInfo.checksumByteSize = (byte)sr.ReadLong7bit();
+            headerInfo.headDataSize = ReadLong7bit(sr);
+            headerInfo.headDataCompressedSize = ReadLong7bit(sr);
+            tDirDiffInfo.checksumByteSize = (byte)ReadLong7bit(sr);
 
             HDiffPatch.Event.PushLog($"[Header::TryReadDirHeaderNumInfo] compressSizeBeginPos: {headerInfo.compressSizeBeginPos} | headDataSize: {headerInfo.headDataSize} | headDataCompressedSize: {headerInfo.headDataCompressedSize} | checksumByteSize: {tDirDiffInfo.checksumByteSize}", Verbosity.Debug);
 

@@ -11,6 +11,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Threading;
 using System.Threading.Tasks;
 using ZstdNet;
+using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -50,10 +51,11 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         internal const int _kSignTagBit = 1;
         internal const int _kByteRleType = 2;
+        internal const int _maxMemBufferLen = 7 << 20;
         internal const int _maxMemBufferLimit = 10 << 20;
         internal const int _maxArrayCopyLen = 1 << 18;
-        internal static int _maxArrayPoolLen = 1 << 20;
-        internal static int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
+        internal const int _maxArrayPoolLen = 1 << 20;
+        internal const int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
 
         internal CancellationToken _token;
         internal long _sizeToBePatched;
@@ -179,7 +181,6 @@ namespace Hi3Helper.SharpHDiffPatch
                 HDiffPatch.Event.PushLog($"[PatchCore::EnumerateCoverHeaders] Enumerate cover counts from buffer with size: {coverSize}", Verbosity.Verbose);
                 byte[] buffer = new byte[coverSize];
                 coverReader.ReadExactly(buffer);
-                ReadOnlySpan<byte> bufferAsRoSpan = buffer;
 
                 int offset = 0;
                 while (coverCount-- > 0)
@@ -187,15 +188,15 @@ namespace Hi3Helper.SharpHDiffPatch
                     long oldPosBack = _oldPosBack;
                     long newPosBack = _newPosBack;
 
-                    byte pSign = bufferAsRoSpan[offset++];
+                    byte pSign = buffer[offset++];
                     long oldPos, copyLength, coverLength;
 
                     byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                    long inc_oldPos = bufferAsRoSpan.ReadLong7bit(ref offset, _kSignTagBit, pSign);
+                    long inc_oldPos = ReadLong7bit(buffer, ref offset, _kSignTagBit, pSign);
                     oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
 
-                    copyLength = bufferAsRoSpan.ReadLong7bit(ref offset);
-                    coverLength = bufferAsRoSpan.ReadLong7bit(ref offset);
+                    copyLength = ReadLong7bit(buffer, ref offset);
+                    coverLength = ReadLong7bit(buffer, ref offset);
                     newPosBack += copyLength;
                     oldPosBack = oldPos;
 
@@ -226,11 +227,11 @@ namespace Hi3Helper.SharpHDiffPatch
                     long oldPos, copyLength, coverLength;
 
                     byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                    long inc_oldPos = coverReader.ReadLong7bit(_kSignTagBit, pSign);
+                    long inc_oldPos = ReadLong7bit(coverReader, _kSignTagBit, pSign);
                     oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
 
-                    copyLength = coverReader.ReadLong7bit();
-                    coverLength = coverReader.ReadLong7bit();
+                    copyLength = ReadLong7bit(coverReader);
+                    coverLength = ReadLong7bit(coverReader);
                     newPosBack += copyLength;
                     oldPosBack = oldPos;
 
@@ -386,7 +387,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 byte pSign = (byte)rleCtrlStream.ReadByte();
                 byte type = (byte)((pSign) >> (8 - _kByteRleType));
-                long length = rleCtrlStream.ReadLong7bit(_kByteRleType, pSign);
+                long length = ReadLong7bit(rleCtrlStream, _kByteRleType, pSign);
                 ++length;
 
                 if (type == 3)

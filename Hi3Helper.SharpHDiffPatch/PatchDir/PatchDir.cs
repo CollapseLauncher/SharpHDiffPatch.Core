@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -293,7 +294,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
             for (long i = 0; i < count; i++)
             {
-                long num = reader.ReadLong7bit();
+                long num = ReadLong7bit(reader);
                 backValue += 1 + num;
                 if (backValue > checkCount) throw new InvalidDataException($"[PatchDir::GetArrayOfIncULongTag] Given back value for the reference list is invalid! Having {i} refs while expecting max: {checkCount}");
 #if DEBUG && SHOWDEBUGINFO
@@ -308,7 +309,7 @@ namespace Hi3Helper.SharpHDiffPatch
             outarray = new long[count];
             for (long i = 0; i < count; i++)
             {
-                long num = reader.ReadLong7bit();
+                long num = ReadLong7bit(reader);
                 outarray[i] = num;
 #if DEBUG && SHOWDEBUGINFO
                 HDiffPatch.Event.PushLog($"[PatchDir::GetArrayOfIncULongTag] value {i} - {count}: {num}", Verbosity.Debug);
@@ -324,13 +325,13 @@ namespace Hi3Helper.SharpHDiffPatch
 
             for (long i = 0; i < pairCount; ++i)
             {
-                long incNewValue = reader.ReadLong7bit();
+                long incNewValue = ReadLong7bit(reader);
 
                 backNewValue += 1 + incNewValue;
                 if (backNewValue > check_endNewValue) throw new InvalidDataException($"[PatchDir::GetArrayOfSamePairULongTag] Given back new value for the list is invalid! Having {backNewValue} value while expecting max: {check_endNewValue}");
 
                 byte pSign = (byte)reader.ReadByte();
-                long incOldValue = reader.ReadLong7bit(1, pSign);
+                long incOldValue = ReadLong7bit(reader, 1, pSign);
 
                 if (pSign >> (8 - 1) == 0)
                     backOldValue += 1 + incOldValue;

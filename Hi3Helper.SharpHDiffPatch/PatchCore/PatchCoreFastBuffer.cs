@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -125,7 +126,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 byte pSign = rleCtrlBuffer[rleCtrlIdx++];
                 byte type = (byte)((pSign) >> (8 - PatchCore._kByteRleType));
-                long length = rleCtrlBuffer.ReadLong7bit(ref rleCtrlIdx, PatchCore._kByteRleType, pSign);
+                long length = ReadLong7bit(rleCtrlBuffer, ref rleCtrlIdx, PatchCore._kByteRleType, pSign);
                 ++length;
 
                 if (type == 3)
