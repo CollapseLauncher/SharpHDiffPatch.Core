@@ -13,4 +13,9 @@
 	  </Content>
 	</ItemGroup>
 
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<Optimize>True</Optimize>
+		<DebugType>portable</DebugType>
+	</PropertyGroup>
+
 </Project>
