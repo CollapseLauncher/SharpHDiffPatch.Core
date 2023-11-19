@@ -7,15 +7,19 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Content Include="Binary\Compression\Zstd\libzstd.dll">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        <TargetPath>Lib\libzstd.dll</TargetPath>
-	  </Content>
+		<Content Include="Binary\Compression\Zstd\libzstd.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<TargetPath>Lib\libzstd.dll</TargetPath>
+		</Content>
 	</ItemGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
 		<Optimize>True</Optimize>
 		<DebugType>portable</DebugType>
+		<TieredPGO>true</TieredPGO>
+		<TieredCompilation>true</TieredCompilation>
+		<TieredCompilationQuickJit>false</TieredCompilationQuickJit>
+		<TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
 	</PropertyGroup>
 
 </Project>
