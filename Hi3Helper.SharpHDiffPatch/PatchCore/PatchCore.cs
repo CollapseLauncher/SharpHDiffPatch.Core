@@ -28,8 +28,6 @@ namespace Hi3Helper.SharpHDiffPatch
         internal long newPos;
         internal long coverLength;
         internal long nextCoverIndex;
-
-        internal RLERefClipStruct[] rleRefStruct;
     }
 
     internal interface IPatchCore
