@@ -11,6 +11,7 @@ using System.Runtime.Intrinsics.X86;
 using System.Threading;
 using System.Threading.Tasks;
 using ZstdNet;
+using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -26,9 +27,7 @@ namespace Hi3Helper.SharpHDiffPatch
         internal long oldPos;
         internal long newPos;
         internal long coverLength;
-        internal int nextCoverIndex;
-
-        internal RLERefClipStruct[] rleRefStruct;
+        internal long nextCoverIndex;
     }
 
     internal interface IPatchCore
@@ -51,10 +50,10 @@ namespace Hi3Helper.SharpHDiffPatch
         internal const int _kSignTagBit = 1;
         internal const int _kByteRleType = 2;
         internal const int _maxMemBufferLen = 7 << 20;
-        internal const int _maxMemBufferLimit = 4 << 20;
+        internal const int _maxMemBufferLimit = 10 << 20;
         internal const int _maxArrayCopyLen = 1 << 18;
-        internal static int _maxArrayPoolLen = 4 << 20;
-        internal static int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
+        internal const int _maxArrayPoolLen = 1 << 20;
+        internal const int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
 
         internal CancellationToken _token;
         internal long _sizeToBePatched;
@@ -63,7 +62,6 @@ namespace Hi3Helper.SharpHDiffPatch
         internal string _pathInput;
         internal string _pathOutput;
         internal TDirPatcher? _dirPatchInfo;
-        internal long _rleCodeOffset;
 
         internal PatchCore(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
         {
@@ -169,43 +167,86 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.newDataSize);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.headInfo.cover_buf_size, hDiffInfo.newDataSize);
 
-        internal IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, int coverCount)
+        internal IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, long coverSize, long coverCount)
         {
             long _oldPosBack = 0,
                  _newPosBack = 0;
 
-            while (coverCount-- > 0)
+            if (coverSize < _maxMemBufferLen)
             {
-                long oldPosBack = _oldPosBack;
-                long newPosBack = _newPosBack;
+                HDiffPatch.Event.PushLog($"[PatchCore::EnumerateCoverHeaders] Enumerate cover counts from buffer with size: {coverSize}", Verbosity.Verbose);
+                byte[] buffer = new byte[coverSize];
+                coverReader.ReadExactly(buffer);
 
-                byte pSign = (byte)coverReader.ReadByte();
-                long oldPos, copyLength, coverLength;
-
-                byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                long inc_oldPos = coverReader.ReadLong7bit(_kSignTagBit, pSign);
-                oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
-
-                copyLength = coverReader.ReadLong7bit();
-                coverLength = coverReader.ReadLong7bit();
-                newPosBack += copyLength;
-                oldPosBack = oldPos;
-
-                oldPosBack += true ? coverLength : 0;
-
-                yield return new CoverHeader
+                int offset = 0;
+                while (coverCount-- > 0)
                 {
-                    oldPos = oldPos,
-                    newPos = newPosBack,
-                    coverLength = coverLength,
-                    nextCoverIndex = coverCount
-                };
-                newPosBack += coverLength;
+                    long oldPosBack = _oldPosBack;
+                    long newPosBack = _newPosBack;
 
-                _oldPosBack = oldPosBack;
-                _newPosBack = newPosBack;
+                    byte pSign = buffer[offset++];
+                    long oldPos, copyLength, coverLength;
+
+                    byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
+                    long inc_oldPos = ReadLong7bit(buffer, ref offset, _kSignTagBit, pSign);
+                    oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
+
+                    copyLength = ReadLong7bit(buffer, ref offset);
+                    coverLength = ReadLong7bit(buffer, ref offset);
+                    newPosBack += copyLength;
+                    oldPosBack = oldPos;
+
+                    oldPosBack += true ? coverLength : 0;
+
+                    yield return new CoverHeader
+                    {
+                        oldPos = oldPos,
+                        newPos = newPosBack,
+                        coverLength = coverLength,
+                        nextCoverIndex = coverCount
+                    };
+                    newPosBack += coverLength;
+
+                    _oldPosBack = oldPosBack;
+                    _newPosBack = newPosBack;
+                }
+            }
+            else
+            {
+                HDiffPatch.Event.PushLog($"[PatchCore::EnumerateCoverHeaders] Enumerate cover counts directly from stream with size: {coverSize}", Verbosity.Verbose);
+                while (coverCount-- > 0)
+                {
+                    long oldPosBack = _oldPosBack;
+                    long newPosBack = _newPosBack;
+
+                    byte pSign = (byte)coverReader.ReadByte();
+                    long oldPos, copyLength, coverLength;
+
+                    byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
+                    long inc_oldPos = ReadLong7bit(coverReader, _kSignTagBit, pSign);
+                    oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
+
+                    copyLength = ReadLong7bit(coverReader);
+                    coverLength = ReadLong7bit(coverReader);
+                    newPosBack += copyLength;
+                    oldPosBack = oldPos;
+
+                    oldPosBack += true ? coverLength : 0;
+
+                    yield return new CoverHeader
+                    {
+                        oldPos = oldPos,
+                        newPos = newPosBack,
+                        coverLength = coverLength,
+                        nextCoverIndex = coverCount
+                    };
+                    newPosBack += coverLength;
+
+                    _oldPosBack = oldPosBack;
+                    _newPosBack = newPosBack;
+                }
             }
         }
 
@@ -223,7 +264,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        private void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long count, long newDataSize)
+        private void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long coverCount, long coverSize, long newDataSize)
         {
             byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolLen);
             MemoryStream cacheOutputStream = new MemoryStream();
@@ -235,7 +276,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 long newPosBack = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
 
-                foreach (CoverHeader cover in EnumerateCoverHeaders(clips[0], (int)count))
+                foreach (CoverHeader cover in EnumerateCoverHeaders(clips[0], coverSize, coverCount))
                 {
                     _token.ThrowIfCancellationRequested();
 
@@ -344,7 +385,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 byte pSign = (byte)rleCtrlStream.ReadByte();
                 byte type = (byte)((pSign) >> (8 - _kByteRleType));
-                long length = rleCtrlStream.ReadLong7bit(_kByteRleType, pSign);
+                long length = ReadLong7bit(rleCtrlStream, _kByteRleType, pSign);
                 ++length;
 
                 if (type == 3)

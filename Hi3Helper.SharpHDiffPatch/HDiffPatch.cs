@@ -148,9 +148,11 @@ namespace Hi3Helper.SharpHDiffPatch
 
         public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false)
         {
-            IPatch patcher = isPatchDir && tDirDiffInfo.isInputDir && tDirDiffInfo.isOutputDir ?
-                new PatchDir(tDirDiffInfo, headerInfo, diffPath, token) :
-                new PatchSingle(singleHDiffInfo, token);
+            IPatch patcher;
+            if (isPatchDir && tDirDiffInfo.isInputDir && tDirDiffInfo.isOutputDir)
+                patcher = new PatchDir(tDirDiffInfo, headerInfo, diffPath, token);
+            else
+                patcher = new PatchSingle(singleHDiffInfo, token);
             patcher.Patch(inputPath, outputPath, useBufferedPatch, useFullBuffer, useFastBuffer);
         }
         #endregion

@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
 {
@@ -40,7 +41,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 _core.RunCopySimilarFilesRoutine();
 
-                cacheOutputStream = new MemoryStream(PatchCore._maxMemBufferLen);
+                cacheOutputStream = new MemoryStream();
                 sharedBuffer = ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset);
 
                 int rleCtrlIdx = 0, rleCodeIdx = 0;
@@ -59,7 +60,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 long newPosBack = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
 
-                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], (int)hDiffInfo.headInfo.coverCount))
+                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], hDiffInfo.headInfo.cover_buf_size, hDiffInfo.headInfo.coverCount))
                 {
                     _core._token.ThrowIfCancellationRequested();
 
@@ -125,7 +126,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 byte pSign = rleCtrlBuffer[rleCtrlIdx++];
                 byte type = (byte)((pSign) >> (8 - PatchCore._kByteRleType));
-                long length = rleCtrlBuffer.ReadLong7bit(ref rleCtrlIdx, PatchCore._kByteRleType, pSign);
+                long length = ReadLong7bit(rleCtrlBuffer, ref rleCtrlIdx, PatchCore._kByteRleType, pSign);
                 ++length;
 
                 if (type == 3)

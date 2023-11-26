@@ -34,11 +34,11 @@ namespace Hi3Helper.SharpHDiffPatch
             return Encoding.UTF8.GetString(StringBuffer, 0, i);
         }
 
-        public static int ReadInt7bit(this Stream reader, int tagBit = 0, byte prevTagBit = 0)
+        public static int ReadInt7bit(Stream inputStream, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
 
-            byte code = isUseTagBit ? prevTagBit : (byte)reader.ReadByte();
+            byte code = isUseTagBit ? prevTagBit : (byte)inputStream.ReadByte();
             int value = code & ((1 << (7 - tagBit)) - 1);
 
             if ((code & (1 << (7 - tagBit))) != 0)
@@ -46,7 +46,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 do
                 {
                     if ((value >> (4 * 4 - 7)) != 0) return 0;
-                    code = (byte)reader.ReadByte();
+                    code = (byte)inputStream.ReadByte();
                     value = (value << 7) | (code & ((1 << 7) - 1));
                 }
                 while ((code & (1 << 7)) != 0);
@@ -54,11 +54,11 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-        public static long ReadLong7bit(this Stream reader, int tagBit = 0, byte prevTagBit = 0)
+        public static long ReadLong7bit(Stream inputStream, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
 
-            byte code = isUseTagBit ? prevTagBit : (byte)reader.ReadByte();
+            byte code = isUseTagBit ? prevTagBit : (byte)inputStream.ReadByte();
             long value = code & ((1 << (7 - tagBit)) - 1);
 
             if ((code & (1 << (7 - tagBit))) != 0)
@@ -66,7 +66,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 do
                 {
                     if ((value >> (8 * 8 - 7)) != 0) return 0;
-                    code = (byte)reader.ReadByte();
+                    code = (byte)inputStream.ReadByte();
                     value = (value << 7) | (code & (((long)1 << 7) - 1));
                 }
                 while ((code & (1 << 7)) != 0);
@@ -74,11 +74,11 @@ namespace Hi3Helper.SharpHDiffPatch
             return value;
         }
 
-        public static long ReadLong7bit(this ReadOnlySpan<byte> buffer, ref int offset, int tagBit = 0, byte prevTagBit = 0)
+        public static long ReadLong7bit(ReadOnlySpan<byte> inputBuffer, ref int offset, int tagBit = 0, byte prevTagBit = 0)
         {
             bool isUseTagBit = tagBit != 0;
 
-            byte code = isUseTagBit ? prevTagBit : buffer[offset++];
+            byte code = isUseTagBit ? prevTagBit : inputBuffer[offset++];
             long value = code & ((1 << (7 - tagBit)) - 1);
 
             if ((code & (1 << (7 - tagBit))) != 0)
@@ -86,7 +86,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 do
                 {
                     if ((value >> (8 * 8 - 7)) != 0) return 0;
-                    code = buffer[offset++];
+                    code = inputBuffer[offset++];
                     value = (value << 7) | (code & (((long)1 << 7) - 1));
                 }
                 while ((code & (1 << 7)) != 0);

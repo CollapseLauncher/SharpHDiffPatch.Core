@@ -9,7 +9,6 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         private HDiffInfo hDiffInfo;
         private Func<Stream> spawnPatchStream;
-        private IPatchCore patchCore;
         private CancellationToken token;
 
         private bool isUseBufferedPatch = false;
@@ -38,14 +37,17 @@ namespace Hi3Helper.SharpHDiffPatch
                 HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Existing old file size: {inputStream.Length} is matched!", Verbosity.Verbose);
                 HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Staring patching routine at position: {hDiffInfo.headInfo.headEndPos}", Verbosity.Verbose);
 
-                this.patchCore = isUseFastBuffer && isUseBufferedPatch ? new PatchCoreFastBuffer(token, hDiffInfo.newDataSize, Stopwatch.StartNew(), input, output) :
-                                                   new PatchCore(token, hDiffInfo.newDataSize, Stopwatch.StartNew(), input, output);
-                HDiffPatch.DisplayDirPatchInformation(inputStream.Length, hDiffInfo.newDataSize, hDiffInfo.headInfo);
-                StartPatchRoutine(inputStream, outputStream);
+                IPatchCore patchCore = null;
+                if (isUseFastBuffer && isUseBufferedPatch)
+                    patchCore = new PatchCoreFastBuffer(token, hDiffInfo.newDataSize, Stopwatch.StartNew(), input, output);
+                else
+                    patchCore = new PatchCore(token, hDiffInfo.newDataSize, Stopwatch.StartNew(), input, output);
+
+                StartPatchRoutine(inputStream, outputStream, patchCore);
             }
         }
 
-        private void StartPatchRoutine(Stream inputStream, Stream outputStream)
+        private void StartPatchRoutine(Stream inputStream, Stream outputStream, IPatchCore patchCore)
         {
             bool isCompressed = hDiffInfo.compMode != CompressionMode.nocomp;
 

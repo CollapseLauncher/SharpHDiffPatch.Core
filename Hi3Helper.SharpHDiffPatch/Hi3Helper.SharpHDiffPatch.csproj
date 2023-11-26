@@ -1,16 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net6.0;net7.0</TargetFrameworks>
+		<TargetFrameworks>net8.0</TargetFrameworks>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Platforms>x64;x86;ARM64</Platforms>
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <Content Include="Binary\Compression\Zstd\libzstd.dll">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        <TargetPath>Lib\libzstd.dll</TargetPath>
-	  </Content>
+		<Content Include="Binary\Compression\Zstd\libzstd.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<TargetPath>Lib\libzstd.dll</TargetPath>
+		</Content>
 	</ItemGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<Optimize>True</Optimize>
+		<DebugType>portable</DebugType>
+		<TieredPGO>true</TieredPGO>
+		<TieredCompilation>true</TieredCompilation>
+		<TieredCompilationQuickJit>false</TieredCompilationQuickJit>
+		<TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
+	</PropertyGroup>
 
 </Project>
