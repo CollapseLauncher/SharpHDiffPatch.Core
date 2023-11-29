@@ -367,8 +367,11 @@ public sealed class CBZip2InputStream : Stream
 
     private void BsFinishedWithStream()
     {
-        bsStream?.Dispose();
-        bsStream = null;
+        if (!isLeaveOpen)
+        {
+            bsStream?.Dispose();
+            bsStream = null;
+        }
     }
 
     private void BsSetStream(Stream f)

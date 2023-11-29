@@ -138,8 +138,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
                 }), 0),
                 CompressionMode.zlib => new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true),
-                CompressionMode.bz2 => new CBZip2InputStream(rawStream, false),
-                CompressionMode.pbz2 => new CBZip2InputStream(rawStream, true),
+                CompressionMode.bz2 => new CBZip2InputStream(rawStream, false, true),
+                CompressionMode.pbz2 => new CBZip2InputStream(rawStream, true, true),
                 _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
             };
         }
