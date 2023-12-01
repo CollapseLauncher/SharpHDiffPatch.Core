@@ -25,11 +25,31 @@ namespace Hi3Helper.SharpHDiffPatch
         fadler64
     }
 
-    public class HDiffHeaderInfo
+    public struct HeaderInfo
     {
         public CompressionMode compMode;
         public ChecksumMode checksumMode;
 
+        public bool isInputDir;
+        public bool isOutputDir;
+        public bool isSingleCompressedDiff;
+        public string patchPath;
+        public string headerMagic;
+
+        public long stepMemSize;
+
+        public bool dirDataIsCompressed;
+
+        public long oldDataSize;
+        public long newDataSize;
+        public long compressedCount;
+
+        public DiffSingleChunkInfo singleChunkInfo;
+        public DiffChunkInfo chunkInfo;
+    }
+
+    public struct DataReferenceInfo
+    {
         public long inputDirCount;
         public long inputRefFileCount;
         public long inputRefFileSize;
@@ -49,7 +69,13 @@ namespace Hi3Helper.SharpHDiffPatch
         public long privateExternDataSize;
         public long privateExternDataOffset;
 
+        public long externDataOffset;
+        public long externDataSize;
+
         public long compressSizeBeginPos;
+
+        public byte checksumByteSize;
+        public long checksumOffset;
 
         public long headDataSize;
         public long headDataOffset;
@@ -59,41 +85,15 @@ namespace Hi3Helper.SharpHDiffPatch
         public long hdiffDataSize;
     }
 
-    public class DirectoryHDiffInfo
+    public struct DiffSingleChunkInfo
     {
-        public bool isInputDir;
-        public bool isOutputDir;
-        public bool isSingleCompressedDiff;
+        public long uncompressedSize;
+        public long compressedSize;
 
-        public long externDataOffset;
-        public long externDataSize;
-
-        public byte checksumByteSize;
-        public long checksumOffset;
-
-        public bool dirDataIsCompressed;
-
-        public long oldDataSize;
-        public long newDataSize;
-        public long compressedCount;
-
-        public HDiffInfo hdiffinfo;
+        public long diffDataPos;
     }
 
-    public class HDiffInfo
-    {
-        public CompressionMode compMode;
-        public string patchPath;
-        public string headerMagic;
-        public long stepMemSize;
-        public long compressedCount;
-        public long oldDataSize;
-        public long newDataSize;
-
-        public HDiffDataInfo headInfo;
-    }
-
-    public class HDiffDataInfo
+    public struct DiffChunkInfo
     {
         public long typesEndPos;
         public long coverCount;
@@ -112,9 +112,8 @@ namespace Hi3Helper.SharpHDiffPatch
 
     public sealed partial class HDiffPatch
     {
-        private HDiffInfo singleHDiffInfo { get; set; }
-        private DirectoryHDiffInfo tDirDiffInfo { get; set; }
-        private HDiffHeaderInfo headerInfo { get; set; }
+        private HeaderInfo headerInfo { get; set; }
+        private DataReferenceInfo referenceInfo { get; set; }
         private Stream diffStream { get; set; }
         private string diffPath { get; set; }
         private bool isPatchDir { get; set; }
@@ -138,33 +137,38 @@ namespace Hi3Helper.SharpHDiffPatch
 
             using (diffStream = new FileStream(diff, FileMode.Open, FileAccess.Read))
             {
-                isPatchDir = Header.TryParseHeaderInfo(diffStream, diffPath, out DirectoryHDiffInfo _tDirDiffInfo, out HDiffInfo _singleHDiffInfo, out HDiffHeaderInfo _headerInfo);
+                isPatchDir = Header.TryParseHeaderInfo(diffStream, diffPath, out HeaderInfo headerInfo, out DataReferenceInfo referenceInfo);
 
-                headerInfo = _headerInfo;
-                singleHDiffInfo = _singleHDiffInfo;
-                tDirDiffInfo = _tDirDiffInfo;
+                this.headerInfo = headerInfo;
+                this.referenceInfo = referenceInfo;
             }
         }
 
         public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false)
         {
-            IPatch patcher;
-            if (isPatchDir && tDirDiffInfo.isInputDir && tDirDiffInfo.isOutputDir)
-                patcher = new PatchDir(tDirDiffInfo, headerInfo, diffPath, token);
-            else
-                patcher = new PatchSingle(singleHDiffInfo, token);
+            IPatch patcher = isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir ?
+                new PatchDir(headerInfo, referenceInfo, diffPath, token) :
+                new PatchSingle(headerInfo, token);
             patcher.Patch(inputPath, outputPath, useBufferedPatch, useFullBuffer, useFastBuffer);
         }
         #endregion
 
-        internal static void DisplayDirPatchInformation(long oldFileSize, long newFileSize, HDiffDataInfo dataInfo)
+        internal static void DisplayDirPatchInformation(long oldFileSize, long newFileSize, HeaderInfo headerInfo)
         {
             Event.PushLog("Patch Information:");
             Event.PushLog($"    Size -> Old: {oldFileSize} bytes | New: {newFileSize} bytes");
             Event.PushLog("Technical Information:");
-            Event.PushLog($"    Cover Data -> Count: {dataInfo.coverCount} | Offset: {dataInfo.headEndPos} | Size: {dataInfo.cover_buf_size}");
-            Event.PushLog($"    RLE Data -> Offset: {dataInfo.coverEndPos} | Control: {dataInfo.rle_ctrlBuf_size} | Code: {dataInfo.rle_codeBuf_size}");
-            Event.PushLog($"    Diff Data -> Size: {dataInfo.newDataDiff_size}");
+            if (!headerInfo.isSingleCompressedDiff)
+            {
+                Event.PushLog($"    Cover Data -> Count: {headerInfo.chunkInfo.coverCount} | Offset: {headerInfo.chunkInfo.headEndPos} | Size: {headerInfo.chunkInfo.cover_buf_size}");
+                Event.PushLog($"    RLE Data -> Offset: {headerInfo.chunkInfo.coverEndPos} | Control: {headerInfo.chunkInfo.rle_ctrlBuf_size} | Code: {headerInfo.chunkInfo.rle_codeBuf_size}");
+                Event.PushLog($"    Diff Data -> Size: {headerInfo.chunkInfo.newDataDiff_size}");
+            }
+            else
+            {
+                Event.PushLog($"    Cover Data -> Count: {headerInfo.chunkInfo.coverCount} | DiffDataPos: {headerInfo.singleChunkInfo.diffDataPos}");
+                Event.PushLog($"    RLE Data -> Compressed Size: {headerInfo.singleChunkInfo.compressedSize} | Size: {headerInfo.singleChunkInfo.uncompressedSize}");
+            }
         }
 
         internal static void UpdateEvent(long read, ref long currentSizePatched, ref long totalSizePatched, Stopwatch patchStopwatch)
@@ -179,8 +183,8 @@ namespace Hi3Helper.SharpHDiffPatch
         public static long GetHDiffNewSize(string path)
         {
             using FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-            bool isDirPatch = Header.TryParseHeaderInfo(fs, path, out DirectoryHDiffInfo _tDirDiffInfo, out HDiffInfo _singleHDiffInfo, out HDiffHeaderInfo _headerInfo);
-            return (isDirPatch ? _tDirDiffInfo.newDataSize : _singleHDiffInfo.newDataSize);
+            bool isDirPatch = Header.TryParseHeaderInfo(fs, path, out HeaderInfo headerInfo, out DataReferenceInfo _headerInfo);
+            return headerInfo.newDataSize;
         }
     }
 

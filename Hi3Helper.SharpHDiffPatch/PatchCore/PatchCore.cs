@@ -32,14 +32,14 @@ namespace Hi3Helper.SharpHDiffPatch
 
     internal interface IPatchCore
     {
-        void SetTDirPatcher(TDirPatcher input);
+        void SetDirectoryReferencePair(DirectoryReferencePair pair);
 
         void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0);
 
         void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
             long length, long compLength, out long outLength, bool isBuffered);
 
-        void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo);
+        void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo);
 
         Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed);
@@ -61,7 +61,7 @@ namespace Hi3Helper.SharpHDiffPatch
         internal Stopwatch _stopwatch;
         internal string _pathInput;
         internal string _pathOutput;
-        internal TDirPatcher? _dirPatchInfo;
+        internal DirectoryReferencePair? _dirReferencePair;
 
         internal PatchCore(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
         {
@@ -73,7 +73,7 @@ namespace Hi3Helper.SharpHDiffPatch
             _pathOutput = outputPath;
         }
 
-        public void SetTDirPatcher(TDirPatcher input) => _dirPatchInfo = input;
+        public void SetDirectoryReferencePair(DirectoryReferencePair pair) => _dirReferencePair = pair;
         public void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0)
         {
             _sizeToBePatched = sizeToBePatched;
@@ -167,7 +167,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, hDiffInfo.headInfo.coverCount, hDiffInfo.headInfo.cover_buf_size, hDiffInfo.newDataSize);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, headerInfo.chunkInfo.coverCount, headerInfo.chunkInfo.cover_buf_size, headerInfo.newDataSize);
 
         internal IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, long coverSize, long coverCount)
         {
@@ -252,10 +252,10 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal void RunCopySimilarFilesRoutine()
         {
-            if (_dirPatchInfo.HasValue)
+            if (_dirReferencePair.HasValue)
             {
                 HDiffPatch.Event.PushLog("Start copying similar data");
-                CopyOldSimilarToNewFiles(_dirPatchInfo.Value);
+                CopyOldSimilarToNewFiles(_dirReferencePair.Value);
 
                 TimeSpan timeTaken = _stopwatch.Elapsed;
                 HDiffPatch.Event.PushLog($"Copying similar data has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
@@ -489,7 +489,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal static ref string NewPathByIndex(string[] source, long index) => ref source[index];
 
-        private void CopyOldSimilarToNewFiles(TDirPatcher dirData)
+        private void CopyOldSimilarToNewFiles(DirectoryReferencePair dirData)
         {
             int _curNewRefIndex = 0;
             int _curPathIndex = 0;

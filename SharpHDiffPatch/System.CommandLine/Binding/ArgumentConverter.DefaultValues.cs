@@ -69,6 +69,8 @@ internal static partial class ArgumentConverter
 
     [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2067:UnrecognizedReflectionPattern",
                                   Justification = $"{nameof(CreateDefaultValueType)} is only called on a ValueType. You can always create an instance of a ValueType.")]
+#pragma warning disable SYSLIB0050 // Type or member is obsolete
     private static object CreateDefaultValueType(Type type) =>
         FormatterServices.GetUninitializedObject(type);
+#pragma warning restore SYSLIB0050 // Type or member is obsolete
 }

@@ -16,7 +16,7 @@ namespace Hi3Helper.SharpHDiffPatch
             _core = new PatchCore(token, sizeToBePatched, stopwatch, inputPath, outputPath);
         }
 
-        public void SetTDirPatcher(TDirPatcher input) => _core.SetTDirPatcher(input);
+        public void SetDirectoryReferencePair(DirectoryReferencePair pair) => _core.SetDirectoryReferencePair(pair);
 
         public void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0) => _core.SetSizeToBePatched(sizeToBePatched, sizeToPatch);
 
@@ -28,14 +28,14 @@ namespace Hi3Helper.SharpHDiffPatch
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed) =>
             _core.GetBufferStreamFromOffset(compMode, sourceStream, start, length, compLength, out outLength, isBuffered, isFastBufferUsed);
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo) => WriteCoverStreamToOutputFast(clips, inputStream, outputStream, hDiffInfo);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutputFast(clips, inputStream, outputStream, headerInfo);
 
-        private void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HDiffInfo hDiffInfo)
+        private void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
             byte[] sharedBuffer = null;
             byte[] rleCtrlBuffer = null;
             MemoryStream cacheOutputStream = null;
-            bool isCtrlUseArrayPool = hDiffInfo.headInfo.rle_ctrlBuf_size <= PatchCore._maxArrayPoolSecondOffset;
+            bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= PatchCore._maxArrayPoolSecondOffset;
 
             try
             {
@@ -45,22 +45,22 @@ namespace Hi3Helper.SharpHDiffPatch
                 sharedBuffer = ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset);
 
                 int rleCtrlIdx = 0, rleCodeIdx = 0;
-                rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset) : new byte[hDiffInfo.headInfo.rle_ctrlBuf_size];
-                byte[] rleCodeBuffer = new byte[hDiffInfo.headInfo.rle_codeBuf_size];
+                rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset) : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+                byte[] rleCodeBuffer = new byte[headerInfo.chunkInfo.rle_codeBuf_size];
 
                 using (clips[1])
                 using (clips[2])
                 {
                     HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Ctrl clip to {(isCtrlUseArrayPool ? "ArrayPool" : "heap buffer")}");
-                    clips[1].ReadExactly(rleCtrlBuffer, 0, (int)hDiffInfo.headInfo.rle_ctrlBuf_size);
+                    clips[1].ReadExactly(rleCtrlBuffer, 0, (int)headerInfo.chunkInfo.rle_ctrlBuf_size);
                     HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Code clip to heap buffer");
-                    clips[2].ReadExactly(rleCodeBuffer, 0, (int)hDiffInfo.headInfo.rle_codeBuf_size);
+                    clips[2].ReadExactly(rleCodeBuffer, 0, (int)headerInfo.chunkInfo.rle_codeBuf_size);
                 }
 
                 long newPosBack = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
 
-                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], hDiffInfo.headInfo.cover_buf_size, hDiffInfo.headInfo.coverCount))
+                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount))
                 {
                     _core._token.ThrowIfCancellationRequested();
 
@@ -80,9 +80,9 @@ namespace Hi3Helper.SharpHDiffPatch
                         _core.WriteInMemoryOutputToStream(cacheOutputStream, outputStream, cover);
                 }
 
-                if (newPosBack < hDiffInfo.newDataSize)
+                if (newPosBack < headerInfo.newDataSize)
                 {
-                    long copyLength = hDiffInfo.newDataSize - newPosBack;
+                    long copyLength = headerInfo.newDataSize - newPosBack;
                     _core.TBytesCopyStreamFromOldClip(outputStream, clips[3], copyLength, sharedBuffer);
                     TBytesDetermineRleType(ref rleStruct, outputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
                     HDiffPatch.UpdateEvent(copyLength, ref _core._sizePatched, ref _core._sizeToBePatched, _core._stopwatch);

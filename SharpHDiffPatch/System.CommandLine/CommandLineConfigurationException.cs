@@ -15,19 +15,4 @@ public class CommandLineConfigurationException : Exception
     public CommandLineConfigurationException(string message) : base(message)
     {
     }
-
-    /// <inheritdoc />
-    public CommandLineConfigurationException()
-    {
-    }
-
-    /// <inheritdoc />
-    protected CommandLineConfigurationException(SerializationInfo info, StreamingContext context) : base(info, context)
-    {
-    }
-
-    /// <inheritdoc />
-    public CommandLineConfigurationException(string message, Exception innerException) : base(message, innerException)
-    {
-    }
 }
