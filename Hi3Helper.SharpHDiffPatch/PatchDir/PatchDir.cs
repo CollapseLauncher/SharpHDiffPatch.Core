@@ -67,8 +67,10 @@ namespace Hi3Helper.SharpHDiffPatch
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {referenceInfo.headDataSize} bytes ({referenceInfo.headDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
 
                 IPatchCore patchCore = null;
-                if (this.useFastBuffer && this.useBufferedPatch)
+                if (this.useFastBuffer && this.useBufferedPatch && !headerInfo.isSingleCompressedDiff)
                     patchCore = new PatchCoreFastBuffer(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+                else if (headerInfo.isSingleCompressedDiff)
+                    patchCore = new PatchCoreSingleCompress(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
                 else
                     patchCore = new PatchCore(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
 
@@ -180,7 +182,13 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 if (headerInfo.isSingleCompressedDiff)
                 {
+                    sourceClips[0].Position += referenceInfo.hdiffDataOffset + headerInfo.singleChunkInfo.diffDataPos;
+                    int coverPadding = headerInfo.singleChunkInfo.compressedSize > 0 ? padding : 0;
+                    offset += headerInfo.singleChunkInfo.diffDataPos;
 
+                    clips[0] = patchCore.GetBufferStreamFromOffset(headerInfo.compMode, sourceClips[0], offset + coverPadding,
+                        headerInfo.singleChunkInfo.uncompressedSize, headerInfo.singleChunkInfo.compressedSize, out long nextLength,
+                        this.useBufferedPatch, false);
                 }
                 else
                 {
@@ -204,8 +212,8 @@ namespace Hi3Helper.SharpHDiffPatch
                         headerInfo.chunkInfo.newDataDiff_size, headerInfo.chunkInfo.compress_newDataDiff_size - padding, out _, this.useBufferedPatch && this.useFullBuffer, false);
 
                     headerInfo.newDataSize = newDataSize;
-                    patchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, headerInfo);
                 }
+                patchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, headerInfo);
             }
             catch
             {
