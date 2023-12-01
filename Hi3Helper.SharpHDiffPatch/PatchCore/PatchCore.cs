@@ -52,7 +52,7 @@ namespace Hi3Helper.SharpHDiffPatch
         internal const int _maxMemBufferLen = 7 << 20;
         internal const int _maxMemBufferLimit = 10 << 20;
         internal const int _maxArrayCopyLen = 1 << 18;
-        internal const int _maxArrayPoolLen = 1 << 20;
+        internal const int _maxArrayPoolLen = 4 << 20;
         internal const int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
 
         internal CancellationToken _token;
@@ -463,17 +463,20 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
         {
-            int offset;
-            long offsetRemained = decodeStep % Vector128<byte>.Count;
-            for (offset = 0; offset < decodeStep - offsetRemained; offset += Vector128<byte>.Count)
+            int offset = 0;
+            if (Sse2.IsSupported && decodeStep > Vector128<byte>.Count)
             {
-                Vector128<byte> rleVector = Sse2.LoadVector128(rlePtr + offset);
-                Vector128<byte> oldVector = Sse2.LoadVector128(oldPtr + offset);
-                Vector128<byte> resultVector = Sse2.Add(rleVector, oldVector);
+                long offsetRemained = decodeStep % Vector128<byte>.Count;
+                do
+                {
+                    Vector128<byte>* rleVector = (Vector128<byte>*)(rlePtr + offset);
+                    Vector128<byte>* oldVector = (Vector128<byte>*)(oldPtr + offset);
+                    Vector128<byte> resultVector = Sse2.Add(*rleVector, *oldVector);
 
-                Sse2.Store(rlePtr + offset, resultVector);
+                    Sse2.Store(rlePtr + offset, resultVector);
+                    offset += Vector128<byte>.Count;
+                } while (offset < decodeStep - offsetRemained);
             }
-
             while (offset < decodeStep) *(rlePtr + offset) += *(oldPtr + offset++);
 
             outCache.Write(rleBuffer, rleBufferIdx, decodeStep);
