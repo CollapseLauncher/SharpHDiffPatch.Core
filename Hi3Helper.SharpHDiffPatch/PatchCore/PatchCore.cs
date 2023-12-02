@@ -446,8 +446,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     long lastPos = outCache.Position;
                     outCache.Read(sharedBuffer, 0, length);
                     outCache.Position = lastPos;
-
-                    while (length-- > 0) sharedBuffer[length] += rleLoader.memSetValue;
+                    do sharedBuffer[--length] += rleLoader.memSetValue; while (length > 0);
 
                     outCache.Write(sharedBuffer, 0, (int)memSetStep);
                 }
@@ -477,8 +476,15 @@ namespace Hi3Helper.SharpHDiffPatch
                     offset += Vector128<byte>.Count;
                 } while (offset < decodeStep - offsetRemained);
             }
-            while (offset < decodeStep) *(rlePtr + offset) += *(oldPtr + offset++);
 
+        AddRemainsVectorRLE:
+            {
+                if (decodeStep == offset) goto WriteAllVectorRLE;
+                *(rlePtr + offset) += *(oldPtr + offset++);
+                goto AddRemainsVectorRLE;
+            }
+
+        WriteAllVectorRLE:
             outCache.Write(rleBuffer, rleBufferIdx, decodeStep);
 
             rleLoader.memCopyLength -= decodeStep;

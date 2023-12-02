@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "E:\\Intel\\BH3_v6.8.0_fe00767f5f60 E:\\Intel\\Hi3CN_6.8.0_6.9.0_zstd_d09f54ae2822_9D62742233D6BD846236F27DE767AF77.patch E:\\Intel\\new -b partial -B"
+      "commandLineArgs": "C:\\CollapseData\\Banks0.pck C:\\CollapseData\\Banks0.pck.hdiff C:\\CollapseData\\Banks0.pck.new2 -B -b partial -l Quiet"
     }
   }
 }

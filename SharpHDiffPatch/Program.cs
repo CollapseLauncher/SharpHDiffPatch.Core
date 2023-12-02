@@ -2,6 +2,7 @@
 using System;
 using System.CommandLine;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SharpHDiffPatchBin
@@ -63,9 +64,24 @@ Buffers all clips into memory. This option is the fastest but it requires more m
                         EventListener.LoggerEvent += EventListener_LoggerEvent;
                         EventListener.PatchEvent += EventListener_PatchEvent;
                     }
-                    patcher.Initialize(patchPath);
-                    RefreshStopwatch?.Restart();
-                    patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer);
+#if BENCHMARK
+                    int repeat = 50;
+                    double[] num = new double[repeat];
+                    for (int i = 0; i < num.Length; i++)
+                    {
+#endif
+                        patcher.Initialize(patchPath);
+#if !BENCHMARK
+                        RefreshStopwatch?.Restart();
+#endif
+                        patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer);
+#if BENCHMARK
+                        num[i] = RefreshStopwatch?.Elapsed.TotalMilliseconds ?? 0;
+                        RefreshStopwatch?.Restart();
+                    }
+
+                    Console.WriteLine($"Runtime: {num.Average()} ms");
+#endif
                 }
                 catch (Exception ex)
                 {

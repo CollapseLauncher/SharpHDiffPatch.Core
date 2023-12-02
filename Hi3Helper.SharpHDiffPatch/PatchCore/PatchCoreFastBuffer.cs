@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -59,9 +60,11 @@ namespace Hi3Helper.SharpHDiffPatch
 
                 long newPosBack = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
-
-                foreach (CoverHeader cover in _core.EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount))
+                IEnumerator coverEnumerator = _core.EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount)
+                    .GetEnumerator();
+                while (coverEnumerator.MoveNext())
                 {
+                    CoverHeader cover = (CoverHeader)coverEnumerator.Current;
                     _core._token.ThrowIfCancellationRequested();
 
                     if (newPosBack < cover.newPos)
