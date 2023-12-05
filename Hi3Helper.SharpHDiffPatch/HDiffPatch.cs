@@ -12,6 +12,7 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         nocomp,
         zstd,
+        lzma,
         lzma2,
         zlib,
         bz2,

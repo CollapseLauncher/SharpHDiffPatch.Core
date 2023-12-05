@@ -1,4 +1,5 @@
-﻿using SharpCompress.Compressors.BZip2;
+﻿using master._7zip.Legacy;
+using SharpCompress.Compressors.BZip2;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -140,8 +141,37 @@ namespace Hi3Helper.SharpHDiffPatch
                 CompressionMode.zlib => new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true),
                 CompressionMode.bz2 => new CBZip2InputStream(rawStream, false, true),
                 CompressionMode.pbz2 => new CBZip2InputStream(rawStream, true, true),
+                CompressionMode.lzma => CreateLzmaStream(rawStream),
+                CompressionMode.lzma2 => CreateLzmaStream(rawStream),
                 _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
             };
+        }
+
+        private Stream CreateLzmaStream(Stream rawStream)
+        {
+            int propLen = rawStream.ReadByte();
+
+            if (propLen != 5)
+            {
+                uint dicSize = propLen == 40 ? 0xFFFFFFFF : (uint)(((uint)2 | ((propLen) & 1)) << ((propLen) / 2 + 11));
+                byte[] props = new byte[5]
+                {
+                    4,
+                    (byte)dicSize,
+                    (byte)(dicSize >> 8),
+                    (byte)(dicSize >> 16),
+                    (byte)(dicSize >> 24)
+                };
+
+                return new Lzma2DecoderStream(rawStream, (byte)propLen, long.MaxValue);
+            }
+            else
+            {
+                byte[] props = new byte[propLen];
+                rawStream.Read(props);
+
+                return new LzmaDecoderStream(rawStream, props, long.MaxValue);
+            }
         }
 
         private MemoryStream CreateAndCopyToMemoryStream(Stream source)

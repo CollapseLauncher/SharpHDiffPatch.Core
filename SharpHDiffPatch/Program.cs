@@ -65,22 +65,45 @@ Buffers all clips into memory. This option is the fastest but it requires more m
                         EventListener.PatchEvent += EventListener_PatchEvent;
                     }
 #if BENCHMARK
-                    int repeat = 50;
-                    double[] num = new double[repeat];
-                    for (int i = 0; i < num.Length; i++)
+                    Stopwatch benchmarkSw = Stopwatch.StartNew();
+                    double[] warmUpAvgs = new double[5];
+                    Console.WriteLine($"Warming up {warmUpAvgs.Length} runtime attempts!");
+                    for (int h = 0; h < warmUpAvgs.Length; h++)
                     {
-#endif
                         patcher.Initialize(patchPath);
-#if !BENCHMARK
-                        RefreshStopwatch?.Restart();
-#endif
                         patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer);
-#if BENCHMARK
-                        num[i] = RefreshStopwatch?.Elapsed.TotalMilliseconds ?? 0;
-                        RefreshStopwatch?.Restart();
+                        warmUpAvgs[h] = benchmarkSw?.Elapsed.TotalMilliseconds ?? 0;
+                        benchmarkSw?.Restart();
+                        Console.WriteLine($"  Starting warm-up {h + 1}: {warmUpAvgs[h]} ms");
                     }
+                    Console.WriteLine($"Finished warming up runtime attempts in: {warmUpAvgs.Average()} ms");
 
-                    Console.WriteLine($"Runtime: {num.Average()} ms");
+                    double[] numAvgs = new double[5];
+                    Console.WriteLine($"Starting all {numAvgs.Length} runtime attempts!");
+                    for (int h = 0; h < numAvgs.Length; h++)
+                    {
+                        Console.WriteLine($"  Starting Attempt {h + 1}: {numAvgs[h]} ms");
+                        int repeat = 20;
+                        double[] num = new double[repeat];
+                        benchmarkSw?.Restart();
+                        for (int i = 0; i < num.Length; i++)
+                        {
+#endif
+                            patcher.Initialize(patchPath);
+#if !BENCHMARK
+                            RefreshStopwatch?.Restart();
+#endif
+                            patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer);
+#if BENCHMARK
+                            num[i] = benchmarkSw?.Elapsed.TotalMilliseconds ?? 0;
+                            benchmarkSw?.Restart();
+                            Console.WriteLine($"    Finished on run {i + 1} - {repeat} Attempt {h + 1}: {num[i]} ms");
+                        }
+
+                        numAvgs[h] = num.Average();
+                        Console.WriteLine($"  Runtime Attempt {h + 1}: {numAvgs[h]} ms");
+                    }
+                    Console.WriteLine($"Average all {numAvgs.Length} runtime attempt: {numAvgs.Average()} ms");
 #endif
                 }
                 catch (Exception ex)
