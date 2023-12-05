@@ -11,13 +11,6 @@
         {
             return new P<T>(buffer, offset);
         }
-
-#if BUILD_TESTING
-        public static P<byte> From(Testing.PZ p)
-        {
-            return From(p.Buffer, p.Offset);
-        }
-#endif
     }
 
     internal struct P<T>
@@ -66,31 +59,26 @@
 
         public static bool operator <(P<T> left, P<T> right)
         {
-            CUtils.Assert(left.mBuffer == right.mBuffer);
             return left.mOffset < right.mOffset;
         }
 
         public static bool operator <=(P<T> left, P<T> right)
         {
-            CUtils.Assert(left.mBuffer == right.mBuffer);
             return left.mOffset <= right.mOffset;
         }
 
         public static bool operator >(P<T> left, P<T> right)
         {
-            CUtils.Assert(left.mBuffer == right.mBuffer);
             return left.mOffset > right.mOffset;
         }
 
         public static bool operator >=(P<T> left, P<T> right)
         {
-            CUtils.Assert(left.mBuffer == right.mBuffer);
             return left.mOffset >= right.mOffset;
         }
 
         public static int operator -(P<T> left, P<T> right)
         {
-            CUtils.Assert(left.mBuffer == right.mBuffer);
             return left.mOffset - right.mOffset;
         }
 

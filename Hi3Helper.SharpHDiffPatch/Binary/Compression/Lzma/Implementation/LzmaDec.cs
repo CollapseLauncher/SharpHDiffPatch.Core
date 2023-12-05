@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace ManagedLzma.LZMA.Master
 {
@@ -467,7 +464,7 @@ namespace ManagedLzma.LZMA.Master
                 long outSize = destLen;
                 long inSize = srcLen;
                 srcLen = destLen = 0;
-                for (;;)
+                for (; ; )
                 {
                     long inSizeCur = inSize;
 

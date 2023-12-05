@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ManagedLzma.LZMA.Master
+﻿namespace ManagedLzma.LZMA.Master
 {
     internal static class CRCUtils
     {

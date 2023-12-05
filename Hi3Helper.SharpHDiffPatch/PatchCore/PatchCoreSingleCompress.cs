@@ -247,7 +247,6 @@ namespace Hi3Helper.SharpHDiffPatch
             try
             {
                 RunCopySimilarFilesRoutine();
-                long copyLength = 0;
                 ref Stream singleClip = ref clips[0];
                 MemoryStream cacheOutputStream = new MemoryStream();
 

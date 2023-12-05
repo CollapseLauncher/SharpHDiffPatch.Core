@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace ManagedLzma.LZMA.Master
+﻿namespace ManagedLzma.LZMA.Master
 {
     partial class LZMA
     {
+        public const int LZMA_PROPS_SIZE = 5;
         public sealed class CLzma2Dec
         {
             #region Constants
@@ -194,11 +190,6 @@ namespace ManagedLzma.LZMA.Master
                 mDecoder.LzmaDec_FreeProbs(alloc);
             }
 
-            public void Lzma2Dec_Free(ISzAlloc alloc)
-            {
-                mDecoder.LzmaDec_Free(alloc);
-            }
-
             public SRes Lzma2Dec_AllocateProbs(byte prop, ISzAlloc alloc)
             {
                 byte[] props = new byte[LZMA_PROPS_SIZE];
@@ -371,98 +362,6 @@ namespace ManagedLzma.LZMA.Master
                 status = ELzmaStatus.LZMA_STATUS_FINISHED_WITH_MARK;
                 return SZ_OK;
             }
-
-            public SRes Lzma2Dec_DecodeToBuf(P<byte> dest, ref long destLen, P<byte> src, ref long srcLen, ELzmaFinishMode finishMode, out ELzmaStatus status)
-            {
-                long outSize = destLen;
-                long inSize = srcLen;
-                srcLen = 0;
-                destLen = 0;
-
-                for (;;)
-                {
-                    if (mDecoder.mDicPos == mDecoder.mDicBufSize)
-                        mDecoder.mDicPos = 0;
-
-                    long outSizeCur;
-                    ELzmaFinishMode curFinishMode;
-                    long dicPos = mDecoder.mDicPos;
-                    if (outSize > mDecoder.mDicBufSize - dicPos)
-                    {
-                        outSizeCur = mDecoder.mDicBufSize;
-                        curFinishMode = ELzmaFinishMode.LZMA_FINISH_ANY;
-                    }
-                    else
-                    {
-                        outSizeCur = dicPos + outSize;
-                        curFinishMode = finishMode;
-                    }
-
-                    long srcSizeCur = inSize;
-                    SRes res = Lzma2Dec_DecodeToDic(outSizeCur, src, ref srcSizeCur, curFinishMode, out status);
-                    src += srcSizeCur;
-                    inSize -= srcSizeCur;
-                    srcLen += srcSizeCur;
-                    outSizeCur = mDecoder.mDicPos - dicPos;
-                    CUtils.memcpy(dest, mDecoder.mDic + dicPos, outSizeCur);
-                    dest += outSizeCur;
-                    outSize -= outSizeCur;
-                    destLen += outSizeCur;
-
-                    if (res != 0)
-                        return res;
-
-                    if (outSizeCur == 0 || outSize == 0)
-                        return SZ_OK;
-                }
-            }
-
-            #endregion
-
-            #region Public Static Methods
-
-            /*
-            finishMode:
-              It has meaning only if the decoding reaches output limit (*destLen).
-              LZMA_FINISH_ANY - use smallest number of input bytes
-              LZMA_FINISH_END - read EndOfStream marker after decoding
-
-            Returns:
-              SZ_OK
-                status:
-                  LZMA_STATUS_FINISHED_WITH_MARK
-                  LZMA_STATUS_NOT_FINISHED
-              SZ_ERROR_DATA - Data error
-              SZ_ERROR_MEM  - Memory allocation error
-              SZ_ERROR_UNSUPPORTED - Unsupported properties
-              SZ_ERROR_INPUT_EOF - It needs more bytes in input buffer (src).
-            */
-
-            public static SRes Lzma2Decode(P<byte> dest, ref long destLen, P<byte> src, ref long srcLen, byte prop, ELzmaFinishMode finishMode, out ELzmaStatus status, ISzAlloc alloc)
-            {
-                long outSize = destLen;
-                long inSize = srcLen;
-                destLen = 0;
-                srcLen = 0;
-                status = ELzmaStatus.LZMA_STATUS_NOT_SPECIFIED;
-
-                CLzma2Dec p = new CLzma2Dec();
-                p.Lzma2Dec_Construct();
-                SRes res;
-                if ((res = p.Lzma2Dec_AllocateProbs(prop, alloc)) != SZ_OK)
-                    return res;
-                p.mDecoder.mDic = dest;
-                p.mDecoder.mDicBufSize = outSize;
-                p.Lzma2Dec_Init();
-                srcLen = inSize;
-                res = p.Lzma2Dec_DecodeToDic(outSize, src, ref srcLen, finishMode, out status);
-                destLen = p.mDecoder.mDicPos;
-                if (res == SZ_OK && status == ELzmaStatus.LZMA_STATUS_NEEDS_MORE_INPUT)
-                    res = SZ_ERROR_INPUT_EOF;
-                p.Lzma2Dec_FreeProbs(alloc);
-                return res;
-            }
-
             #endregion
         }
     }

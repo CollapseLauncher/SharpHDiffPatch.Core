@@ -36,71 +36,6 @@ namespace ManagedLzma.LZMA.Master
         public static SRes SZ_ERROR_ARCHIVE { get { return new SRes(16); } }
         public static SRes SZ_ERROR_NO_ARCHIVE { get { return new SRes(17); } }
 
-        //#define RINOK(x) { int __result__ = (x); if (__result__ != 0) return __result__; }
-
-        /* The following interfaces use first parameter as pointer to structure */
-
-        /* if (input(*size) != 0 && output(*size) == 0) means end_of_stream.
-           (output(*size) < input(*size)) is allowed */
-        public interface ISeqInStream
-        {
-            SRes Read(P<byte> buf, ref long size);
-        }
-
-        public class CSeqInStream : ISeqInStream
-        {
-            private Func<P<byte>, long, long> mCallback;
-
-            public CSeqInStream(Func<P<byte>, long, long> callback)
-            {
-                mCallback = callback;
-            }
-
-            SRes ISeqInStream.Read(P<byte> buf, ref long size)
-            {
-                try { size = mCallback(buf, size); }
-                catch { return SZ_ERROR_READ; }
-                return SZ_OK;
-            }
-        }
-
-        /* Returns: result - the number of actually written bytes.
-           (result < size) means error */
-        public interface ISeqOutStream
-        {
-            long Write(P<byte> buf, long size);
-        }
-
-        public class CSeqOutStream : ISeqOutStream
-        {
-            private Action<P<byte>, long> mCallback;
-
-            public CSeqOutStream(Action<P<byte>, long> callback)
-            {
-                mCallback = callback;
-            }
-
-            long ISeqOutStream.Write(P<byte> buf, long size)
-            {
-                if (size <= 0)
-                {
-                    System.Diagnostics.Debugger.Break();
-                    return -1;
-                }
-
-                try { mCallback(buf, size); }
-                catch { return 0; }
-                return size;
-            }
-        }
-
-        /* Returns: result. (result != SZ_OK) means break.
-           Value (ulong)(long)-1 for size means unknown value. */
-        public interface ICompressProgress
-        {
-            SRes Progress(ulong inSize, ulong outSize);
-        }
-
         //public delegate object ISzAlloc_Alloc(object p, long size);
         //public delegate void ISzAlloc_Free(object p, object address); /* address can be null */
         public sealed class ISzAlloc
@@ -112,28 +47,8 @@ namespace ManagedLzma.LZMA.Master
             private static Dictionary<long, List<ushort[]>> Cache2 = new Dictionary<long, List<ushort[]>>();
             private static Dictionary<long, List<uint[]>> Cache3 = new Dictionary<long, List<uint[]>>();
 
-            private int mKind;
-
             private ISzAlloc(int kind)
             {
-                mKind = kind;
-            }
-
-#if !DISABLE_TRACE
-            internal bool CheckAllocObject<T>()
-            {
-                return true;
-            }
-#endif
-
-            public T AllocObject<T>(object p)
-                where T : class, new()
-            {
-#if !DISABLE_TRACE
-                if (!CheckAllocObject<T>())
-                    return null;
-#endif
-                return new T();
             }
 
             public byte[] AllocBytes(object p, long size)
@@ -187,11 +102,6 @@ namespace ManagedLzma.LZMA.Master
                 return new uint[size];
             }
 
-            public void FreeObject(object p, object address)
-            {
-                // ignore
-            }
-
             public void FreeBytes(object p, byte[] buffer)
             {
                 if (buffer != null)
@@ -221,46 +131,6 @@ namespace ManagedLzma.LZMA.Master
                     }
                 }
             }
-
-            public void FreeUInt32(object p, uint[] buffer)
-            {
-                if (buffer != null)
-                {
-                    lock (Cache3)
-                    {
-                        List<uint[]> cache;
-                        if (!Cache3.TryGetValue(buffer.Length, out cache))
-                            Cache3.Add(buffer.Length, cache = new List<uint[]>());
-
-                        cache.Add(buffer);
-                    }
-                }
-            }
-        }
-
-        public static byte[] IAlloc_AllocBytes(object p, long size)
-        {
-            return ((ISzAlloc)p).AllocBytes(p, size);
-        }
-
-        public static uint[] IAlloc_AllocUInt32(object p, long size)
-        {
-            return ((ISzAlloc)p).AllocUInt32(p, size);
-        }
-
-        public static void IAlloc_FreeObject(object p, object a)
-        {
-            ((ISzAlloc)p).FreeObject(p, a);
-        }
-
-        public static void IAlloc_FreeBytes(object p, byte[] a)
-        {
-            ((ISzAlloc)p).FreeBytes(p, a);
-        }
-
-        public static void IAlloc_FreeUInt32(object p, uint[] a)
-        {
-            ((ISzAlloc)p).FreeUInt32(p, a);
         }
     }
 }
