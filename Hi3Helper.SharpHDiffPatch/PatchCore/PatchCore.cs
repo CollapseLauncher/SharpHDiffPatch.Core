@@ -293,7 +293,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     newPosBack = cover.newPos + cover.coverLength;
 
                     if (cacheOutputStream.Length > _maxMemBufferLimit || cover.nextCoverIndex == 0)
-                        WriteInMemoryOutputToStream(cacheOutputStream, outputStream, cover);
+                        WriteInMemoryOutputToStream(cacheOutputStream, outputStream);
                 }
 
                 if (newPosBack < newDataSize)
@@ -318,7 +318,9 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
-        internal void WriteInMemoryOutputToStream(MemoryStream cacheOutputStream, Stream outputStream, CoverHeader cover)
+        internal void UpdateEventExternal(long read) => HDiffPatch.UpdateEvent(read, ref _sizePatched, ref _sizeToBePatched, _stopwatch);
+
+        internal void WriteInMemoryOutputToStream(Stream cacheOutputStream, Stream outputStream)
         {
             long oldPos = outputStream.Position;
 
@@ -360,20 +362,12 @@ namespace Hi3Helper.SharpHDiffPatch
 
         internal void TBytesCopyStreamInner(Stream input, Stream output, byte[] sharedBuffer, int readLen)
         {
-            if (sharedBuffer.Length >= readLen)
-            {
-                input.ReadExactly(sharedBuffer, 0, readLen);
-                output.Write(sharedBuffer, 0, readLen);
-                return;
-            }
-
-            while (readLen > 0)
-            {
-                int toRead = Math.Min(sharedBuffer.Length, readLen);
-                input.ReadExactly(sharedBuffer, 0, toRead);
-                output.Write(sharedBuffer, 0, toRead);
-                readLen -= toRead;
-            }
+        AddBytesCopy:
+            int toRead = Math.Min(sharedBuffer.Length, readLen);
+            input.ReadExactly(sharedBuffer, 0, toRead);
+            output.Write(sharedBuffer, 0, toRead);
+            readLen -= toRead;
+            if (toRead != 0) goto AddBytesCopy;
         }
 
         private void TBytesDetermineRleType(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength, byte[] sharedBuffer,
@@ -446,6 +440,7 @@ namespace Hi3Helper.SharpHDiffPatch
                     long lastPos = outCache.Position;
                     outCache.Read(sharedBuffer, 0, length);
                     outCache.Position = lastPos;
+
                     do sharedBuffer[--length] += rleLoader.memSetValue; while (length > 0);
 
                     outCache.Write(sharedBuffer, 0, (int)memSetStep);
@@ -463,26 +458,36 @@ namespace Hi3Helper.SharpHDiffPatch
         internal unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
         {
             int offset = 0;
-            if (Sse2.IsSupported && decodeStep > Vector128<byte>.Count)
-            {
-                long offsetRemained = decodeStep % Vector128<byte>.Count;
-                do
-                {
-                    Vector128<byte>* rleVector = (Vector128<byte>*)(rlePtr + offset);
-                    Vector128<byte>* oldVector = (Vector128<byte>*)(oldPtr + offset);
-                    Vector128<byte> resultVector = Sse2.Add(*rleVector, *oldVector);
+            long offsetRemained = 0;
 
-                    Sse2.Store(rlePtr + offset, resultVector);
-                    offset += Vector128<byte>.Count;
-                } while (offset < decodeStep - offsetRemained);
+            if (Sse2.IsSupported && decodeStep >= Vector128<byte>.Count)
+            {
+                offsetRemained = decodeStep % Vector128<byte>.Count;
+            AddVectorSse2:
+                Vector128<byte>* rleVector = (Vector128<byte>*)(rlePtr + offset);
+                Vector128<byte>* oldVector = (Vector128<byte>*)(oldPtr + offset);
+                Vector128<byte> resultVector = Sse2.Add(*rleVector, *oldVector);
+
+                Sse2.Store(rlePtr + offset, resultVector);
+                offset += Vector128<byte>.Count;
+                if (offset < decodeStep - offsetRemained) goto AddVectorSse2;
+            }
+
+            if (offsetRemained != 0 && (offsetRemained % 4) == 0)
+            {
+            AddRemainsFourStep:
+                *(rlePtr + offset) += *(oldPtr + offset);
+                *(rlePtr + offset + 1) += *(oldPtr + offset + 1);
+                *(rlePtr + offset + 2) += *(oldPtr + offset + 2);
+                *(rlePtr + offset + 3) += *(oldPtr + offset + 3);
+                offset += 4;
+                if (decodeStep != offset) goto AddRemainsFourStep;
             }
 
         AddRemainsVectorRLE:
-            {
-                if (decodeStep == offset) goto WriteAllVectorRLE;
-                *(rlePtr + offset) += *(oldPtr + offset++);
-                goto AddRemainsVectorRLE;
-            }
+            if (decodeStep == offset) goto WriteAllVectorRLE;
+            *(rlePtr + offset) += *(oldPtr + offset++);
+            goto AddRemainsVectorRLE;
 
         WriteAllVectorRLE:
             outCache.Write(rleBuffer, rleBufferIdx, decodeStep);

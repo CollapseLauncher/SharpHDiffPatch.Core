@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Buffers;
-using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -10,6 +10,11 @@ namespace Hi3Helper.SharpHDiffPatch
 {
     internal sealed class PatchCoreFastBuffer : IPatchCore
     {
+        private const int _maxMemBufferLen = 1 << 20;
+        private const int _maxMemBufferLimit = 2 << 20;
+        private const int _maxArrayPoolLen = 4 << 20;
+        private const int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
+
         private PatchCore _core;
 
         internal PatchCoreFastBuffer(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
@@ -29,24 +34,25 @@ namespace Hi3Helper.SharpHDiffPatch
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed) =>
             _core.GetBufferStreamFromOffset(compMode, sourceStream, start, length, compLength, out outLength, isBuffered, isFastBufferUsed);
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutputFast(clips, inputStream, outputStream, headerInfo);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) =>
+            WriteCoverStreamToOutputFast(clips, inputStream, outputStream, headerInfo);
 
-        private void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
+        private unsafe void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
             byte[] sharedBuffer = null;
             byte[] rleCtrlBuffer = null;
             MemoryStream cacheOutputStream = null;
-            bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= PatchCore._maxArrayPoolSecondOffset;
+            bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= _maxArrayPoolSecondOffset;
 
             try
             {
                 _core.RunCopySimilarFilesRoutine();
 
-                cacheOutputStream = new MemoryStream();
-                sharedBuffer = ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset);
+                cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
+                sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset);
 
                 int rleCtrlIdx = 0, rleCodeIdx = 0;
-                rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(PatchCore._maxArrayPoolSecondOffset) : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+                rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset) : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
                 byte[] rleCodeBuffer = new byte[headerInfo.chunkInfo.rle_codeBuf_size];
 
                 using (clips[1])
@@ -58,31 +64,40 @@ namespace Hi3Helper.SharpHDiffPatch
                     clips[2].ReadExactly(rleCodeBuffer, 0, (int)headerInfo.chunkInfo.rle_codeBuf_size);
                 }
 
+                long oldPosBack = 0;
                 long newPosBack = 0;
+                int cacheSizeWritten = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
-                IEnumerator coverEnumerator = _core.EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount)
+                IEnumerator<CoverHeader> coverIEnumerator = _core
+                    .EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount)
                     .GetEnumerator();
-                while (coverEnumerator.MoveNext())
+
+            StartCoverRead:
+                if (!coverIEnumerator.MoveNext()) goto EndCoverRead;
+
+                CoverHeader cover = coverIEnumerator.Current;
+                _core._token.ThrowIfCancellationRequested();
+
+                if (newPosBack < cover.newPos)
                 {
-                    CoverHeader cover = (CoverHeader)coverEnumerator.Current;
-                    _core._token.ThrowIfCancellationRequested();
+                    long copyLength = cover.newPos - newPosBack;
+                    inputStream.Position = cover.oldPos;
 
-                    if (newPosBack < cover.newPos)
-                    {
-                        long copyLength = cover.newPos - newPosBack;
-                        inputStream.Position = cover.oldPos;
-
-                        _core.TBytesCopyStreamFromOldClip(cacheOutputStream, clips[3], copyLength, sharedBuffer);
-                        TBytesDetermineRleType(ref rleStruct, cacheOutputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
-                    }
-
-                    TBytesCopyOldClipPatch(cacheOutputStream, inputStream, ref rleStruct, cover.oldPos, cover.coverLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
-                    newPosBack = cover.newPos + cover.coverLength;
-
-                    if (cacheOutputStream.Length > PatchCore._maxMemBufferLimit || cover.nextCoverIndex == 0)
-                        _core.WriteInMemoryOutputToStream(cacheOutputStream, outputStream, cover);
+                    _core.TBytesCopyStreamFromOldClip(cacheOutputStream, clips[3], copyLength, sharedBuffer);
+                    TBytesDetermineRleType(ref rleStruct, cacheOutputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
                 }
 
+                TBytesCopyOldClipPatch(cacheOutputStream, inputStream, ref rleStruct, cover.oldPos, cover.coverLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
+                oldPosBack = newPosBack;
+                newPosBack = cover.newPos + cover.coverLength;
+                cacheSizeWritten += (int)(newPosBack - oldPosBack);
+
+                if (cacheOutputStream.Length > _maxMemBufferLen || cover.nextCoverIndex == 0)
+                    _core.WriteInMemoryOutputToStream(cacheOutputStream, outputStream);
+
+                goto StartCoverRead;
+
+            EndCoverRead:
                 if (newPosBack < headerInfo.newDataSize)
                 {
                     long copyLength = headerInfo.newDataSize - newPosBack;
@@ -135,6 +150,14 @@ namespace Hi3Helper.SharpHDiffPatch
                 if (type == 3)
                 {
                     rleLoader.memCopyLength = length;
+                    TBytesSetRleCopyOnly(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeBuffer, ref rleCodeIdx);
+                    continue;
+                }
+
+                rleLoader.memSetLength = length;
+                if (type == 2)
+                {
+                    rleLoader.memSetValue = rleCodeBuffer[rleCodeIdx++];
                     TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeBuffer, ref rleCodeIdx);
                     continue;
                 }
@@ -147,8 +170,7 @@ namespace Hi3Helper.SharpHDiffPatch
                  * else
                  *     rleLoader.memSetValue = 0xFF; // or 255 in byte
                  */
-                rleLoader.memSetLength = length;
-                rleLoader.memSetValue = type == 2 ? rleCodeBuffer[rleCodeIdx++] : (byte)(0x00 - type);
+                rleLoader.memSetValue = (byte)(0x00 - type);
                 TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeBuffer, ref rleCodeIdx);
             }
         }
@@ -159,6 +181,12 @@ namespace Hi3Helper.SharpHDiffPatch
             _core.TBytesSetRleSingle(ref rleLoader, outCache, ref copyLength, sharedBuffer);
 
             if (rleLoader.memCopyLength == 0) return;
+            TBytesSetRleCopyOnly(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeBuffer, ref rleCodeIdx);
+        }
+
+        private unsafe void TBytesSetRleCopyOnly(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer,
+            byte[] rleCodeBuffer, ref int rleCodeIdx)
+        {
             int decodeStep = (int)(rleLoader.memCopyLength > copyLength ? copyLength : rleLoader.memCopyLength);
 
             long lastPosCopy = outCache.Position;
