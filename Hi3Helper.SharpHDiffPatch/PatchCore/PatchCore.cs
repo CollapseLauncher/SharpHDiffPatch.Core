@@ -170,7 +170,8 @@ namespace Hi3Helper.SharpHDiffPatch
                 byte[] props = new byte[propLen];
                 rawStream.Read(props);
 
-                return new LzmaDecoderStream(rawStream, props, long.MaxValue);
+                // return new LzmaDecoderStream(rawStream, props, long.MaxValue);
+                throw new NotSupportedException($"LZMA compression is not supported! only LZMA2 is currently supported!");
             }
         }
 

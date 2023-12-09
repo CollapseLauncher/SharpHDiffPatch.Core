@@ -1,7 +1,7 @@
 ﻿using ManagedLzma.LZMA;
 using System;
 using System.IO;
-using LZMA = ManagedLzma.LZMA.Master.LZMA;
+using ManagedLzma.LZMA.Master;
 
 namespace master._7zip.Legacy
 {
@@ -53,7 +53,7 @@ namespace master._7zip.Legacy
         #endregion
 
         private Stream mInputStream;
-        private LZMA.CLzma2Dec mDecoder;
+        private CLzma2Dec mDecoder;
         private byte[] mBuffer = new byte[4 << 10];
         private long mWritten;
         private long mLimit;
@@ -67,9 +67,9 @@ namespace master._7zip.Legacy
             mInputStream = inputStream;
             mLimit = limit;
 
-            mDecoder = new LZMA.CLzma2Dec();
+            mDecoder = new CLzma2Dec();
             mDecoder.Lzma2Dec_Construct();
-            if (mDecoder.Lzma2Dec_Allocate(prop, LZMA.ISzAlloc.SmallAlloc) != LZMA.SZ_OK)
+            if (mDecoder.Lzma2Dec_Allocate(prop, ISzAlloc.SmallAlloc) != LZMA.SZ_OK)
                 throw new InvalidDataException();
             mDecoder.Lzma2Dec_Init();
         }
@@ -123,10 +123,10 @@ namespace master._7zip.Legacy
                 if (safeCount == 0)
                     throw new InvalidOperationException("LZMA2 is stuffed");
 
-                LZMA.ELzmaStatus status;
+                ELzmaStatus status;
                 long srcLen = mEnding - mOffset;
                 var res = mDecoder.Lzma2Dec_DecodeToDic(origin + safeCount, P.From(mBuffer, mOffset), ref srcLen,
-                    mWritten + safeCount == mLimit ? LZMA.ELzmaFinishMode.LZMA_FINISH_END : LZMA.ELzmaFinishMode.LZMA_FINISH_ANY, out status);
+                    mWritten + safeCount == mLimit ? ELzmaFinishMode.LZMA_FINISH_END : ELzmaFinishMode.LZMA_FINISH_ANY, out status);
                 if (res != LZMA.SZ_OK)
                     throw new InvalidDataException();
 
@@ -135,13 +135,13 @@ namespace master._7zip.Legacy
                 Buffer.BlockCopy(mDecoder.mDecoder.mDic.mBuffer, mDecoder.mDecoder.mDic.mOffset + (int)origin, buffer, offset, processed);
                 mWritten += processed;
 
-                if (status == LZMA.ELzmaStatus.LZMA_STATUS_FINISHED_WITH_MARK)
+                if (status == ELzmaStatus.LZMA_STATUS_FINISHED_WITH_MARK)
                     mOutputEnd = true;
 
-                if (status == LZMA.ELzmaStatus.LZMA_STATUS_MAYBE_FINISHED_WITHOUT_MARK && mInputEnd && mOffset == mEnding)
+                if (status == ELzmaStatus.LZMA_STATUS_MAYBE_FINISHED_WITHOUT_MARK && mInputEnd && mOffset == mEnding)
                     mOutputEnd = true;
 
-                if (status == LZMA.ELzmaStatus.LZMA_STATUS_NEEDS_MORE_INPUT && mOffset != mEnding)
+                if (status == ELzmaStatus.LZMA_STATUS_NEEDS_MORE_INPUT && mOffset != mEnding)
                     throw new InvalidOperationException("LZMA2 is confused");
 
                 if (processed != 0 || mOutputEnd)
