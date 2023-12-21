@@ -20,23 +20,7 @@ namespace System.CommandLine.Builder
     /// </summary>
     public static class CommandLineBuilderExtensions
     {
-        private static readonly Lazy<string> _assemblyVersion =
-            new(() =>
-            {
-                var assembly = RootCommand.GetAssembly();
-
-                var assemblyVersionAttribute = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-
-                if (assemblyVersionAttribute is null)
-                {
-                    return assembly.GetName().Version?.ToString() ?? "";
-                }
-                else
-                {
-                    return assemblyVersionAttribute.InformationalVersion;
-                }
-
-            });
+        private static readonly Lazy<string> _assemblyVersion = new Lazy<string>();
 
         /// <summary>
         /// Enables signaling and handling of process termination via a <see cref="CancellationToken"/> that can be passed to a <see cref="ICommandHandler"/> during invocation.

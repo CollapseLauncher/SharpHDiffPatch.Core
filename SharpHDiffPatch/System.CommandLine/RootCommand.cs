@@ -16,7 +16,6 @@ namespace System.CommandLine
     /// </remarks>
     public class RootCommand : Command
     {
-        private static Assembly? _assembly;
         private static string? _executablePath;
         private static string? _executableName;
 
@@ -25,19 +24,16 @@ namespace System.CommandLine
         {
         }
 
-        internal static Assembly GetAssembly()
-            => _assembly ??= (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly());
-
         /// <summary>
         /// The name of the currently running executable.
         /// </summary>
         public static string ExecutableName
-            => _executableName ??= Path.GetFileNameWithoutExtension(ExecutablePath).Replace(" ", "");
+            => _executableName ??= Path.GetFileNameWithoutExtension(ExecutablePath);
 
         /// <summary>
         /// The path to the currently running executable.
         /// </summary>
-        public static string ExecutablePath => _executablePath ??= Environment.GetCommandLineArgs()[0];
+        public static string ExecutablePath => _executablePath ??= System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
         private protected override void RemoveAlias(string alias)
         {

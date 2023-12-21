@@ -8,10 +8,16 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.Intrinsics;
+#if IsARM64
+using System.Runtime.Intrinsics.Arm;
+#else
 using System.Runtime.Intrinsics.X86;
+#endif
 using System.Threading;
 using System.Threading.Tasks;
+#if UseZSTD
 using ZstdNet;
+#endif
 using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
@@ -128,7 +134,9 @@ namespace Hi3Helper.SharpHDiffPatch
             decompStream = type switch
             {
                 CompressionMode.nocomp => rawStream,
-                CompressionMode.zstd => new DecompressionStream(rawStream, new DecompressionOptions(null, new Dictionary<ZSTD_dParameter, int>()
+                CompressionMode.zstd =>
+#if UseZSTD
+                new DecompressionStream(rawStream, new DecompressionOptions(null, new Dictionary<ZSTD_dParameter, int>()
                 {
                     /* HACK: The default window log max size is 30. This is unacceptable since the native HPatch implementation
                      * always use 31 as the size_t, which is 8 bytes length.
@@ -138,13 +146,16 @@ namespace Hi3Helper.SharpHDiffPatch
                      */
                     { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
                 }), 0),
+#else
+                throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: zstd is not supported in this build of SharpHDiffPatch!"),
+#endif
                 CompressionMode.zlib => new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true),
                 CompressionMode.bz2 => new CBZip2InputStream(rawStream, false, true),
                 CompressionMode.pbz2 => new CBZip2InputStream(rawStream, true, true),
                 CompressionMode.lzma => CreateLzmaStream(rawStream),
                 CompressionMode.lzma2 => CreateLzmaStream(rawStream),
                 _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
-            };
+            };;
         }
 
         private Stream CreateLzmaStream(Stream rawStream)
@@ -167,11 +178,11 @@ namespace Hi3Helper.SharpHDiffPatch
             }
             else
             {
-                byte[] props = new byte[propLen];
-                rawStream.Read(props);
+                // byte[] props = new byte[propLen];
+                // rawStream.Read(props);
 
                 // return new LzmaDecoderStream(rawStream, props, long.MaxValue);
-                throw new NotSupportedException($"LZMA compression is not supported! only LZMA2 is currently supported!");
+                throw new NotSupportedException($"[PatchCore::CreateLzmaStream] LZMA compression is not supported! only LZMA2 is currently supported!");
             }
         }
 
@@ -472,7 +483,9 @@ namespace Hi3Helper.SharpHDiffPatch
                     outCache.Read(sharedBuffer, 0, length);
                     outCache.Position = lastPos;
 
-                    do sharedBuffer[--length] += rleLoader.memSetValue; while (length > 0);
+                SetAddRLESingle:
+                    sharedBuffer[--length] += rleLoader.memSetValue;
+                    if (length > 0) goto SetAddRLESingle;
 
                     outCache.Write(sharedBuffer, 0, (int)memSetStep);
                 }
@@ -486,14 +499,97 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
+        internal unsafe void TBytesSetRleVectorV2(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
+        {
+            int len = decodeStep;
+#if IsARM64
+            if (Vector128.IsHardwareAccelerated && len >= Vector128<byte>.Count)
+            {
+            AddVectorArm64_128:
+                len -= Vector128<byte>.Count;
+                Vector128<byte> resultVector = AdvSimd.Add(*(Vector128<byte>*)(rlePtr + len), *(Vector128<byte>*)(oldPtr + len));
+                AdvSimd.Store(rlePtr + len, resultVector);
+                if (len > Vector128<byte>.Count) goto AddVectorArm64_128;
+            }
+            else if (Vector64.IsHardwareAccelerated && len >= Vector64<byte>.Count)
+            {
+            AddVectorArm64_64:
+                len -= Vector64<byte>.Count;
+                Vector64<byte> resultVector = AdvSimd.Add(*(Vector64<byte>*)(rlePtr + len), *(Vector64<byte>*)(oldPtr + len));
+                AdvSimd.Store(rlePtr + len, resultVector);
+                if (len > Vector64<byte>.Count) goto AddVectorArm64_64;
+            }
+#else
+            if (Sse2.IsSupported && len >= Vector128<byte>.Count)
+            {
+            AddVectorSse2:
+                len -= Vector128<byte>.Count;
+                Vector128<byte> resultVector = Sse2.Add(*(Vector128<byte>*)(rlePtr + len), *(Vector128<byte>*)(oldPtr + len));
+                Sse2.Store(rlePtr + len, resultVector);
+                if (len > Vector128<byte>.Count) goto AddVectorSse2;
+            }
+#endif
+
+            if (len >= 4)
+            {
+            AddRemainsFourStep:
+                len -= 4;
+                *(rlePtr + len) += *(oldPtr + len);
+                *(rlePtr + 1 + len) += *(oldPtr + 1 + len);
+                *(rlePtr + 2 + len) += *(oldPtr + 2 + len);
+                *(rlePtr + 3 + len) += *(oldPtr + 3 + len);
+                if (len >= 4) goto AddRemainsFourStep;
+            }
+
+        AddRemainsVectorRLE:
+            if (len == 0) goto WriteAllVectorRLE;
+            *(rlePtr + --len) += *(oldPtr + len);
+            goto AddRemainsVectorRLE;
+
+        WriteAllVectorRLE:
+            outCache.Write(rleBuffer.AsSpan(rleBufferIdx, decodeStep));
+
+            rleLoader.memCopyLength -= decodeStep;
+            copyLength -= decodeStep;
+        }
+
         internal unsafe void TBytesSetRleVector(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
         {
             int offset = 0;
             long offsetRemained = 0;
 
+#if IsARM64
+            if (Vector128.IsHardwareAccelerated && decodeStep >= Vector128<byte>.Count)
+            {
+                offsetRemained = decodeStep % Vector128<byte>.Count;
+
+            AddVectorArm64_128:
+                Vector128<byte>* rleVector = (Vector128<byte>*)(rlePtr + offset);
+                Vector128<byte>* oldVector = (Vector128<byte>*)(oldPtr + offset);
+                Vector128<byte> resultVector = AdvSimd.Add(*rleVector, *oldVector);
+
+                AdvSimd.Store(rlePtr + offset, resultVector);
+                offset += Vector128<byte>.Count;
+                if (offset < decodeStep - offsetRemained) goto AddVectorArm64_128;
+            }
+            else if (Vector64.IsHardwareAccelerated && decodeStep >= Vector64<byte>.Count)
+            {
+                offsetRemained = decodeStep % Vector64<byte>.Count;
+
+            AddVectorArm64_64:
+                Vector64<byte>* rleVector = (Vector64<byte>*)(rlePtr + offset);
+                Vector64<byte>* oldVector = (Vector64<byte>*)(oldPtr + offset);
+                Vector64<byte> resultVector = AdvSimd.Add(*rleVector, *oldVector);
+
+                AdvSimd.Store(rlePtr + offset, resultVector);
+                offset += Vector64<byte>.Count;
+                if (offset < decodeStep - offsetRemained) goto AddVectorArm64_64;
+            }
+#else
             if (Sse2.IsSupported && decodeStep >= Vector128<byte>.Count)
             {
                 offsetRemained = decodeStep % Vector128<byte>.Count;
+
             AddVectorSse2:
                 Vector128<byte>* rleVector = (Vector128<byte>*)(rlePtr + offset);
                 Vector128<byte>* oldVector = (Vector128<byte>*)(oldPtr + offset);
@@ -503,6 +599,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 offset += Vector128<byte>.Count;
                 if (offset < decodeStep - offsetRemained) goto AddVectorSse2;
             }
+#endif
 
             if (offsetRemained != 0 && (offsetRemained % 4) == 0)
             {

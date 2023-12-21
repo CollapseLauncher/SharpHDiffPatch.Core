@@ -39,28 +39,28 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private unsafe void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
-            byte[] sharedBuffer = null;
-            byte[] rleCtrlBuffer = null;
-            MemoryStream cacheOutputStream = null;
-            bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= _maxArrayPoolSecondOffset;
+            byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset);
+            MemoryStream cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
+            int poolSizeRemained = _maxArrayPoolLen - sharedBuffer.Length;
+
+            bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= poolSizeRemained;
+            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_ctrlBuf_size) : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+            poolSizeRemained -= rleCtrlBuffer.Length;
+
+            bool isRleUseArrayPool = headerInfo.chunkInfo.rle_codeBuf_size <= poolSizeRemained;
+            byte[] rleCodeBuffer = isRleUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_codeBuf_size) : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
 
             try
             {
                 _core.RunCopySimilarFilesRoutine();
-
-                cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
-                sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset);
-
                 int rleCtrlIdx = 0, rleCodeIdx = 0;
-                rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset) : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
-                byte[] rleCodeBuffer = new byte[headerInfo.chunkInfo.rle_codeBuf_size];
 
                 using (clips[1])
                 using (clips[2])
                 {
                     HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Ctrl clip to {(isCtrlUseArrayPool ? "ArrayPool" : "heap buffer")}");
                     clips[1].ReadExactly(rleCtrlBuffer, 0, (int)headerInfo.chunkInfo.rle_ctrlBuf_size);
-                    HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Code clip to heap buffer");
+                    HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Code clip to {(isRleUseArrayPool ? "ArrayPool" : "heap buffer")}");
                     clips[2].ReadExactly(rleCodeBuffer, 0, (int)headerInfo.chunkInfo.rle_codeBuf_size);
                 }
 
@@ -113,6 +113,7 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 if (sharedBuffer != null) ArrayPool<byte>.Shared.Return(sharedBuffer);
                 if (rleCtrlBuffer != null && isCtrlUseArrayPool) ArrayPool<byte>.Shared.Return(rleCtrlBuffer);
+                if (rleCodeBuffer != null && isRleUseArrayPool) ArrayPool<byte>.Shared.Return(rleCodeBuffer);
                 _core._stopwatch?.Stop();
                 cacheOutputStream?.Dispose();
                 clips[0]?.Dispose();
@@ -196,7 +197,7 @@ namespace Hi3Helper.SharpHDiffPatch
             fixed (byte* rlePtr = &rleCodeBuffer[rleCodeIdx])
             fixed (byte* oldPtr = sharedBuffer)
             {
-                _core.TBytesSetRleVector(ref rleLoader, outCache, ref copyLength, decodeStep, rlePtr, rleCodeBuffer, rleCodeIdx, oldPtr);
+                _core.TBytesSetRleVectorV2(ref rleLoader, outCache, ref copyLength, decodeStep, rlePtr, rleCodeBuffer, rleCodeIdx, oldPtr);
             }
             rleCodeIdx += decodeStep;
         }

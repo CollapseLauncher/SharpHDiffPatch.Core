@@ -5,11 +5,15 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<RootNamespace>SharpHDiffPatch</RootNamespace>
 		<ImplicitUsings>disable</ImplicitUsings>
-		<Nullable>enable</Nullable>
-		<Platforms>x64;x86;ARM64</Platforms>
+		<Platforms>x64;ARM64</Platforms>
 		<Version>2.1.0</Version>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<DefineConstants></DefineConstants>
+		<Configurations>Debug;Release;ReleaseCore</Configurations>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Release|x64'">
+		<DefineConstants>UseZSTD</DefineConstants>
 	</PropertyGroup>
 
 	<ItemGroup>

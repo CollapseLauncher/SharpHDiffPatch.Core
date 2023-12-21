@@ -157,15 +157,15 @@ Buffers all clips into memory. This option is the fastest but it requires more m
             Console.WriteLine($"{label}{e.Message}");
         }
 
-        private static async void EventListener_PatchEvent(object? sender, PatchEvent e)
+        private static async void EventListener_PatchEvent(object sender, PatchEvent e)
         {
-            if (await CheckIfNeedRefreshStopwatch(e.ProgressPercentage))
+            if (await CheckIfNeedRefreshStopwatch())
             {
                 Console.Write($"Patching: {e.ProgressPercentage}% | {SummarizeSizeSimple(e.CurrentSizePatched)}/{SummarizeSizeSimple(e.TotalSizeToBePatched)} @{SummarizeSizeSimple(e.Speed)}/s    \r");
             }
         }
 
-        private static async Task<bool> CheckIfNeedRefreshStopwatch(double progress)
+        private static async Task<bool> CheckIfNeedRefreshStopwatch()
         {
             if (RefreshStopwatch.ElapsedMilliseconds > RefreshInterval)
             {

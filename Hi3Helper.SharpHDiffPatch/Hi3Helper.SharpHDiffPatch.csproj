@@ -1,25 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>net8.0</TargetFrameworks>
+		<TargetFramework>net8.0</TargetFramework>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<Platforms>x64;x86;ARM64</Platforms>
+		<Platforms>x64;ARM64</Platforms>
+		<PlatformTarget>x64</PlatformTarget>
+		<Configurations>Debug;Release;ReleaseCore</Configurations>
 	</PropertyGroup>
 
-	<ItemGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Release|x64'">
+		<DefineConstants>UseZSTD</DefineConstants>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Release|x64'">
 		<Content Include="Binary\Compression\Zstd\libzstd.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<TargetPath>Lib\libzstd.dll</TargetPath>
 		</Content>
 	</ItemGroup>
 
-	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+	<PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='ReleaseCore'">
 		<Optimize>True</Optimize>
 		<DebugType>portable</DebugType>
 		<TieredPGO>true</TieredPGO>
 		<TieredCompilation>true</TieredCompilation>
 		<TieredCompilationQuickJit>false</TieredCompilationQuickJit>
 		<TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Platform)'=='ARM64'">
+		<DefineConstants>IsARM64</DefineConstants>
 	</PropertyGroup>
 
 </Project>

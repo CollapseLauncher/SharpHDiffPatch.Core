@@ -228,12 +228,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         private static void TrySeekHeader(Stream sr, int skipLongSize)
         {
-            int len = 4096;
-            if (len > skipLongSize)
-            {
-                len = skipLongSize;
-            }
-
+            int len = Math.Min(4 << 10, skipLongSize);
             HDiffPatch.Event.PushLog($"[Header::TrySeekHeader] Seeking from: {sr.Position} += {skipLongSize} to {sr.Position + skipLongSize}", Verbosity.Debug);
             sr.Seek(len, SeekOrigin.Current);
         }
