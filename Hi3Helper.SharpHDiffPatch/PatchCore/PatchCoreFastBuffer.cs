@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using static Hi3Helper.SharpHDiffPatch.StreamExtension;
 
 namespace Hi3Helper.SharpHDiffPatch
@@ -34,8 +35,22 @@ namespace Hi3Helper.SharpHDiffPatch
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed) =>
             _core.GetBufferStreamFromOffset(compMode, sourceStream, start, length, compLength, out outLength, isBuffered, isFastBufferUsed);
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) =>
-            WriteCoverStreamToOutputFast(clips, inputStream, outputStream, headerInfo);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
+        {
+            if (_core._dirReferencePair.HasValue)
+            {
+                Task[] parallelTasks = [
+                    Task.Run(() => WriteCoverStreamToOutputFast(clips, inputStream, outputStream, headerInfo)),
+                    Task.Run(() => _core.RunCopySimilarFilesRoutine())
+                ];
+
+                Task.WaitAll(parallelTasks);
+            }
+            else
+                WriteCoverStreamToOutputFast(clips, inputStream, outputStream, headerInfo);
+
+            _core.SpawnCorePatchFinishedMsg();
+        }
 
         private unsafe void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
@@ -52,7 +67,9 @@ namespace Hi3Helper.SharpHDiffPatch
 
             try
             {
-                _core.RunCopySimilarFilesRoutine();
+                cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
+                sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset);
+
                 int rleCtrlIdx = 0, rleCodeIdx = 0;
 
                 using (clips[1])
@@ -105,8 +122,6 @@ namespace Hi3Helper.SharpHDiffPatch
                     TBytesDetermineRleType(ref rleStruct, outputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
                     HDiffPatch.UpdateEvent(copyLength, ref _core._sizePatched, ref _core._sizeToBePatched, _core._stopwatch);
                 }
-
-                _core.SpawnCorePatchFinishedMsg();
             }
             catch { throw; }
             finally
