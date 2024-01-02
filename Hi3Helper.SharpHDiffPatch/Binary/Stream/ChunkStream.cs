@@ -37,6 +37,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
         ~ChunkStream() => this.Dispose(_isDisposing);
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override int Read(Span<byte> buffer)
         {
             if (_remain == 0) return 0;
@@ -49,6 +50,17 @@ namespace Hi3Helper.SharpHDiffPatch
             return read;
         }
 
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            if (_remain == 0) return;
+
+            int toSlice = (int)(buffer.Length > _remain ? _remain : buffer.Length);
+            _curPos += toSlice;
+
+            _stream.Write(buffer.Slice(0, toSlice));
+        }
+#endif
+
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (_remain == 0) return 0;
@@ -58,16 +70,6 @@ namespace Hi3Helper.SharpHDiffPatch
             int read = _stream.Read(buffer, offset, toRead);
             _curPos += read;
             return read;
-        }
-
-        public override void Write(ReadOnlySpan<byte> buffer)
-        {
-            if (_remain == 0) return;
-
-            int toSlice = (int)(buffer.Length > _remain ? _remain : buffer.Length);
-            _curPos += toSlice;
-
-            _stream.Write(buffer.Slice(0, toSlice));
         }
 
         public override void Write(byte[] buffer, int offset, int count)
@@ -80,10 +82,12 @@ namespace Hi3Helper.SharpHDiffPatch
             _stream.Write(buffer, offset, toRead);
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override void CopyTo(Stream destination, int bufferSize)
         {
             throw new NotSupportedException();
         }
+#endif
 
         public override bool CanRead
         {

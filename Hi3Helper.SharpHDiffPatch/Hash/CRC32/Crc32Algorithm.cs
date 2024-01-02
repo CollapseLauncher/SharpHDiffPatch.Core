@@ -264,6 +264,7 @@ namespace Hi3Helper.SharpHDiffPatch.Hash.Force.Crc32
             _currentCrc = AppendInternal(_currentCrc, input, offset, length);
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         /// <summary>
         /// Appends CRC-32 from given buffer
         /// </summary>
@@ -271,6 +272,7 @@ namespace Hi3Helper.SharpHDiffPatch.Hash.Force.Crc32
         {
             _currentCrc = AppendInternal(_currentCrc, source);
         }
+#endif
 
         /// <summary>
         /// Computes CRC-32 from <see cref="HashCore(byte[], int, int)"/>
@@ -283,6 +285,7 @@ namespace Hi3Helper.SharpHDiffPatch.Hash.Force.Crc32
                 return new[] { (byte)_currentCrc, (byte)(_currentCrc >> 8), (byte)(_currentCrc >> 16), (byte)(_currentCrc >> 24) };
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         /// <summary>
         /// Computes CRC-32 from <see cref="HashCore(ReadOnlySpan{byte})"/>
         /// </summary>
@@ -306,6 +309,7 @@ namespace Hi3Helper.SharpHDiffPatch.Hash.Force.Crc32
             bytesWritten = 4;
             return true;
         }
+#endif
 
         /// <summary>
         /// Get final hash from processed buffer

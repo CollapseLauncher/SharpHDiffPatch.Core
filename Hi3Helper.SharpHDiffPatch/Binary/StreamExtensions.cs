@@ -8,6 +8,7 @@ namespace Hi3Helper.SharpHDiffPatch
     {
         private static byte[] StringBuffer = new byte[4 << 10];
 
+#if NETSTANDARD2_0 || !NET7_0_OR_GREATER
         public static int ReadExactly(this Stream stream, byte[] buffer, int offset, int count)
         {
             int totalRead = 0;
@@ -21,6 +22,24 @@ namespace Hi3Helper.SharpHDiffPatch
 
             return totalRead;
         }
+#endif
+
+
+#if !(NETSTANDARD2_0 || NET7_0_OR_GREATER)
+        public static int ReadExactly(this Stream stream, Span<byte> buffer)
+        {
+            int totalRead = 0;
+            while (totalRead < buffer.Length)
+            {
+                int read = stream.Read(buffer.Slice(totalRead));
+                if (read == 0) return totalRead;
+
+                totalRead += read;
+            }
+
+            return totalRead;
+        }
+#endif
 
         public static string ReadStringToNull(this Stream reader)
         {

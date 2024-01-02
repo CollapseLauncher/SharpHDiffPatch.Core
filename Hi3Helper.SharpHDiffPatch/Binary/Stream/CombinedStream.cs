@@ -240,6 +240,7 @@ namespace Hi3Helper.SharpHDiffPatch
             }
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override int Read(Span<byte> buffer)
         {
             int result = 0;
@@ -271,6 +272,7 @@ namespace Hi3Helper.SharpHDiffPatch
 
             return result;
         }
+#endif
 
         /// <summary>
         /// Reads a sequence of bytes from the current stream and advances the position within the stream by the number of bytes read.
@@ -360,6 +362,7 @@ namespace Hi3Helper.SharpHDiffPatch
             throw new NotSupportedException("[CombinedStream::SetLength] The method or operation is not supported by CombinedStream.");
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override void Write(ReadOnlySpan<byte> buffer)
         {
             int count = buffer.Length;
@@ -392,6 +395,7 @@ namespace Hi3Helper.SharpHDiffPatch
                 }
             }
         }
+#endif
 
         /// <summary>
         /// Throws <see cref="NotSupportedException"/> since the <see cref="CombinedStream"/>

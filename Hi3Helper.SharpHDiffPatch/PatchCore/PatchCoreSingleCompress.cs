@@ -1,4 +1,5 @@
-﻿using SharpCompress.Compressors.BZip2;
+﻿#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
+using SharpCompress.Compressors.BZip2;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -6,8 +7,10 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#endif
 using System.Threading;
 using System.Threading.Tasks;
 using ZstdNet;
@@ -101,24 +104,30 @@ namespace Hi3Helper.SharpHDiffPatch
                 return;
             }
 
-            decompStream = type switch
+            switch (type)
             {
-                CompressionMode.nocomp => rawStream,
-                CompressionMode.zstd => new DecompressionStream(rawStream, new DecompressionOptions(null, new Dictionary<ZSTD_dParameter, int>()
-                {
-                    /* HACK: The default window log max size is 30. This is unacceptable since the native HPatch implementation
-                     * always use 31 as the size_t, which is 8 bytes length.
-                     * 
-                     * Code Snippets (decompress_plugin_demo.h:963):
-                     *     #define _ZSTD_WINDOWLOG_MAX ((sizeof(size_t)<=4)?30:31)
-                     */
-                    { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
-                }), 0),
-                CompressionMode.zlib => new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true),
-                CompressionMode.bz2 => new CBZip2InputStream(rawStream, false, true),
-                CompressionMode.pbz2 => new CBZip2InputStream(rawStream, true, true),
-                _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
-            };
+                case CompressionMode.nocomp:
+                    decompStream = rawStream; break;
+                case CompressionMode.zstd:
+                    decompStream = new DecompressionStream(rawStream, new DecompressionOptions(null, new Dictionary<ZSTD_dParameter, int>()
+                    {
+                        /* HACK: The default window log max size is 30. This is unacceptable since the native HPatch implementation
+                         * always use 31 as the size_t, which is 8 bytes length.
+                         * 
+                         * Code Snippets (decompress_plugin_demo.h:963):
+                         *     #define _ZSTD_WINDOWLOG_MAX ((sizeof(size_t)<=4)?30:31)
+                         */
+                        { ZSTD_dParameter.ZSTD_d_windowLogMax, 31 }
+                    }), 0); break;
+                case CompressionMode.zlib:
+                    decompStream = new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true); break;
+                case CompressionMode.bz2:
+                    decompStream = new CBZip2InputStream(rawStream, false, true); break;
+                case CompressionMode.pbz2:
+                    decompStream = new CBZip2InputStream(rawStream, true, true); break;
+                default:
+                    throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported");
+            }
         }
 
         private MemoryStream CreateAndCopyToMemoryStream(Stream source)
@@ -129,7 +138,11 @@ namespace Hi3Helper.SharpHDiffPatch
             try
             {
                 int read;
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
                 while ((read = source.Read(buffer)) > 0)
+#else
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+#endif
                 {
                     _token.ThrowIfCancellationRequested();
                     returnStream.Write(buffer, 0, read);
@@ -155,7 +168,11 @@ namespace Hi3Helper.SharpHDiffPatch
             {
                 HDiffPatch.Event.PushLog($"[PatchCore::EnumerateCoverHeaders] Enumerate cover counts from buffer with size: {coverSize}", Verbosity.Verbose);
                 byte[] buffer = new byte[coverSize];
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
                 coverReader.ReadExactly(buffer);
+#else
+                coverReader.ReadExactly(buffer, 0, buffer.Length);
+#endif
 
                 int offset = 0;
                 while (coverCount-- > 0)
@@ -260,8 +277,8 @@ namespace Hi3Helper.SharpHDiffPatch
                     byte[] bufCover = ArrayPool<byte>.Shared.Rent(bufCover_size);
                     byte[] bufRle = ArrayPool<byte>.Shared.Rent(bufRle_size);
 
-                    singleClip.ReadAtLeast(bufCover, bufCover_size);
-                    singleClip.ReadAtLeast(bufRle, bufRle_size);
+                    // singleClip.ReadAtLeast(bufCover, bufCover_size);
+                    // singleClip.ReadAtLeast(bufRle, bufRle_size);
 
                     int bufCover_offset = 0;
                     long lastOldEnd = 0;
@@ -593,3 +610,4 @@ namespace Hi3Helper.SharpHDiffPatch
         }
     }
 }
+#endif

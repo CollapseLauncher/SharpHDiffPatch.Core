@@ -13,7 +13,7 @@ namespace ZstdNet
         private readonly Stream innerStream;
         private readonly byte[] inputBuffer;
         private readonly int bufferSize;
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         private readonly Memory<byte> inputMemory;
 #endif
 
@@ -56,13 +56,13 @@ namespace ZstdNet
 
             this.bufferSize = bufferSize > 0 ? bufferSize : (int)ZSTD_DStreamInSize().EnsureZstdSuccess();
             inputBuffer = ArrayPool<byte>.Shared.Rent(this.bufferSize);
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
             inputMemory = new Memory<byte>(inputBuffer, 0, this.bufferSize);
 #endif
             pos = size = (UIntPtr)this.bufferSize;
         }
 
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override int Read(Span<byte> buffer)
         {
             EnsureNotDisposed();
@@ -91,7 +91,7 @@ namespace ZstdNet
             EnsureParamsValid(buffer, offset, count);
             EnsureNotDisposed();
 
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
             return ReadInternalAsync(new Memory<byte>(buffer, offset, count), cancellationToken).AsTask();
 #else
 			return ReadInternalAsync(new Memory<byte>(buffer, offset, count), cancellationToken);
@@ -115,7 +115,7 @@ namespace ZstdNet
         }
 
         private async
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
             ValueTask<int>
 #else
 			Task<int>
@@ -130,7 +130,7 @@ namespace ZstdNet
                 if (input.IsFullyConsumed)
                 {
                     int bytesRead;
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
                     if ((bytesRead = await innerStream.ReadAsync(inputMemory, cancellationToken).ConfigureAwait(false)) == 0)
 #else
 					if((bytesRead = await innerStream.ReadAsync(inputBuffer, 0, bufferSize, cancellationToken).ConfigureAwait(false)) == 0)
@@ -155,8 +155,8 @@ namespace ZstdNet
             fixed (void* inputBufferHandle = &inputBuffer[0])
             fixed (void* outputBufferHandle = &MemoryMarshal.GetReference(buffer))
             {
-                input.buffer = new IntPtr(inputBufferHandle);
-                output.buffer = new IntPtr(outputBufferHandle);
+                input.buffer = inputBufferHandle;
+                output.buffer = outputBufferHandle;
 
                 ZSTD_decompressStream(dStream, ref output, ref input).EnsureZstdSuccess();
             }
@@ -164,7 +164,7 @@ namespace ZstdNet
 
         private int FillInputBuffer(Span<byte> inputSpan, ref ZSTD_Buffer input)
         {
-#if !(NET45 || NETSTANDARD2_0)
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
             int bytesRead = innerStream.Read(inputSpan);
 #else
 			int bytesRead = innerStream.Read(inputBuffer, 0, inputSpan.Length);

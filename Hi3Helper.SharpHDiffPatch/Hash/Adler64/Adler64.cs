@@ -8,8 +8,10 @@
 
 using System;
 using System.Runtime.InteropServices;
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
+#endif
 
 namespace Hi3Helper.SharpHDiffPatch.Hash
 {
@@ -24,10 +26,12 @@ namespace Hi3Helper.SharpHDiffPatch.Hash
         {
             ulong s1 = adler & 0xffffffff;
             ulong s2 = adler >> 32;
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
             if (Ssse3.IsSupported)
             {
                 return GetSse(buffer, s1, s2);
             }
+#endif
             return GetSimpleOptimized(buffer, s1, s2);
         }
 
@@ -198,6 +202,7 @@ namespace Hi3Helper.SharpHDiffPatch.Hash
             return adler | (sum2 << 32);
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         internal unsafe static ulong GetSse(ReadOnlySpan<byte> buffer, ulong s1, ulong s2)
         {
             uint len = (uint)buffer.Length;
@@ -330,5 +335,6 @@ namespace Hi3Helper.SharpHDiffPatch.Hash
                 return s1 | (s2 << 32);
             }
         }
+#endif
     }
 }

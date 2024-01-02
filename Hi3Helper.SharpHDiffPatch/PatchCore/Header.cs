@@ -6,7 +6,11 @@ namespace Hi3Helper.SharpHDiffPatch
 {
     internal sealed class Header
     {
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         private static readonly char[] HDIFF_HEAD = new char[] { 'H', 'D', 'I', 'F', 'F' };
+#else
+        private const string HDIFF_HEAD = "HDIFF";
+#endif
 
         internal static bool TryParseHeaderInfo(Stream sr, string diffPath,
             out HeaderInfo headerInfo, out DataReferenceInfo referenceInfo)
@@ -18,7 +22,12 @@ namespace Hi3Helper.SharpHDiffPatch
             bool isPatchDir = true;
             HDiffPatch.Event.PushLog($"[Header::TryParseHeaderInfo] Signature info: {headerInfoLine}", Verbosity.Debug);
 
-            if (headerInfoLine.Length > 64 || !headerInfoLine.AsSpan().StartsWith(HDIFF_HEAD)) throw new FormatException("[Header::TryParseHeaderInfo] This is not a HDiff file format!");
+            if (headerInfoLine.Length > 64 || !headerInfoLine
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
+                .AsSpan()
+#endif
+                .StartsWith(HDIFF_HEAD)
+                ) throw new FormatException("[Header::TryParseHeaderInfo] This is not a HDiff file format!");
 
             string[] hInfoArr = headerInfoLine.Split('&');
             if (hInfoArr.Length == 2)
@@ -84,7 +93,12 @@ namespace Hi3Helper.SharpHDiffPatch
             string singleCompressedHeaderLine = sr.ReadStringToNull();
             string[] singleCompressedHeaderArr = singleCompressedHeaderLine.Split('&');
 
-            if (headerInfo.isSingleCompressedDiff = singleCompressedHeaderArr[0].AsSpan().SequenceEqual("HDIFFSF20"))
+            if (headerInfo.isSingleCompressedDiff =
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
+                singleCompressedHeaderArr[0].AsSpan().SequenceEqual("HDIFFSF20"))
+#else
+                singleCompressedHeaderArr[0] == "HDIFFSF20")
+#endif
             {
                 TryReadSingleFileHeaderInfo(sr, diffPath, ref headerInfo, referenceInfo);
                 return;
@@ -233,6 +247,7 @@ namespace Hi3Helper.SharpHDiffPatch
             sr.Seek(len, SeekOrigin.Current);
         }
 
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         private static byte TryGetVersion(ReadOnlySpan<char> str)
         {
             int lastIndexOf = str.IndexOf(HDIFF_HEAD);
@@ -243,5 +258,17 @@ namespace Hi3Helper.SharpHDiffPatch
 
             throw new InvalidDataException($"[Header::TryGetVersion] Version string is invalid! Value: {numSpan.ToString()} (Raw: {str.ToString()})");
         }
+#else
+        private static byte TryGetVersion(string str)
+        {
+            int lastIndexOf = str.IndexOf(HDIFF_HEAD);
+            if (lastIndexOf < 0) throw new IndexOutOfRangeException($"[Header::TryGetVersion] Version string is invalid! Cannot find the matching start of \"HDIFF\". Getting: {str} instead");
+
+            string numStr = str.Substring(lastIndexOf + HDIFF_HEAD.Length);
+            if (byte.TryParse(numStr, out byte ret)) return ret;
+
+            throw new InvalidDataException($"[Header::TryGetVersion] Version string is invalid! Value: {numStr} (Raw: {str})");
+        }
+#endif
     }
 }

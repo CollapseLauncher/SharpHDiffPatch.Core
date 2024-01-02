@@ -69,8 +69,10 @@ namespace Hi3Helper.SharpHDiffPatch
                 IPatchCore patchCore = null;
                 if (this.useFastBuffer && this.useBufferedPatch && !headerInfo.isSingleCompressedDiff)
                     patchCore = new PatchCoreFastBuffer(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
                 else if (headerInfo.isSingleCompressedDiff)
                     patchCore = new PatchCoreSingleCompress(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+#endif
                 else
                     patchCore = new PatchCore(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
 
@@ -296,14 +298,26 @@ namespace Hi3Helper.SharpHDiffPatch
             int inLen = input.Length;
 
             int idx = 0, strIdx = 0;
+#if (NETSTANDARD2_0 || NET461_OR_GREATER)
+            int len = 0;
+#endif
             fixed (byte* inputPtr = input)
             {
                 sbyte* inputSignedPtr = (sbyte*)inputPtr;
                 do
                 {
+#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
                     ReadOnlySpan<byte> inputSpanned = MemoryMarshal.CreateReadOnlySpanFromNullTerminated(inputPtr + idx);
                     idx += inputSpanned.Length + 1;
                     outlist[strIdx++] = Encoding.UTF8.GetString(inputSpanned);
+#else
+                    if (*(inputPtr + idx++) == 0)
+                    {
+                        outlist[strIdx++] = Encoding.UTF8.GetString(inputPtr + (idx - len), len == 0 ? 0 : --len);
+                        len = 0;
+                    }
+                    len++;
+#endif
                 } while (idx < inLen);
             }
         }

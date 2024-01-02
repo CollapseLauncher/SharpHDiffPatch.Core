@@ -147,9 +147,9 @@ namespace Hi3Helper.SharpHDiffPatch
 
         public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false)
         {
-            IPatch patcher = isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir ?
-                new PatchDir(headerInfo, referenceInfo, diffPath, token) :
-                new PatchSingle(headerInfo, token);
+            IPatch patcher;
+            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir) patcher = new PatchDir(headerInfo, referenceInfo, diffPath, token);
+            else patcher = new PatchSingle(headerInfo, token);
             patcher.Patch(inputPath, outputPath, useBufferedPatch, useFullBuffer, useFastBuffer);
         }
         #endregion
@@ -183,9 +183,11 @@ namespace Hi3Helper.SharpHDiffPatch
 
         public static long GetHDiffNewSize(string path)
         {
-            using FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-            bool isDirPatch = Header.TryParseHeaderInfo(fs, path, out HeaderInfo headerInfo, out DataReferenceInfo _headerInfo);
-            return headerInfo.newDataSize;
+            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+            {
+                bool isDirPatch = Header.TryParseHeaderInfo(fs, path, out HeaderInfo headerInfo, out DataReferenceInfo _headerInfo);
+                return headerInfo.newDataSize;
+            }
         }
     }
 

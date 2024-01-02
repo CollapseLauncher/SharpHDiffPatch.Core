@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using size_t = System.UIntPtr;
 
 namespace ZstdNet
 {
@@ -15,7 +14,7 @@ namespace ZstdNet
             Dictionary = dict;
 
             if (dict != null)
-                Ddict = ExternMethods.ZSTD_createDDict(dict, (size_t)dict.Length).EnsureZstdSuccess();
+                Ddict = ExternMethods.ZSTD_createDDict(dict, (UIntPtr)dict.Length).EnsureZstdSuccess();
             else
                 GC.SuppressFinalize(this); // No unmanaged resources
         }

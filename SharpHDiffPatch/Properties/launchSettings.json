@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\Intel\\SRGlb_StarRail_1.5.0 C:\\Intel\\SRGlb_1.5.0_1.6.0_zstd_crc32_E06FE56FEB94FC179DD7D508F05B0C54.patch C:\\Intel\\SRGlb_StarRail_1.6.0 -B -b partial -l verbose"
+      "commandLineArgs": "C:\\CollapseData\\test\\in C:\\CollapseData\\test\\test_zstd.dat C:\\CollapseData\\test\\outNet -B -b partial -l Quiet"
     }
   }
 }
