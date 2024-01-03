@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<AssemblyName>SharpHDiffPatch.Core</AssemblyName>
+		<AssemblyTitle>SharpHDiffPatch - A port of HPatchZ for HDiff file patching implementation written in C#</AssemblyTitle>
+		<Description>SharpHDiffPatch is a patching library for HDiffPatch format written in C#, purposedly as a port of HPatchZ implementation. Supporting file and directory patching with BZip2, Deflate, Zstd, LZMA2 (not LZMA) and No compression diff format.</Description>
+		<PackageProjectUrl>https://github.com/CollapseLauncher/SharpHDiffPatch.Core</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<Copyright>Copyright (c) 2023 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>
+		<Authors>neon-nyan</Authors>
+		<TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0</TargetFrameworks>
+		<PackageIcon>icon.png</PackageIcon>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<VersionPrefix>2.2.3</VersionPrefix>
+		<AssemblyVersion>2.2.3</AssemblyVersion>
+		<IsAotCompatible>true</IsAotCompatible>
+		<IsTrimmable>true</IsTrimmable>
+		<Configurations>Debug;Release</Configurations>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<PackageTags>hdiff</PackageTags>
+		<!--<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
+		<Platforms>AnyCPU;x64;ARM64</Platforms>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.Buffers" Version="*" Condition="$(DefineConstants.Contains(NETSTANDARD2_0))" />
+		<PackageReference Include="System.Memory" Version="*" Condition="$(DefineConstants.Contains(NETSTANDARD2_0))" />
+		<PackageReference Include="ZstdSharp.Port" Version="*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Lib\**\*.*">
+			<PackagePath>build\Lib\</PackagePath>
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>true</Pack>
+		</None>
+		<None Include="icon.png" Pack="true" PackagePath="\" />
+		<None Include="..\README.md" Pack="true" PackagePath="\"/>
+		<None Include="SharpHDiffPatch.Core.targets" Pack="true" PackagePath="build\">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+
+		<Compile Remove="Binary\Compression\Zstd\**" Condition="$(DefineConstants.Contains(NETSTANDARD2_0))" />
+		<EmbeddedResource Remove="Binary\Compression\Zstd\**" Condition="$(DefineConstants.Contains(NETSTANDARD2_0))" />
+		<None Remove="Binary\Compression\Zstd\**" Condition="$(DefineConstants.Contains(NETSTANDARD2_0))" />
+	</ItemGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<Optimize>True</Optimize>
+		<TieredPGO>true</TieredPGO>
+		<TieredCompilation>true</TieredCompilation>
+		<TieredCompilationQuickJit>false</TieredCompilationQuickJit>
+		<TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
+	</PropertyGroup>
+</Project>

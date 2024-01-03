@@ -5,19 +5,21 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<RootNamespace>SharpHDiffPatch</RootNamespace>
 		<ImplicitUsings>disable</ImplicitUsings>
-		<Platforms>x64;ARM64</Platforms>
-		<Version>2.1.0</Version>
+		<Nullable>enable</Nullable>
+		<Platforms>x64;ARM64;AnyCPU</Platforms>
+		<Version>2.2.3</Version>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<DefineConstants></DefineConstants>
-		<Configurations>Debug;Release;ReleaseCore</Configurations>
+		<Configurations>Debug;Release</Configurations>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64' Or '$(Configuration)|$(Platform)'=='Release|x64'">
-		<DefineConstants>UseZSTD</DefineConstants>
-	</PropertyGroup>
+	<Target Name="CopyProjectReferencesToPackage" DependsOnTargets="BuildOnlySettings;ResolveReferences">
+		<ItemGroup>
+			<BuildOutputInPackage Include="$(OutputPath)MyReference.dll" TargetPath="" />
+		</ItemGroup>
+	</Target>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Hi3Helper.SharpHDiffPatch\Hi3Helper.SharpHDiffPatch.csproj" />
+	  <ProjectReference Include="..\SharpHDiffPatch.Core\SharpHDiffPatch.Core.csproj" />
 	</ItemGroup>
-
 </Project>

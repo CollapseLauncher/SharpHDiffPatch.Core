@@ -1,11 +1,12 @@
-﻿using Hi3Helper.SharpHDiffPatch;
+﻿using SharpHDiffPatch.Core;
+using SharpHDiffPatch.Core.Event;
 using System;
 using System.CommandLine;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SharpHDiffPatchBin
+namespace SharpHDiffPatch.Bin
 {
     public static class PatcherBin
     {
@@ -157,7 +158,7 @@ Buffers all clips into memory. This option is the fastest but it requires more m
             Console.WriteLine($"{label}{e.Message}");
         }
 
-        private static async void EventListener_PatchEvent(object sender, PatchEvent e)
+        private static async void EventListener_PatchEvent(object? sender, PatchEvent e)
         {
             if (await CheckIfNeedRefreshStopwatch())
             {

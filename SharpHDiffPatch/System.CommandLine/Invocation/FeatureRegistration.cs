@@ -8,7 +8,7 @@ namespace System.CommandLine.Invocation
 {
     internal class FeatureRegistration
     {
-        private static readonly string? _assemblyName = System.IO.Path.GetFileNameWithoutExtension(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
+        private static readonly string? _assemblyName = Path.GetFileNameWithoutExtension(Diagnostics.Process.GetCurrentProcess().MainModule?.FileName);
 
         private readonly FileInfo _sentinelFile;
 

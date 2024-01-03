@@ -33,7 +33,7 @@ namespace System.CommandLine
         /// <summary>
         /// The path to the currently running executable.
         /// </summary>
-        public static string ExecutablePath => _executablePath ??= System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+        public static string ExecutablePath => _executablePath ??= Diagnostics.Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
 
         private protected override void RemoveAlias(string alias)
         {

@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "C:\\CollapseData\\test\\in C:\\CollapseData\\test\\test_zstd.dat C:\\CollapseData\\test\\outNet -B -b partial -l Quiet"
+      "commandLineArgs": "\\CollapseData\\test\\Banks0.pck \\CollapseData\\test\\Banks0.pck.hdiff \\CollapseData\\test\\Banks0.pckNew -B -b partial -l Quiet"
     }
   }
 }
