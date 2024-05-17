@@ -22,7 +22,7 @@ namespace SharpHDiffPatch.Core.Binary.Streams
     /// </summary>
     public sealed class CombinedStream : Stream
     {
-        private Stream[] _UnderlyingStreams;
+        private FileStream[] _UnderlyingStreams;
         private long[] _UnderlyingStartingPositions;
         private long _TotalLength;
 
@@ -37,7 +37,7 @@ namespace SharpHDiffPatch.Core.Binary.Streams
         /// An array of <see cref="Stream"/> objects that will be chained together and
         /// considered to be one big stream.
         /// </param>
-        public CombinedStream(params Stream[] underlyingStreams)
+        public CombinedStream(params FileStream[] underlyingStreams)
         {
             if (underlyingStreams == null)
                 throw new ArgumentNullException("[CombinedStream::ctor()] underlyingStreams");
@@ -51,7 +51,7 @@ namespace SharpHDiffPatch.Core.Binary.Streams
                     throw new InvalidOperationException("[CombinedStream::ctor()] CanSeek not true for all streams");
             }
 
-            _UnderlyingStreams = new Stream[underlyingStreams.Length];
+            _UnderlyingStreams = new FileStream[underlyingStreams.Length];
             _UnderlyingStartingPositions = new long[underlyingStreams.Length];
             Array.Copy(underlyingStreams, _UnderlyingStreams, underlyingStreams.Length);
 
@@ -82,7 +82,7 @@ namespace SharpHDiffPatch.Core.Binary.Streams
             if (underlyingStreams == null)
                 throw new ArgumentNullException("[CombinedStream::ctor()] underlyingStreams");
 
-            _UnderlyingStreams = new Stream[underlyingStreams.Length];
+            _UnderlyingStreams = new FileStream[underlyingStreams.Length];
             _UnderlyingStartingPositions = new long[underlyingStreams.Length];
 
             foreach (NewFileCombinedStreamStruct stream in underlyingStreams)
@@ -114,6 +114,17 @@ namespace SharpHDiffPatch.Core.Binary.Streams
 #if SHOWMOREDEBUGINFO
             HDiffPatch.Event.PushLog($"[CombinedStream::ctor()] Total length of the CombinedStream: {_TotalLength} bytes with total of {underlyingStreams.Length} streams", Verbosity.Debug);
 #endif
+        }
+
+        public CombinedStream CopyInstance()
+        {
+            FileStream[] copyFileStreamHandle = new FileStream[_UnderlyingStreams.Length];
+            for (int index = 0; index < copyFileStreamHandle.Length; index++)
+            {
+                _UnderlyingStreams[0].Dispose();
+                copyFileStreamHandle[index] = new FileStream(_UnderlyingStreams[index].Name, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            }
+            return new CombinedStream(copyFileStreamHandle);
         }
 
         /// <summary>

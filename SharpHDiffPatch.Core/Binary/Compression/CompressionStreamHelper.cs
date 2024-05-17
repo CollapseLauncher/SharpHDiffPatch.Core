@@ -2,7 +2,9 @@
 using SharpCompress.Compressors.LZMA;
 using SharpHDiffPatch.Core.Binary.Streams;
 using System;
+#if NET6_0_OR_GREATER
 using System.Collections.Generic;
+#endif
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -34,6 +36,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
     {
         private delegate Stream ZstdStreamFallback(Stream stream);
         private static ZstdStreamFallback CreateZstdStreamFallback;
+        private static readonly int _zstdWindowLogMax = Environment.Is64BitProcess ? 31 : 30;
 
         internal static void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
             long length, long compLength, out long outLength, bool isBuffered)
@@ -83,7 +86,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
             if (CreateZstdStreamFallback == null)
             {
 #if !(NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER)
-                if (Extern.IsLibraryExist(ZstdNet.ExternMethods.DllName))
+                if (ZstdNet.DllUtils.IsLibraryExist(ZstdNet.DllUtils.DllName))
                     CreateZstdStreamFallback = CreateZstdNativeStream;
                 else
                     CreateZstdStreamFallback = CreateZstdManagedStream;
@@ -104,14 +107,14 @@ namespace SharpHDiffPatch.Core.Binary.Compression
         private static Stream CreateZstdNativeStream(Stream rawStream) =>
             new ZstdNativeStream(rawStream, new ZstdNativeDecompressor(null, new Dictionary<ZstdNativeDecompressorParameter, int>()
             {
-                { ZstdNativeDecompressorParameter.ZSTD_d_windowLogMax, 31 }
+                { ZstdNativeDecompressorParameter.ZSTD_d_windowLogMax, _zstdWindowLogMax }
             }), 0);
 #endif
 
         private static Stream CreateZstdManagedStream(Stream rawStream)
         {
             ZstdManagedDecompressor decompressor = new ZstdManagedDecompressor();
-            decompressor.SetParameter(ZstdManagedDecompressorParameter.ZSTD_d_windowLogMax, 31);
+            decompressor.SetParameter(ZstdManagedDecompressorParameter.ZSTD_d_windowLogMax, _zstdWindowLogMax);
             return new ZstdManagedStream(rawStream, decompressor, 16 << 10);
         }
 

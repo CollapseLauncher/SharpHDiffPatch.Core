@@ -6,11 +6,10 @@
 		<RootNamespace>SharpHDiffPatch</RootNamespace>
 		<ImplicitUsings>disable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<Platforms>x64;ARM64;AnyCPU</Platforms>
+		<Platforms>x64;ARM64;AnyCPU;x86</Platforms>
 		<Version>2.2.3</Version>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Configurations>Debug;Release</Configurations>
-		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 	</PropertyGroup>
 
 	<Target Name="CopyProjectReferencesToPackage" DependsOnTargets="BuildOnlySettings;ResolveReferences">

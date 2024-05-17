@@ -3,7 +3,10 @@ using SharpHDiffPatch.Core.Event;
 using System;
 using System.CommandLine;
 using System.Diagnostics;
+
+#if BENCHMARK
 using System.Linq;
+#endif
 using System.Threading.Tasks;
 
 namespace SharpHDiffPatch.Bin
@@ -20,10 +23,13 @@ namespace SharpHDiffPatch.Bin
             Argument<string> _inputPathArg, _patchPathArg, _outputPathArg;
             Option<BufferMode> _bufferModeOpt;
             Option<bool> _bufferFastOpt;
+            // Option<bool> _multiThreadOpt;
             Option<Verbosity> _logLevelOpt;
 
             string inputPath, patchPath, outputPath;
-            bool isUseBufferedPatch, isUseFullBuffer, isUseFastBuffer;
+            bool isUseBufferedPatch, isUseFullBuffer, isUseFastBuffer
+                //, isUseMultiThread
+                ;
 
             Command.AddArgument(_inputPathArg = new Argument<string>("Input File", "Input path of the old file/folder to patch"));
             Command.AddArgument(_patchPathArg = new Argument<string>("Patch File", "Patch file path to produce the new version of the file/folder"));
@@ -39,6 +45,11 @@ Buffers only the Cover Code, RLE Control and RLE Code clips only into memory. Re
 [Full]
 Buffers all clips into memory. This option is the fastest but it requires more memory depending on the patch size."));
             Command.AddOption(_bufferFastOpt = new Option<bool>(new string[] { "-B", "--fast-buffer" }, () => false, "Use array-based buffer for RLE Control and Code clips."));
+            /* Command.AddOption(_multiThreadOpt = new Option<bool>(new string[] { "-m", "--use-multithread" }, () => false, 
+                @"[EXPERIMENTAL] Use multi-threading for processing patch (only available for Directory Patching for now).
+This multi-threading mode also uses fast buffer and Partial buffer mode by default. Any defined values for --buffer-mode
+or --fast-buffer will have no effect if multi-threading mode is enabled."));
+            */
             Command.AddOption(_logLevelOpt = new Option<Verbosity>(new string[] { "-l", "--log-level" }, () => Verbosity.Info, "Defines the verbosity of the info to be displayed."));
 
             Command.SetHandler((context) =>
@@ -55,6 +66,7 @@ Buffers all clips into memory. This option is the fastest but it requires more m
                 };
 
                 isUseFastBuffer = context.ParseResult.GetValueForOption(_bufferFastOpt);
+                // isUseMultiThread = context.ParseResult.GetValueForOption(_multiThreadOpt);
                 HDiffPatch.LogVerbosity = context.ParseResult.GetValueForOption(_logLevelOpt);
 
                 try
@@ -94,7 +106,9 @@ Buffers all clips into memory. This option is the fastest but it requires more m
 #if !BENCHMARK
                             RefreshStopwatch?.Restart();
 #endif
-                            patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer);
+                            patcher.Patch(inputPath, outputPath, isUseBufferedPatch, default, isUseFullBuffer, isUseFastBuffer
+                                // , isUseMultiThread
+                                );
 #if BENCHMARK
                             num[i] = benchmarkSw?.Elapsed.TotalMilliseconds ?? 0;
                             benchmarkSw?.Restart();
@@ -109,7 +123,7 @@ Buffers all clips into memory. This option is the fastest but it requires more m
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"An error has occured! [{ex.GetType().Name}]: {ex.Message}\r\nStack Trace:\r\n{ex.StackTrace}");
+                    Console.WriteLine($"An error has occurred! [{ex.GetType().Name}]: {ex.Message}\r\nStack Trace:\r\n{ex.StackTrace}");
                     context.ExitCode = int.MinValue;
 #if DEBUG
                     throw;

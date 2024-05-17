@@ -21,6 +21,7 @@ namespace SharpHDiffPatch.Core
             // Use custom Dll import resolver
             NativeLibrary.SetDllImportResolver(Assembly.GetExecutingAssembly(), DllImportResolver);
         }
+
         internal static bool IsLibraryExist(string libraryName) => File.Exists(string.Format(_libFullPath, libraryName));
 
         private static string GetLibPlatformNamePrefix()

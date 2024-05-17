@@ -137,14 +137,22 @@ namespace SharpHDiffPatch.Core
             }
         }
 
-        public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false)
+        public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false
+#if USEEXPERIMENTALMULTITHREAD
+            , bool useMultiThread = false
+#endif
+            )
         {
             IPatch patcher;
-            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir) patcher = new PatchDir(headerInfo, referenceInfo, diffPath, token);
+            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir) patcher = new PatchDir(headerInfo, referenceInfo, diffPath, token
+#if USEEXPERIMENTALMULTITHREAD
+            useMultiThread
+#endif
+            );
             else patcher = new PatchSingle(headerInfo, token);
             patcher.Patch(inputPath, outputPath, useBufferedPatch, useFullBuffer, useFastBuffer);
         }
-        #endregion
+#endregion
 
         internal static void DisplayDirPatchInformation(long oldFileSize, long newFileSize, HeaderInfo headerInfo)
         {

@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "\\CollapseData\\test\\Banks0.pck \\CollapseData\\test\\Banks0.pck.hdiff \\CollapseData\\test\\Banks0.pckNew -B -b partial -l Quiet"
+      "commandLineArgs": "\"C:\\myGit\\testSophos2\\UnityPlayer.dll\" \"C:\\myGit\\newPatch.patch\" \"C:\\myGit\\UnityPlayer.new.dll\" -l Verbose"
     }
   }
 }

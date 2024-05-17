@@ -1,8 +1,11 @@
-﻿using SharpHDiffPatch.Core.Binary.Compression;
+﻿#if USEEXPERIMENTALMULTITHREAD
+using SharpHDiffPatch.Core.Binary.Compression;
+using SharpHDiffPatch.Core.Binary.Streams;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
@@ -16,35 +19,7 @@ using static SharpHDiffPatch.Core.Binary.StreamExtension;
 
 namespace SharpHDiffPatch.Core.Patch
 {
-    internal struct RLERefClipStruct
-    {
-        public long memCopyLength;
-        public long memSetLength;
-        public byte memSetValue;
-    }
-
-    internal struct CoverHeader
-    {
-        internal long oldPos;
-        internal long newPos;
-        internal long coverLength;
-        internal long currentCoverIndex;
-        internal long nextCoverIndex;
-    }
-
-    internal interface IPatchCore
-    {
-        void SetDirectoryReferencePair(DirectoryReferencePair pair);
-
-        void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0);
-
-        void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo);
-
-        Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
-            long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed);
-    }
-
-    internal sealed class PatchCore : IPatchCore
+    internal sealed class PatchCoreMultiThread : IPatchCore
     {
         internal unsafe delegate void RleProc(ref RLERefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr);
         internal static RleProc _rleProcDelegate;
@@ -65,12 +40,12 @@ namespace SharpHDiffPatch.Core.Patch
         internal string _pathOutput;
         internal DirectoryReferencePair? _dirReferencePair;
 
-        static PatchCore()
+        static PatchCoreMultiThread()
         {
             SetRleProcDelegate();
         }
 
-        internal PatchCore(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
+        internal PatchCoreMultiThread(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
         {
             _token = token;
             _sizeToBePatched = sizeToBePatched;
@@ -145,147 +120,121 @@ namespace SharpHDiffPatch.Core.Patch
             }
         }
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, headerInfo.chunkInfo.coverCount, headerInfo.chunkInfo.cover_buf_size, headerInfo.newDataSize);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
+        {
+            Task copyTask = Task.Run(RunCopySimilarFilesRoutine);
+            Task patchTask = Task.Run(() => WriteCoverStreamToOutput(clips, inputStream, outputStream, headerInfo.chunkInfo.coverCount, headerInfo.chunkInfo.cover_buf_size, headerInfo.newDataSize));
+            Task.WaitAll(copyTask, patchTask);
+        }
 
-        internal IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, long coverSize, long coverCount)
+        internal CoverHeader[] GetCoverHeaders(Stream coverReader, long coverSize, long coverCount, CancellationToken token)
         {
             long _oldPosBack = 0,
                  _newPosBack = 0;
 
-            if (coverSize < _maxMemBufferLen)
+            HDiffPatch.Event.PushLog($"[PatchCoreMultiThread::GetCoverHeaders] Getting cover headers from buffer with size: {coverSize}", Verbosity.Verbose);
+            
+            CoverHeader[] headers = new CoverHeader[coverCount];
+            for (long i = 0; i < coverCount; i++)
             {
-                HDiffPatch.Event.PushLog($"[PatchCore::EnumerateCoverHeaders] Enumerate cover counts from buffer with size: {coverSize}", Verbosity.Verbose);
-                byte[] buffer = new byte[coverSize];
-#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-                coverReader.ReadExactly(buffer);
-#else
-                coverReader.ReadExactly(buffer, 0, buffer.Length);
-#endif
+                token.ThrowIfCancellationRequested();
+                long oldPosBack = _oldPosBack;
+                long newPosBack = _newPosBack;
 
-                int offset = 0;
-                while (coverCount-- > 0)
+                byte pSign = (byte)coverReader.ReadByte();
+                long oldPos, copyLength, coverLength;
+
+                byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
+                long inc_oldPos = ReadLong7bit(coverReader, _kSignTagBit, pSign);
+                oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
+
+                copyLength = ReadLong7bit(coverReader);
+                coverLength = ReadLong7bit(coverReader);
+                newPosBack += copyLength;
+                oldPosBack = oldPos;
+
+                oldPosBack += true ? coverLength : 0;
+
+                headers[i] = new CoverHeader
                 {
-                    long oldPosBack = _oldPosBack;
-                    long newPosBack = _newPosBack;
+                    oldPos = oldPos,
+                    newPos = newPosBack,
+                    coverLength = coverLength,
+                    currentCoverIndex = i,
+                    nextCoverIndex = coverCount
+                };
 
-                    byte pSign = buffer[offset++];
-                    long oldPos, copyLength, coverLength;
-
-                    byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                    long inc_oldPos = ReadLong7bit(buffer, ref offset, _kSignTagBit, pSign);
-                    oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
-
-                    copyLength = ReadLong7bit(buffer, ref offset);
-                    coverLength = ReadLong7bit(buffer, ref offset);
-                    newPosBack += copyLength;
-                    oldPosBack = oldPos;
-
-                    oldPosBack += true ? coverLength : 0;
-
-                    yield return new CoverHeader
-                    {
-                        oldPos = oldPos,
-                        newPos = newPosBack,
-                        coverLength = coverLength,
-                        nextCoverIndex = coverCount
-                    };
-                    newPosBack += coverLength;
-
-                    _oldPosBack = oldPosBack;
-                    _newPosBack = newPosBack;
-                }
+                newPosBack += coverLength;
+                _oldPosBack = oldPosBack;
+                _newPosBack = newPosBack;
             }
-            else
-            {
-                HDiffPatch.Event.PushLog($"[PatchCore::EnumerateCoverHeaders] Enumerate cover counts directly from stream with size: {coverSize}", Verbosity.Verbose);
-                while (coverCount-- > 0)
-                {
-                    long oldPosBack = _oldPosBack;
-                    long newPosBack = _newPosBack;
 
-                    byte pSign = (byte)coverReader.ReadByte();
-                    long oldPos, copyLength, coverLength;
-
-                    byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                    long inc_oldPos = ReadLong7bit(coverReader, _kSignTagBit, pSign);
-                    oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
-
-                    copyLength = ReadLong7bit(coverReader);
-                    coverLength = ReadLong7bit(coverReader);
-                    newPosBack += copyLength;
-                    oldPosBack = oldPos;
-
-                    oldPosBack += true ? coverLength : 0;
-
-                    yield return new CoverHeader
-                    {
-                        oldPos = oldPos,
-                        newPos = newPosBack,
-                        coverLength = coverLength,
-                        nextCoverIndex = coverCount
-                    };
-                    newPosBack += coverLength;
-
-                    _oldPosBack = oldPosBack;
-                    _newPosBack = newPosBack;
-                }
-            }
+            return headers;
         }
 
-        internal void RunCopySimilarFilesRoutine()
+        private CombinedStream[] CopyCombinedStream(CombinedStream stream, int count)
         {
-            if (_dirReferencePair.HasValue)
-            {
-                HDiffPatch.Event.PushLog("Start copying similar data");
-                CopyOldSimilarToNewFiles(_dirReferencePair.Value);
+            CombinedStream[] returnStreams = new CombinedStream[count];
+            for (int i = 0; i < count; i++)
+                returnStreams[i] = stream.CopyInstance();
 
-                TimeSpan timeTaken = _stopwatch.Elapsed;
-                HDiffPatch.Event.PushLog($"Copying similar data has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
-                HDiffPatch.Event.PushLog($"Starting patching process...");
-                _stopwatch.Restart();
-            }
+            return returnStreams;
         }
 
         private void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long coverCount, long coverSize, long newDataSize)
         {
-            byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolLen);
-            MemoryStream cacheOutputStream = new MemoryStream();
+            int threadCount = Environment.ProcessorCount;
+            byte[][] sharedBuffer = new byte[threadCount][];
+            for (int i = 0; i < threadCount; i++)
+                sharedBuffer[i] = new byte[_maxArrayPoolLen];
+
+            if (inputStream.GetType() != typeof(CombinedStream)
+             || outputStream.GetType() != typeof(CombinedStream))
+                throw new InvalidOperationException("[PatchCoreMultiThread::WriteCoverStreamToOutput] Type of inputStream or outputStream is not a \"CombinedStream\" type!");
 
             try
             {
-                RunCopySimilarFilesRoutine();
-
-                long newPosBack = 0;
                 RLERefClipStruct rleStruct = new RLERefClipStruct();
-                CoverHeader[] headers = EnumerateCoverHeaders(clips[0], coverSize, coverCount).ToArray();
 
-                for (int i = 0; i < headers.Length; i++)
+                CoverHeader[] coverHeaders = GetCoverHeaders(clips[0], coverSize, coverCount, _token);
+
+                HDiffPatch.Event.PushLog($"[PatchCoreMultiThread::WriteCoverStreamToOutput] Copying CombinedStream instance into {threadCount} instances!", Verbosity.Verbose);
+                CombinedStream[] inputCombinedStreamIns = CopyCombinedStream((CombinedStream)inputStream, threadCount);
+                CombinedStream[] outputCombinedStreamIns = CopyCombinedStream((CombinedStream)outputStream, threadCount);
+                HDiffPatch.Event.PushLog($"[PatchCoreMultiThread::WriteCoverStreamToOutput] Done copying CombinedStream instances!", Verbosity.Verbose);
+
+                // goto SingleThreadMode;
+                Parallel.ForEach(coverHeaders, new ParallelOptions { CancellationToken = _token, MaxDegreeOfParallelism = threadCount }, (cover) =>
                 {
-                    CoverHeader cover = headers[i];
+                    int currentIndex = (int)cover.currentCoverIndex;
+                    int currentThread = currentIndex % threadCount;
 
                     _token.ThrowIfCancellationRequested();
-
-                    if (newPosBack < cover.newPos)
+                    long newPosBack = cover.newPos + cover.coverLength;
+                    lock (outputCombinedStreamIns[currentThread])
                     {
-                        long copyLength = cover.newPos - newPosBack;
-                        inputStream.Position = cover.oldPos;
-
-                        TBytesCopyStreamFromOldClip(cacheOutputStream, clips[3], copyLength, sharedBuffer);
-                        TBytesDetermineRleType(ref rleStruct, cacheOutputStream, copyLength, sharedBuffer, clips[1], clips[2]);
+                        outputCombinedStreamIns[currentThread].Position = newPosBack - cover.coverLength;
                     }
 
-                    TBytesCopyOldClipPatch(cacheOutputStream, inputStream, ref rleStruct, cover.oldPos, cover.coverLength, sharedBuffer, clips[1], clips[2]);
-                    newPosBack = cover.newPos + cover.coverLength;
+                    if (newPosBack - cover.coverLength < cover.newPos)
+                    {
+                        int copyLength = (int)(cover.newPos - newPosBack - cover.coverLength);
 
-                    if (cacheOutputStream.Length > _maxMemBufferLimit || cover.nextCoverIndex == 0)
-                        WriteInMemoryOutputToStream(cacheOutputStream, outputStream);
-                }
+                        inputCombinedStreamIns[currentThread].Position = cover.oldPos;
 
-                if (newPosBack < newDataSize)
+                        TBytesCopyStreamFromOldClip(outputCombinedStreamIns[currentThread], clips[3], copyLength, sharedBuffer[currentThread]);
+                        TBytesDetermineRleType(ref rleStruct, outputCombinedStreamIns[currentThread], copyLength, sharedBuffer[currentThread], clips[1], clips[2]);
+                    }
+
+                    TBytesCopyOldClipPatch(outputCombinedStreamIns[currentThread], inputCombinedStreamIns[currentThread], ref rleStruct, cover.oldPos, cover.coverLength, sharedBuffer[currentThread], clips[1], clips[2]);
+                });
+
+                long newPosBackLast = 0;
+                if (newPosBackLast < newDataSize)
                 {
-                    long copyLength = newDataSize - newPosBack;
-                    TBytesCopyStreamFromOldClip(outputStream, clips[3], copyLength, sharedBuffer);
-                    TBytesDetermineRleType(ref rleStruct, outputStream, copyLength, sharedBuffer, clips[1], clips[2]);
+                    long copyLength = newDataSize - newPosBackLast;
+                    TBytesCopyStreamFromOldClip(outputStream, clips[3], copyLength, sharedBuffer[0]);
+                    TBytesDetermineRleType(ref rleStruct, outputStream, copyLength, sharedBuffer[0], clips[1], clips[2]);
                     HDiffPatch.UpdateEvent(copyLength, ref _sizePatched, ref _sizeToBePatched, _stopwatch);
                 }
 
@@ -294,9 +243,7 @@ namespace SharpHDiffPatch.Core.Patch
             catch { throw; }
             finally
             {
-                if (sharedBuffer != null) ArrayPool<byte>.Shared.Return(sharedBuffer);
                 _stopwatch?.Stop();
-                cacheOutputStream?.Dispose();
                 for (int i = 0; i < clips.Length; i++) clips[i]?.Dispose();
                 inputStream?.Dispose();
                 outputStream?.Dispose();
@@ -328,21 +275,30 @@ namespace SharpHDiffPatch.Core.Patch
         private void TBytesCopyOldClipPatch(Stream outCache, Stream inputStream, ref RLERefClipStruct rleLoader, long oldPos, long addLength, byte[] sharedBuffer,
             Stream rleCtrlStream, Stream rleCodeStream)
         {
-            long lastPos = outCache.Position;
-            long decodeStep = addLength;
-            inputStream.Position = oldPos;
+            lock (rleCtrlStream)
+            {
+                lock (rleCodeStream)
+                {
+                    long lastPos = outCache.Position;
+                    long decodeStep = addLength;
+                    inputStream.Position = oldPos;
 
-            TBytesCopyStreamInner(inputStream, outCache, sharedBuffer, (int)decodeStep);
+                    TBytesCopyStreamInner(inputStream, outCache, sharedBuffer, (int)decodeStep);
 
-            outCache.Position = lastPos;
-            TBytesDetermineRleType(ref rleLoader, outCache, decodeStep, sharedBuffer, rleCtrlStream, rleCodeStream);
+                    outCache.Position = lastPos;
+                    TBytesDetermineRleType(ref rleLoader, outCache, decodeStep, sharedBuffer, rleCtrlStream, rleCodeStream);
+                }
+            }
         }
 
         internal static void TBytesCopyStreamFromOldClip(Stream outCache, Stream copyReader, long copyLength, byte[] sharedBuffer)
         {
-            long lastPos = outCache.Position;
-            TBytesCopyStreamInner(copyReader, outCache, sharedBuffer, (int)copyLength);
-            outCache.Position = lastPos;
+            lock (copyReader)
+            {
+                long lastPos = outCache.Position;
+                TBytesCopyStreamInner(copyReader, outCache, sharedBuffer, (int)copyLength);
+                outCache.Position = lastPos;
+            }
         }
 
         internal static void TBytesCopyStreamInner(Stream input, Stream output, byte[] sharedBuffer, int readLen)
@@ -358,40 +314,46 @@ namespace SharpHDiffPatch.Core.Patch
         private void TBytesDetermineRleType(ref RLERefClipStruct rleLoader, Stream outCache, long copyLength, byte[] sharedBuffer,
             Stream rleCtrlStream, Stream rleCodeStream)
         {
-            TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
-
-            while (copyLength > 0)
+            lock (rleCtrlStream)
             {
-                byte pSign = (byte)rleCtrlStream.ReadByte();
-                byte type = (byte)((pSign) >> (8 - _kByteRleType));
-                long length = ReadLong7bit(rleCtrlStream, _kByteRleType, pSign);
-                ++length;
-
-                if (type == 3)
+                lock (rleCodeStream)
                 {
-                    rleLoader.memCopyLength = length;
                     TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
-                    continue;
-                }
 
-                rleLoader.memSetLength = length;
-                if (type == 2)
-                {
-                    rleLoader.memSetValue = (byte)rleCodeStream.ReadByte();
-                    TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
-                    continue;
-                }
+                    while (copyLength > 0)
+                    {
+                        byte pSign = (byte)rleCtrlStream.ReadByte();
+                        byte type = (byte)((pSign) >> (8 - _kByteRleType));
+                        long length = ReadLong7bit(rleCtrlStream, _kByteRleType, pSign);
+                        ++length;
 
-                /* If the type is 1, then 0 - 1. This should result -1 in int but since
-                 * we cast it to byte, then it will underflow and set it to 255.
-                 * This method is the same as:
-                 * if (type == 0)
-                 *     rleLoader.memSetValue = 0x00; // or 0 in byte
-                 * else
-                 *     rleLoader.memSetValue = 0xFF; // or 255 in byte
-                 */
-                rleLoader.memSetValue = (byte)(0x00 - type);
-                TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
+                        if (type == 3)
+                        {
+                            rleLoader.memCopyLength = length;
+                            TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
+                            continue;
+                        }
+
+                        rleLoader.memSetLength = length;
+                        if (type == 2)
+                        {
+                            rleLoader.memSetValue = (byte)rleCodeStream.ReadByte();
+                            TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
+                            continue;
+                        }
+
+                        /* If the type is 1, then 0 - 1. This should result -1 in int but since
+                         * we cast it to byte, then it will underflow and set it to 255.
+                         * This method is the same as:
+                         * if (type == 0)
+                         *     rleLoader.memSetValue = 0x00; // or 0 in byte
+                         * else
+                         *     rleLoader.memSetValue = 0xFF; // or 255 in byte
+                         */
+                        rleLoader.memSetValue = (byte)(0x00 - type);
+                        TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeStream);
+                    }
+                }
             }
         }
 
@@ -547,6 +509,20 @@ namespace SharpHDiffPatch.Core.Patch
 
         internal static ref string NewPathByIndex(string[] source, long index) => ref source[index];
 
+        internal void RunCopySimilarFilesRoutine()
+        {
+            if (_dirReferencePair.HasValue)
+            {
+                HDiffPatch.Event.PushLog("Start copying similar data");
+                CopyOldSimilarToNewFiles(_dirReferencePair.Value);
+
+                TimeSpan timeTaken = _stopwatch.Elapsed;
+                HDiffPatch.Event.PushLog($"Copying similar data has been finished in {timeTaken.TotalSeconds} seconds ({timeTaken.TotalMilliseconds} ms)");
+                HDiffPatch.Event.PushLog($"Starting patching process...");
+                _stopwatch.Restart();
+            }
+        }
+
         private void CopyOldSimilarToNewFiles(DirectoryReferencePair dirData)
         {
             int _curNewRefIndex = 0;
@@ -655,3 +631,4 @@ namespace SharpHDiffPatch.Core.Patch
         }
     }
 }
+#endif

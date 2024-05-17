@@ -4,7 +4,9 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+#if NET6_0_OR_GREATER
 using System.Runtime.InteropServices;
+#endif
 using System.Text;
 using System.Threading;
 using static SharpHDiffPatch.Core.Binary.StreamExtension;
@@ -38,14 +40,24 @@ namespace SharpHDiffPatch.Core.Patch
         private bool useBufferedPatch;
         private bool useFullBuffer;
         private bool useFastBuffer;
+#if USEEXPERIMENTALMULTITHREAD
+        private bool useMultiThread;
+#endif
         private int padding;
         private CancellationToken token;
 
-        public PatchDir(HeaderInfo headerInfo, DataReferenceInfo referenceInfo, string patchPath, CancellationToken token)
+        public PatchDir(HeaderInfo headerInfo, DataReferenceInfo referenceInfo, string patchPath, CancellationToken token
+#if USEEXPERIMENTALMULTITHREAD
+            , bool useMultiThread
+#endif
+            )
         {
             this.token = token;
             this.headerInfo = headerInfo;
             this.referenceInfo = referenceInfo;
+#if USEEXPERIMENTALMULTITHREAD
+            this.useMultiThread = useMultiThread;
+#endif
             spawnPatchStream = new Func<FileStream>(() => new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
         }
 
@@ -69,12 +81,13 @@ namespace SharpHDiffPatch.Core.Patch
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {referenceInfo.headDataSize} bytes ({referenceInfo.headDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
 
                 IPatchCore patchCore = null;
+#if USEEXPERIMENTALMULTITHREAD
+                if (this.useMultiThread && !headerInfo.isSingleCompressedDiff)
+                    patchCore = new PatchCoreMultiThread(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
+                else
+#endif
                 if (this.useFastBuffer && this.useBufferedPatch && !headerInfo.isSingleCompressedDiff)
                     patchCore = new PatchCoreFastBuffer(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
-#if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-                // else if (headerInfo.isSingleCompressedDiff)
-                //     patchCore = new PatchCoreSingleCompress(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
-#endif
                 else
                     patchCore = new PatchCore(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
 
@@ -239,7 +252,7 @@ namespace SharpHDiffPatch.Core.Patch
                 string combinedOldPath = Path.Combine(basePathInput, oldPathByIndex);
 
                 HDiffPatch.Event.PushLog($"[PatchDir::GetRefOldStreams] Assigning stream to the old path: {combinedOldPath}", Verbosity.Debug);
-                streams[i] = File.OpenRead(combinedOldPath);
+                streams[i] = File.Open(combinedOldPath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
             }
 
             return streams;
@@ -259,7 +272,7 @@ namespace SharpHDiffPatch.Core.Patch
 
                 NewFileCombinedStreamStruct newStruct = new NewFileCombinedStreamStruct
                 {
-                    stream = new FileStream(combinedNewPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, 4096),
+                    stream = new FileStream(combinedNewPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite),
                     size = dirData.newRefSizeList[i]
                 };
                 streams[i] = newStruct;
