@@ -7,16 +7,10 @@
 		<ImplicitUsings>disable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<Platforms>x64;ARM64;AnyCPU;x86</Platforms>
-		<Version>2.2.5</Version>
+		<Version>2.2.6</Version>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
-
-	<Target Name="CopyProjectReferencesToPackage" DependsOnTargets="BuildOnlySettings;ResolveReferences">
-		<ItemGroup>
-			<BuildOutputInPackage Include="$(OutputPath)MyReference.dll" TargetPath="" />
-		</ItemGroup>
-	</Target>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\SharpHDiffPatch.Core\SharpHDiffPatch.Core.csproj" />

@@ -18,6 +18,12 @@ namespace SharpHDiffPatch.Core
         fadler64
     }
 
+    public struct HeaderInfoExt
+    {
+        public HeaderInfo headerInfo;
+        public DataReferenceInfo dataReferenceInfo;
+    }
+
     public struct HeaderInfo
     {
         public CompressionMode compMode;
@@ -181,12 +187,24 @@ namespace SharpHDiffPatch.Core
             }
         }
 
-        public static long GetHDiffNewSize(string path)
+        public static long GetHDiffNewSize(string diffFilePath)
         {
-            using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffFilePath);
+            return headerInfo.headerInfo.newDataSize;
+        }
+
+        public static long GetHDiffOldSize(string diffFilePath)
+        {
+            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffFilePath);
+            return headerInfo.headerInfo.oldDataSize;
+        }
+
+        public static HeaderInfoExt GetHDiffHeaderInfo(string diffFilePath)
+        {
+            using (FileStream fs = new FileStream(diffFilePath, FileMode.Open, FileAccess.Read))
             {
-                bool isDirPatch = Header.TryParseHeaderInfo(fs, path, out HeaderInfo headerInfo, out DataReferenceInfo _headerInfo);
-                return headerInfo.newDataSize;
+                bool isDirPatch = Header.TryParseHeaderInfo(fs, diffFilePath, out HeaderInfo headerInfo, out DataReferenceInfo _headerInfo);
+                return new HeaderInfoExt() { headerInfo = headerInfo, dataReferenceInfo = _headerInfo };
             }
         }
     }

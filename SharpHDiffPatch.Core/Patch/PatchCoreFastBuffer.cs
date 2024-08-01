@@ -16,6 +16,7 @@ namespace SharpHDiffPatch.Core.Patch
         private const int _maxMemBufferLimit = 2 << 20;
         private const int _maxArrayPoolLen = 4 << 20;
         private const int _maxArrayPoolSecondOffset = _maxArrayPoolLen / 2;
+        private const int _minUninitArrayLen = 2 << 10;
         private PatchCore _core;
 
         internal PatchCoreFastBuffer(CancellationToken token, long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath)
@@ -54,40 +55,71 @@ namespace SharpHDiffPatch.Core.Patch
 
         private unsafe void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
+            int rleCtrlIdx = 0, rleCodeIdx = 0;
+
+#if !NET6_0_OR_GREATER
             byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset);
-            MemoryStream cacheOutputStream = null;
+            MemoryStream cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
             int poolSizeRemained = _maxArrayPoolLen - sharedBuffer.Length;
 
             bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= poolSizeRemained;
-            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_ctrlBuf_size) : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_ctrlBuf_size)
+            : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
             poolSizeRemained -= rleCtrlBuffer.Length;
 
             bool isRleUseArrayPool = headerInfo.chunkInfo.rle_codeBuf_size <= poolSizeRemained;
-            byte[] rleCodeBuffer = isRleUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_codeBuf_size) : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
+            byte[] rleCodeBuffer = isRleUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_codeBuf_size)
+            : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
+#else
+            byte[] sharedBuffer = GC.AllocateUninitializedArray<byte>(_maxArrayPoolSecondOffset);
+            MemoryStream cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
+            int poolSizeRemained = _maxArrayPoolLen - sharedBuffer.Length;
+
+            bool isCtrlUseArrayPool = _minUninitArrayLen > headerInfo.chunkInfo.rle_ctrlBuf_size;
+            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? GC.AllocateUninitializedArray<byte>((int)headerInfo.chunkInfo.rle_ctrlBuf_size)
+            : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+            poolSizeRemained -= rleCtrlBuffer.Length;
+
+            bool isRleUseArrayPool = _minUninitArrayLen > headerInfo.chunkInfo.rle_codeBuf_size;
+            byte[] rleCodeBuffer = isRleUseArrayPool ? GC.AllocateUninitializedArray<byte>((int)headerInfo.chunkInfo.rle_codeBuf_size)
+            : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
+#endif
+
+            RLERefClipStruct rleStruct = new RLERefClipStruct();
+            IEnumerator<CoverHeader> coverIEnumerator = _core
+                .EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount)
+                .GetEnumerator();
 
             try
             {
-                cacheOutputStream = new MemoryStream(_maxMemBufferLimit);
-                sharedBuffer = ArrayPool<byte>.Shared.Rent(_maxArrayPoolSecondOffset);
-
-                int rleCtrlIdx = 0, rleCodeIdx = 0;
-
                 using (clips[1])
                 using (clips[2])
                 {
-                    HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Ctrl clip to {(isCtrlUseArrayPool ? "ArrayPool" : "heap buffer")}");
+                    string ctrlStats = 
+                        isCtrlUseArrayPool ?
+#if !NET6_0_OR_GREATER
+                        "ArrayPool"
+#else
+                        "UninitArray"
+#endif
+                        : "heap buffer";
+                    string rleStats =
+                        isRleUseArrayPool ?
+#if !NET6_0_OR_GREATER
+                        "ArrayPool"
+#else
+                        "UninitArray"
+#endif
+                        : "heap buffer";
+                    HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Ctrl clip to {ctrlStats}");
+                    HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Code clip to {rleStats}");
                     clips[1].ReadExactly(rleCtrlBuffer, 0, (int)headerInfo.chunkInfo.rle_ctrlBuf_size);
-                    HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Code clip to {(isRleUseArrayPool ? "ArrayPool" : "heap buffer")}");
                     clips[2].ReadExactly(rleCodeBuffer, 0, (int)headerInfo.chunkInfo.rle_codeBuf_size);
                 }
 
                 long oldPosBack = 0;
                 long newPosBack = 0;
                 int cacheSizeWritten = 0;
-                RLERefClipStruct rleStruct = new RLERefClipStruct();
-                IEnumerator<CoverHeader> coverIEnumerator = _core
-                    .EnumerateCoverHeaders(clips[0], headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount)
-                    .GetEnumerator();
 
             StartCoverRead:
                 if (!coverIEnumerator.MoveNext()) goto EndCoverRead;
@@ -126,15 +158,18 @@ namespace SharpHDiffPatch.Core.Patch
             catch { throw; }
             finally
             {
+#if !NET6_0_OR_GREATER
                 if (sharedBuffer != null) ArrayPool<byte>.Shared.Return(sharedBuffer);
                 if (rleCtrlBuffer != null && isCtrlUseArrayPool) ArrayPool<byte>.Shared.Return(rleCtrlBuffer);
                 if (rleCodeBuffer != null && isRleUseArrayPool) ArrayPool<byte>.Shared.Return(rleCodeBuffer);
-                _core._stopwatch?.Stop();
-                cacheOutputStream?.Dispose();
-                clips[0]?.Dispose();
-                clips[3]?.Dispose();
-                inputStream?.Dispose();
-                outputStream?.Dispose();
+#endif
+                _core._stopwatch.Stop();
+                cacheOutputStream.Dispose();
+                clips[0].Dispose();
+                clips[3].Dispose();
+                inputStream.Dispose();
+                outputStream.Dispose();
+                coverIEnumerator.Dispose();
             }
         }
 

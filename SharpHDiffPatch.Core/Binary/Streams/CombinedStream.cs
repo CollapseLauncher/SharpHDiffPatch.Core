@@ -37,7 +37,7 @@ namespace SharpHDiffPatch.Core.Binary.Streams
         /// An array of <see cref="Stream"/> objects that will be chained together and
         /// considered to be one big stream.
         /// </param>
-        public CombinedStream(params FileStream[] underlyingStreams)
+        public CombinedStream(FileStream[] underlyingStreams)
         {
             if (underlyingStreams == null)
                 throw new ArgumentNullException("[CombinedStream::ctor()] underlyingStreams");
@@ -51,9 +51,8 @@ namespace SharpHDiffPatch.Core.Binary.Streams
                     throw new InvalidOperationException("[CombinedStream::ctor()] CanSeek not true for all streams");
             }
 
-            _UnderlyingStreams = new FileStream[underlyingStreams.Length];
+            _UnderlyingStreams = underlyingStreams;
             _UnderlyingStartingPositions = new long[underlyingStreams.Length];
-            Array.Copy(underlyingStreams, _UnderlyingStreams, underlyingStreams.Length);
 
             _Position = 0;
             _Index = 0;
