@@ -628,7 +628,11 @@ namespace SharpHDiffPatch.Core.Patch
 
         private void CopyFile(string inputPath, string outputPath)
         {
+#if NET6_0_OR_GREATER
+            byte[] buffer = GC.AllocateUninitializedArray<byte>(_maxArrayCopyLen);
+#else
             byte[] buffer = new byte[_maxArrayCopyLen];
+#endif
             try
             {
                 using (FileStream ifs = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -648,10 +652,6 @@ namespace SharpHDiffPatch.Core.Patch
                 }
             }
             catch { throw; }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
         }
     }
 }
