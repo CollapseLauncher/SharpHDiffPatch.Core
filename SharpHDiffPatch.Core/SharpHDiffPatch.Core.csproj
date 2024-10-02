@@ -7,7 +7,7 @@
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<Copyright>Copyright (c) 2024 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>
 		<Authors>neon-nyan</Authors>
-		<TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0</TargetFrameworks>
+		<TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
 		<PackageIcon>icon.png</PackageIcon>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
