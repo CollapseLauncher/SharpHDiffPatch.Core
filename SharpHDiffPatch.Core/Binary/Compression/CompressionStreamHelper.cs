@@ -125,7 +125,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
 
             // Get LZMA if propLen == 5
             byte[] props = new byte[propLen];
-            rawStream.Read(props, 0, propLen);
+            _ = rawStream.Read(props, 0, propLen);
             int dicSize = MemoryMarshal.Read<int>(props.AsSpan(1));
             HDiffPatch.Event.PushLog($"[PatchCore::CreateLzmaStream] Assigning LZMA stream with dictionary size: {dicSize}", Verbosity.Verbose);
             return new LzmaStream(props, rawStream, -1, -1, rawStream, false);

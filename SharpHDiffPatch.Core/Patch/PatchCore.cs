@@ -28,7 +28,6 @@ namespace SharpHDiffPatch.Core.Patch
         internal long oldPos;
         internal long newPos;
         internal long coverLength;
-        internal long currentCoverIndex;
         internal long nextCoverIndex;
     }
 
@@ -422,7 +421,7 @@ namespace SharpHDiffPatch.Core.Patch
                 {
                     int length = (int)memSetStep;
                     long lastPos = outCache.Position;
-                    outCache.Read(sharedBuffer, 0, length);
+                    _ = outCache.Read(sharedBuffer, 0, length);
                     outCache.Position = lastPos;
 
                 SetAddRLESingle:

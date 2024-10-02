@@ -241,7 +241,7 @@ namespace SharpHDiffPatch.Core.Patch
             int decodeStep = (int)(rleLoader.memCopyLength > copyLength ? copyLength : rleLoader.memCopyLength);
 
             long lastPosCopy = outCache.Position;
-            outCache.Read(sharedBuffer, 0, decodeStep);
+            _ = outCache.Read(sharedBuffer, 0, decodeStep);
             outCache.Position = lastPosCopy;
 
             fixed (byte* rlePtr = &rleCodeBuffer[rleCodeIdx], oldPtr = &sharedBuffer[0])
