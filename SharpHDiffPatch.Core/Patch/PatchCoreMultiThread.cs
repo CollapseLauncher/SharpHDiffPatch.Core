@@ -145,11 +145,11 @@ namespace SharpHDiffPatch.Core.Patch
                 long oldPos, copyLength, coverLength;
 
                 byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                long inc_oldPos = ReadLong7bit(coverReader, _kSignTagBit, pSign);
+                long inc_oldPos = ReadLong7Bit(coverReader, _kSignTagBit, pSign);
                 oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
 
-                copyLength = ReadLong7bit(coverReader);
-                coverLength = ReadLong7bit(coverReader);
+                copyLength = ReadLong7Bit(coverReader);
+                coverLength = ReadLong7Bit(coverReader);
                 newPosBack += copyLength;
                 oldPosBack = oldPos;
 
@@ -324,7 +324,7 @@ namespace SharpHDiffPatch.Core.Patch
                     {
                         byte pSign = (byte)rleCtrlStream.ReadByte();
                         byte type = (byte)((pSign) >> (8 - _kByteRleType));
-                        long length = ReadLong7bit(rleCtrlStream, _kByteRleType, pSign);
+                        long length = ReadLong7Bit(rleCtrlStream, _kByteRleType, pSign);
                         ++length;
 
                         if (type == 3)

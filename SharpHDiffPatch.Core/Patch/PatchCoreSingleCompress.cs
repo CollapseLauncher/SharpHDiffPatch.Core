@@ -184,11 +184,11 @@ namespace SharpHDiffPatch.Core.Patch
                     long oldPos, copyLength, coverLength;
 
                     byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                    long inc_oldPos = ReadLong7bit(buffer, ref offset, _kSignTagBit, pSign);
+                    long inc_oldPos = ReadLong7Bit(buffer, ref offset, _kSignTagBit, pSign);
                     oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
 
-                    copyLength = ReadLong7bit(buffer, ref offset);
-                    coverLength = ReadLong7bit(buffer, ref offset);
+                    copyLength = ReadLong7Bit(buffer, ref offset);
+                    coverLength = ReadLong7Bit(buffer, ref offset);
                     newPosBack += copyLength;
                     oldPosBack = oldPos;
 
@@ -219,11 +219,11 @@ namespace SharpHDiffPatch.Core.Patch
                     long oldPos, copyLength, coverLength;
 
                     byte inc_oldPos_sign = (byte)(pSign >> (8 - _kSignTagBit));
-                    long inc_oldPos = ReadLong7bit(coverReader, _kSignTagBit, pSign);
+                    long inc_oldPos = ReadLong7Bit(coverReader, _kSignTagBit, pSign);
                     oldPos = inc_oldPos_sign == 0 ? oldPosBack + inc_oldPos : oldPosBack - inc_oldPos;
 
-                    copyLength = ReadLong7bit(coverReader);
-                    coverLength = ReadLong7bit(coverReader);
+                    copyLength = ReadLong7Bit(coverReader);
+                    coverLength = ReadLong7Bit(coverReader);
                     newPosBack += copyLength;
                     oldPosBack = oldPos;
 
@@ -271,8 +271,8 @@ namespace SharpHDiffPatch.Core.Patch
                 {
                     long oldStreamSize = inputStream.Length;
 
-                    int bufCover_size = (int)ReadLong7bit(singleClip);
-                    int bufRle_size = (int)ReadLong7bit(singleClip);
+                    int bufCover_size = (int)ReadLong7Bit(singleClip);
+                    int bufRle_size = (int)ReadLong7Bit(singleClip);
 
                     byte[] bufCover = ArrayPool<byte>.Shared.Rent(bufCover_size);
                     byte[] bufRle = ArrayPool<byte>.Shared.Rent(bufRle_size);
@@ -319,7 +319,7 @@ namespace SharpHDiffPatch.Core.Patch
         internal CoverHeader TryGetNextCover(ref int bufCover_offset, long bufCover_Size, ref long lastOldEnd, ref long lastNewEnd, ReadOnlySpan<byte> buffer)
         {
             byte inc_oldPos_sign = (byte)(buffer[bufCover_offset++] >> (8 - 1));
-            long oldPos = ReadLong7bit(buffer, ref bufCover_offset, 1, inc_oldPos_sign),
+            long oldPos = ReadLong7Bit(buffer, ref bufCover_offset, 1, inc_oldPos_sign),
                  newPos = 0,
                  length = 0;
 
@@ -328,9 +328,9 @@ namespace SharpHDiffPatch.Core.Patch
             else
                 oldPos = lastOldEnd - oldPos;
 
-            newPos = ReadLong7bit(buffer, ref bufCover_offset);
+            newPos = ReadLong7Bit(buffer, ref bufCover_offset);
             newPos += lastNewEnd;
-            length = ReadLong7bit(buffer, ref bufCover_offset);
+            length = ReadLong7Bit(buffer, ref bufCover_offset);
 
             return new CoverHeader
             {
@@ -407,7 +407,7 @@ namespace SharpHDiffPatch.Core.Patch
             {
                 byte pSign = (byte)rleCtrlStream.ReadByte();
                 byte type = (byte)((pSign) >> (8 - _kByteRleType));
-                long length = ReadLong7bit(rleCtrlStream, _kByteRleType, pSign);
+                long length = ReadLong7Bit(rleCtrlStream, _kByteRleType, pSign);
                 ++length;
 
                 if (type == 3)

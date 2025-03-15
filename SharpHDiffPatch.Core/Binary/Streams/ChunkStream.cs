@@ -5,13 +5,13 @@ namespace SharpHDiffPatch.Core.Binary.Streams
 {
     public sealed class ChunkStream : Stream
     {
-        private long _start { get; set; }
-        private long _end { get; set; }
-        private long _size { get => _end - _start; }
-        private long _curPos { get; set; }
-        private long _remain { get => _size - _curPos; }
+        private long Start { get; }
+        private long End { get; }
+        private long Size => End - Start;
+        private long CurPos { get; set; }
+        private long Remain => Size - CurPos;
         private readonly Stream _stream;
-        private bool _isDisposing { get; set; }
+        private bool IsDisposing { get; }
 
         public ChunkStream(Stream stream, long start, long end, bool isDisposing = false)
             : base()
@@ -25,59 +25,59 @@ namespace SharpHDiffPatch.Core.Binary.Streams
 
             if (_stream.Length < start || end > _stream.Length)
             {
-                throw new ArgumentOutOfRangeException("Offset is out of stream size range!");
+                throw new ArgumentOutOfRangeException(nameof(stream), "Offset is out of stream size range!");
             }
 
             _stream.Position = start;
-            _start = start;
-            _end = end;
-            _curPos = 0;
-            _isDisposing = isDisposing;
+            Start = start;
+            End = end;
+            CurPos = 0;
+            IsDisposing = isDisposing;
         }
 
-        ~ChunkStream() => this.Dispose(_isDisposing);
+        ~ChunkStream() => Dispose(IsDisposing);
 
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override int Read(Span<byte> buffer)
         {
-            if (_remain == 0) return 0;
+            if (Remain == 0) return 0;
 
-            int toSlice = (int)(buffer.Length > _remain ? _remain : buffer.Length);
-            _stream.Position = _start + _curPos;
-            int read = _stream.Read(buffer.Slice(0, toSlice));
-            _curPos += read;
+            int toSlice = (int)(buffer.Length > Remain ? Remain : buffer.Length);
+            _stream.Position = Start + CurPos;
+            int read = _stream.Read(buffer[..toSlice]);
+            CurPos += read;
 
             return read;
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
         {
-            if (_remain == 0) return;
+            if (Remain == 0) return;
 
-            int toSlice = (int)(buffer.Length > _remain ? _remain : buffer.Length);
-            _curPos += toSlice;
+            int toSlice = (int)(buffer.Length > Remain ? Remain : buffer.Length);
+            CurPos += toSlice;
 
-            _stream.Write(buffer.Slice(0, toSlice));
+            _stream.Write(buffer[..toSlice]);
         }
 #endif
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (_remain == 0) return 0;
+            if (Remain == 0) return 0;
 
-            int toRead = (int)(_remain < count ? _remain : count);
-            _stream.Position = _start + _curPos;
+            int toRead = (int)(Remain < count ? Remain : count);
+            _stream.Position = Start + CurPos;
             int read = _stream.Read(buffer, offset, toRead);
-            _curPos += read;
+            CurPos += read;
             return read;
         }
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            int toRead = (int)(_remain < count ? _remain : count);
-            int toOffset = offset > _remain ? 0 : offset;
+            int toRead = (int)(Remain < count ? Remain : count);
+            int toOffset = offset > Remain ? 0 : offset;
             _stream.Position += toOffset;
-            _curPos += toOffset + toRead;
+            CurPos += toOffset + toRead;
 
             _stream.Write(buffer, offset, toRead);
         }
@@ -89,46 +89,31 @@ namespace SharpHDiffPatch.Core.Binary.Streams
         }
 #endif
 
-        public override bool CanRead
-        {
-            get { return _stream.CanRead; }
-        }
+        public override bool CanRead => _stream.CanRead;
 
-        public override bool CanSeek
-        {
-            get { return _stream.CanSeek; }
-        }
+        public override bool CanSeek => _stream.CanSeek;
 
-        public override bool CanWrite
-        {
-            get { return _stream.CanWrite; }
-        }
+        public override bool CanWrite => _stream.CanWrite;
 
         public override void Flush()
         {
             _stream.Flush();
         }
 
-        public override long Length
-        {
-            get { return _size; }
-        }
+        public override long Length => Size;
 
         public override long Position
         {
-            get
-            {
-                return _curPos;
-            }
+            get => CurPos;
             set
             {
-                if (value > _size)
+                if (value > Size)
                 {
                     throw new IndexOutOfRangeException();
                 }
 
-                _curPos = value;
-                _stream.Position = _curPos + _start;
+                CurPos = value;
+                _stream.Position = CurPos + Start;
             }
         }
 
@@ -138,24 +123,25 @@ namespace SharpHDiffPatch.Core.Binary.Streams
             {
                 case SeekOrigin.Begin:
                     {
-                        if (offset > _size)
+                        if (offset > Size)
                         {
-                            throw new ArgumentOutOfRangeException();
+                            throw new ArgumentOutOfRangeException(nameof(offset));
                         }
-                        return _stream.Seek(offset + _start, SeekOrigin.Begin) - _start;
+                        return _stream.Seek(offset + Start, SeekOrigin.Begin) - Start;
                     }
                 case SeekOrigin.Current:
                     {
-                        long pos = _stream.Position - _start;
-                        if (pos + offset > _size)
+                        long pos = _stream.Position - Start;
+                        if (pos + offset > Size)
                         {
-                            throw new ArgumentOutOfRangeException();
+                            throw new ArgumentOutOfRangeException(nameof(offset));
                         }
-                        return _stream.Seek(offset, SeekOrigin.Current) - _start;
+                        return _stream.Seek(offset, SeekOrigin.Current) - Start;
                     }
+                case SeekOrigin.End:
                 default:
                     {
-                        _stream.Position = _end;
+                        _stream.Position = End;
                         _stream.Position -= offset;
 
                         return Position;
@@ -170,9 +156,8 @@ namespace SharpHDiffPatch.Core.Binary.Streams
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) base.Dispose(disposing);
-            if (_isDisposing) _stream.Dispose();
-            GC.SuppressFinalize(this);
+            if (disposing) base.Dispose(true);
+            if (IsDisposing) _stream.Dispose();
         }
     }
 }

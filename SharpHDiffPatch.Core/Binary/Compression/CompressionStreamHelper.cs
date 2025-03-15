@@ -1,4 +1,9 @@
-﻿using SharpCompress.Compressors.BZip2;
+﻿// ReSharper disable IdentifierTypo
+// ReSharper disable ConvertSwitchStatementToSwitchExpression
+// ReSharper disable CommentTypo
+// ReSharper disable InconsistentNaming
+
+using SharpCompress.Compressors.BZip2;
 using SharpCompress.Compressors.LZMA;
 using SharpHDiffPatch.Core.Binary.Streams;
 using System;
@@ -35,8 +40,8 @@ namespace SharpHDiffPatch.Core.Binary.Compression
     internal static class CompressionStreamHelper
     {
         private delegate Stream ZstdStreamFallback(Stream stream);
-        private static ZstdStreamFallback CreateZstdStreamFallback;
-        private static readonly int _zstdWindowLogMax = Environment.Is64BitProcess ? 31 : 30;
+        private static ZstdStreamFallback _createZstdStreamFallback;
+        private static readonly int ZstdWindowLogMax = Environment.Is64BitProcess ? 31 : 30;
 
         internal static void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
             long length, long compLength, out long outLength, bool isBuffered)
@@ -48,7 +53,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
             HDiffPatch.Event.PushLog($"[PatchCore::GetDecompressStreamPlugin] Assigning stream of compression: {type} at start pos: {toPosition} to end pos: {toCompLength}", Verbosity.Verbose);
             Stream rawStream;
             if (isBuffered)
-                rawStream = new ChunkStream(sourceStream, toPosition, toCompLength, false);
+                rawStream = new ChunkStream(sourceStream, toPosition, toCompLength);
             else
             {
                 sourceStream.Position = toPosition;
@@ -83,18 +88,17 @@ namespace SharpHDiffPatch.Core.Binary.Compression
 
         private static Stream CreateZstdStream(Stream rawStream)
         {
-            if (CreateZstdStreamFallback == null)
-            {
+            if (_createZstdStreamFallback != null) return _createZstdStreamFallback(rawStream);
+
 #if !(NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER)
-                if (ZstdNet.DllUtils.IsLibraryExist(ZstdNet.DllUtils.DllName))
-                    CreateZstdStreamFallback = CreateZstdNativeStream;
-                else
-                    CreateZstdStreamFallback = CreateZstdManagedStream;
+            if (ZstdNet.DllUtils.IsLibraryExist(ZstdNet.DllUtils.DllName))
+                _createZstdStreamFallback = CreateZstdNativeStream;
+            else
+                _createZstdStreamFallback = CreateZstdManagedStream;
 #else
-                CreateZstdStreamFallback = CreateZstdManagedStream;
+                _createZstdStreamFallback = CreateZstdManagedStream;
 #endif
-            }
-            return CreateZstdStreamFallback(rawStream);
+            return _createZstdStreamFallback(rawStream);
         }
 
         /* HACK: The default window log max size is 30. This is unacceptable since the native HPatch implementation
@@ -107,21 +111,21 @@ namespace SharpHDiffPatch.Core.Binary.Compression
         private static Stream CreateZstdNativeStream(Stream rawStream) =>
             new ZstdNativeStream(rawStream, new ZstdNativeDecompressor(null, new Dictionary<ZstdNativeDecompressorParameter, int>()
             {
-                { ZstdNativeDecompressorParameter.ZSTD_d_windowLogMax, _zstdWindowLogMax }
-            }), 0);
+                { ZstdNativeDecompressorParameter.ZSTD_d_windowLogMax, ZstdWindowLogMax }
+            }));
 #endif
 
         private static Stream CreateZstdManagedStream(Stream rawStream)
         {
             ZstdManagedDecompressor decompressor = new ZstdManagedDecompressor();
-            decompressor.SetParameter(ZstdManagedDecompressorParameter.ZSTD_d_windowLogMax, _zstdWindowLogMax);
+            decompressor.SetParameter(ZstdManagedDecompressorParameter.ZSTD_d_windowLogMax, ZstdWindowLogMax);
             return new ZstdManagedStream(rawStream, decompressor, 16 << 10);
         }
 
         private static Stream CreateLzmaStream(Stream rawStream)
         {
             int propLen = rawStream.ReadByte();
-            if (propLen != 5) return new LzmaStream(new byte[] { (byte)propLen }, rawStream); // Get LZMA2 if propLen != 5
+            if (propLen != 5) return new LzmaStream([(byte)propLen], rawStream); // Get LZMA2 if propLen != 5
 
             // Get LZMA if propLen == 5
             byte[] props = new byte[propLen];
@@ -129,9 +133,6 @@ namespace SharpHDiffPatch.Core.Binary.Compression
             int dicSize = MemoryMarshal.Read<int>(props.AsSpan(1));
             HDiffPatch.Event.PushLog($"[PatchCore::CreateLzmaStream] Assigning LZMA stream with dictionary size: {dicSize}", Verbosity.Verbose);
             return new LzmaStream(props, rawStream, -1, -1, rawStream, false);
-
-            // return new LzmaDecoderStream(rawStream, props, long.MaxValue);
-            throw new NotSupportedException($"[PatchCore::CreateLzmaStream] LZMA compression is not supported! only LZMA2 is currently supported!");
         }
     }
 }

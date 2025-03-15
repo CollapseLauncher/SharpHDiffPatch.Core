@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\myGit\\testSophos2\\UnityPlayer.dll\" \"C:\\myGit\\newPatch.patch\" \"C:\\myGit\\UnityPlayer.new.dll\" -l Verbose"
+      "commandLineArgs": "\"G:\\CollapseData\\Hi3SEA\\BH3_v8.0.0_647b2f09ce4e\" \"G:\\CollapseData\\Hi3SEA\\delta-m0.diff\" \"G:\\CollapseData\\Hi3SEA\\BH3_v8.1.0_d950a68ed449_dotnet\" -l Verbose -B -b partial"
     }
   }
 }
