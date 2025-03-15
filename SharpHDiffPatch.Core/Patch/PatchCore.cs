@@ -447,7 +447,7 @@ namespace SharpHDiffPatch.Core.Patch
                 len -= Vector128<byte>.Count;
                 Vector128<byte> resultVector = AdvSimd.Add(*(Vector128<byte>*)(rlePtr + len), *(Vector128<byte>*)(oldPtr + len));
                 AdvSimd.Store(rlePtr + len, resultVector);
-                if (len > Vector128<byte>.Count) goto AddVectorArm64_128;
+                if (len >= Vector128<byte>.Count) goto AddVectorArm64_128;
             }
             else if (
 #if !NET7_0_OR_GREATER
@@ -461,7 +461,7 @@ namespace SharpHDiffPatch.Core.Patch
                 len -= Vector64<byte>.Count;
                 Vector64<byte> resultVector = AdvSimd.Add(*(Vector64<byte>*)(rlePtr + len), *(Vector64<byte>*)(oldPtr + len));
                 AdvSimd.Store(rlePtr + len, resultVector);
-                if (len > Vector64<byte>.Count) goto AddVectorArm64_64;
+                if (len >= Vector64<byte>.Count) goto AddVectorArm64_64;
             }
 
             WriteRemainedRleSimdResultToStream(ref rleLoader, len, outCache, ref copyLength, decodeStep, rlePtr, rleBuffer, rleBufferIdx, oldPtr);
@@ -477,7 +477,7 @@ namespace SharpHDiffPatch.Core.Patch
                 len -= Vector128<byte>.Count;
                 Vector128<byte> resultVector = Sse2.Add(*(Vector128<byte>*)(rlePtr + len), *(Vector128<byte>*)(oldPtr + len));
                 Sse2.Store(rlePtr + len, resultVector);
-                if (len > Vector128<byte>.Count) goto AddVectorSse2;
+                if (len >= Vector128<byte>.Count) goto AddVectorSse2;
             }
 
             WriteRemainedRleSimdResultToStream(ref rleLoader, len, outCache, ref copyLength, decodeStep, rlePtr, rleBuffer, rleBufferIdx, oldPtr);
