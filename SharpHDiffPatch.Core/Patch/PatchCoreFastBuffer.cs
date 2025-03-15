@@ -217,9 +217,9 @@ namespace SharpHDiffPatch.Core.Patch
                 if (newPosBack >= headerInfo.newDataSize) return;
 
                 copyLength = headerInfo.newDataSize - newPosBack;
-                PatchCore.TBytesCopyStreamFromOldClip(outputStream, clips[3], copyLength, sharedBuffer);
-                TBytesDetermineRleType(ref rleStruct, outputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
-                HDiffPatch.UpdateEvent(copyLength, ref _core.SizePatched, ref _core.SizeToBePatched, _core.Stopwatch);
+                PatchCore.TBytesCopyStreamFromOldClip(cacheOutputStream, clips[3], copyLength, sharedBuffer);
+                TBytesDetermineRleType(ref rleStruct, cacheOutputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
+                _core.WriteInMemoryOutputToStream(cacheOutputStream, outputStream);
             }
             finally
             {
@@ -237,7 +237,7 @@ namespace SharpHDiffPatch.Core.Patch
             }
         }
 
-        private void TBytesCopyOldClipPatch(Stream outCache, Stream inputStream, ref RleRefClipStruct rleLoader, long oldPos, long addLength, byte[] sharedBuffer,
+        private static void TBytesCopyOldClipPatch(MemoryStream outCache, Stream inputStream, ref RleRefClipStruct rleLoader, long oldPos, long addLength, byte[] sharedBuffer,
             ReadOnlySpan<byte> rleCtrlBuffer, ref int rleCtrlIdx, byte[] rleCodeBuffer, ref int rleCodeIdx)
         {
             long lastPos = outCache.Position;
@@ -249,7 +249,7 @@ namespace SharpHDiffPatch.Core.Patch
             TBytesDetermineRleType(ref rleLoader, outCache, addLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
         }
 
-        private void TBytesDetermineRleType(ref RleRefClipStruct rleLoader, Stream outCache, long copyLength, byte[] sharedBuffer,
+        private static void TBytesDetermineRleType(ref RleRefClipStruct rleLoader, MemoryStream outCache, long copyLength, byte[] sharedBuffer,
             ReadOnlySpan<byte> rleCtrlBuffer, ref int rleCtrlIdx, byte[] rleCodeBuffer, ref int rleCodeIdx)
         {
             TBytesSetRle(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeBuffer, ref rleCodeIdx);
@@ -289,7 +289,7 @@ namespace SharpHDiffPatch.Core.Patch
             }
         }
 
-        private void TBytesSetRle(ref RleRefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer,
+        private static void TBytesSetRle(ref RleRefClipStruct rleLoader, MemoryStream outCache, ref long copyLength, byte[] sharedBuffer,
             byte[] rleCodeBuffer, ref int rleCodeIdx)
         {
             PatchCore.TBytesSetRleSingle(ref rleLoader, outCache, ref copyLength, sharedBuffer);
@@ -298,7 +298,7 @@ namespace SharpHDiffPatch.Core.Patch
             TBytesSetRleCopyOnly(ref rleLoader, outCache, ref copyLength, sharedBuffer, rleCodeBuffer, ref rleCodeIdx);
         }
 
-        private unsafe void TBytesSetRleCopyOnly(ref RleRefClipStruct rleLoader, Stream outCache, ref long copyLength, byte[] sharedBuffer,
+        private static unsafe void TBytesSetRleCopyOnly(ref RleRefClipStruct rleLoader, MemoryStream outCache, ref long copyLength, byte[] sharedBuffer,
             byte[] rleCodeBuffer, ref int rleCodeIdx)
         {
             int decodeStep = (int)(rleLoader.MemCopyLength > copyLength ? copyLength : rleLoader.MemCopyLength);
