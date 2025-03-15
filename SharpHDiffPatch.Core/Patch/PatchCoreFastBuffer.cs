@@ -54,18 +54,18 @@ namespace SharpHDiffPatch.Core.Patch
 
         internal static void CreateCoverHeaderAsOutputBuffer(Stream coverStream, byte[] outputBuffer, long coverSize, long coverCount)
         {
-            const int sizeOfLong = sizeof(long) * 4;
+            const int sizeOfLong  = sizeof(long) * 4;
             const int kSignTagBit = 1;
+
             byte[] sevenBitCoverBuffer = ArrayPool<byte>.Shared.Rent((int)coverSize);
+            ref byte sevenBitBufferRef = ref sevenBitCoverBuffer[0];
 
             try
             {
                 coverStream.ReadExactly(sevenBitCoverBuffer, 0, (int)coverSize);
 
-                int sevenBitBufferOffset = 0;
-
-                long lastOldPosBack      = 0;
-                long lastNewPosBack      = 0;
+                long lastOldPosBack = 0;
+                long lastNewPosBack = 0;
 
                 ref long outBufferOldPosRef       = ref outputBuffer.AsRef<long>();
                 ref long outBufferNewPosRef       = ref outputBuffer.AsRef<long>(8);
@@ -77,13 +77,16 @@ namespace SharpHDiffPatch.Core.Patch
                     long oldPosBack = lastOldPosBack;
                     long newPosBack = lastNewPosBack;
 
-                    byte pSign         = sevenBitCoverBuffer[sevenBitBufferOffset++];
-                    byte incOldPosSign = (byte)(pSign >> (8 - kSignTagBit));
-                    long incOldPos     = sevenBitCoverBuffer.ReadLong7Bit(ref sevenBitBufferOffset, kSignTagBit, pSign);
-                    long oldPos        = incOldPosSign == 0 ? oldPosBack + incOldPos : oldPosBack - incOldPos;
+                    byte pSign = sevenBitBufferRef;
+                    sevenBitBufferRef = ref Unsafe.AddByteOffset(ref sevenBitBufferRef, 1);
 
-                    long copyLength  = sevenBitCoverBuffer.ReadLong7Bit(ref sevenBitBufferOffset);
-                    long coverLength = sevenBitCoverBuffer.ReadLong7Bit(ref sevenBitBufferOffset);
+                    byte incOldPosSign = (byte)(pSign >> (8 - kSignTagBit));
+
+                    sevenBitBufferRef = ref sevenBitBufferRef.ReadLong7Bit(out long incOldPos, kSignTagBit, pSign);
+                    sevenBitBufferRef = ref sevenBitBufferRef.ReadLong7Bit(out long copyLength);
+                    sevenBitBufferRef = ref sevenBitBufferRef.ReadLong7Bit(out long coverLength);
+
+                    long oldPos = incOldPosSign == 0 ? oldPosBack + incOldPos : oldPosBack - incOldPos;
 
                     oldPosBack  = oldPos + coverLength;
                     newPosBack += copyLength;
@@ -254,7 +257,7 @@ namespace SharpHDiffPatch.Core.Patch
             while (copyLength > 0)
             {
                 byte pSign = rleCtrlBuffer[rleCtrlIdx++];
-                byte type = (byte)((pSign) >> (8 - PatchCore.KByteRleType));
+                byte type = (byte)(pSign >> (8 - PatchCore.KByteRleType));
                 long length = rleCtrlBuffer.ReadLong7Bit(ref rleCtrlIdx, PatchCore.KByteRleType, pSign);
                 ++length;
 

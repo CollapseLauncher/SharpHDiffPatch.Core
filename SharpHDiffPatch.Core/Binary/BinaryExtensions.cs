@@ -52,7 +52,7 @@ namespace SharpHDiffPatch.Core.Binary
             if ((code & (1 << (7 - tagBit))) == 0) return value;
             do
             {
-                if ((value >> (4 * 4 - 7)) != 0) return 0;
+                if (value >> (4 * 4 - 7) != 0) return 0;
                 code = (byte)inputStream.ReadByte();
                 value = (value << 7) | (code & ((1 << 7) - 1));
             }
@@ -70,7 +70,7 @@ namespace SharpHDiffPatch.Core.Binary
             if ((code & (1 << (7 - tagBit))) == 0) return value;
             do
             {
-                if ((value >> (8 * 8 - 7)) != 0) return 0;
+                if (value >> (8 * 8 - 7) != 0) return 0;
                 code = (byte)inputStream.ReadByte();
                 value = (value << 7) | (code & (((long)1 << 7) - 1));
             }
@@ -89,7 +89,7 @@ namespace SharpHDiffPatch.Core.Binary
 
             do
             {
-                if ((value >> (8 * 8 - 7)) != 0) return 0;
+                if (value >> (8 * 8 - 7) != 0) return 0;
                 code = inputBuffer[offset++];
                 value = (value << 7) | (code & (((long)1 << 7) - 1));
             }
@@ -108,7 +108,7 @@ namespace SharpHDiffPatch.Core.Binary
 
             do
             {
-                if ((value >> (8 * 8 - 7)) != 0) return 0;
+                if (value >> (8 * 8 - 7) != 0) return 0;
                 code = inputBuffer[offset++];
                 value = (value << 7) | (code & (((long)1 << 7) - 1));
             }
@@ -116,9 +116,41 @@ namespace SharpHDiffPatch.Core.Binary
             return value;
         }
 
+        public static ref byte ReadLong7Bit(this ref byte inputBuffer, out long value, int tagBit = 0, byte prevTagBit = 0)
+        {
+            byte code = tagBit == 0 ? inputBuffer : prevTagBit;
+            value = code & ((1 << (7 - tagBit)) - 1);
+
+            if (tagBit == 0)
+            {
+                inputBuffer = ref Unsafe.AddByteOffset(ref inputBuffer, 1);
+            }
+
+            if ((code & (1 << (7 - tagBit))) == 0)
+            {
+                return ref inputBuffer;
+            }
+
+            Calc:
+            if (value >> (8 * 8 - 7) != 0)
+            {
+                value = 0;
+                return ref inputBuffer;
+            }
+            code = inputBuffer;
+            value = (value << 7) | (code & (((long)1 << 7) - 1));
+            inputBuffer = ref Unsafe.AddByteOffset(ref inputBuffer, 1);
+            if ((code & (1 << 7)) != 0)
+            {
+                goto Calc;
+            }
+
+            return ref inputBuffer;
+        }
+
         public static bool ReadBoolean(this Stream stream) => stream.ReadByte() != 0;
 
-        public static unsafe ref T AsRef<T>(this byte[] coverBuffer, int coverHeaderOffset = 0)
+        public static ref T AsRef<T>(this byte[] coverBuffer, int coverHeaderOffset = 0)
             => ref Unsafe.As<byte, T>(ref coverBuffer[coverHeaderOffset]);
 
         public static void GetPathsFromStream(this Stream reader, out string[] outputPaths, int bufferSize, int count)
