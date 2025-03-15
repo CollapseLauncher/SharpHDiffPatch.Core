@@ -81,10 +81,17 @@ namespace SharpHDiffPatch.Core.Patch
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
                 Sse2.IsSupported ?
                     TBytesSetRleVectorSse2Simd :
+#if NET7_0_OR_GREATER
+                    AdvSimd.IsSupported && Vector128.IsHardwareAccelerated ?
+                        TBytesSetRleVectorAdvSimd128 :
+                        AdvSimd.IsSupported && Vector64.IsHardwareAccelerated ?
+                            TBytesSetRleVectorAdvSimd64 :
+#else
                     AdvSimd.IsSupported ?
-                        TBytesSetRleVectorAdvSimd :
+                        TBytesSetRleVectorAdvSimd64 :
 #endif
-                        TBytesSetRleVectorSoftware;
+#endif
+                            TBytesSetRleVectorSoftware;
         }
 
         internal PatchCore(long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath, CancellationToken token)
@@ -151,7 +158,7 @@ namespace SharpHDiffPatch.Core.Patch
 
         public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, headerInfo.chunkInfo.coverCount, headerInfo.chunkInfo.cover_buf_size, headerInfo.newDataSize);
 
-        internal IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, long coverSize, long coverCount)
+        internal static IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, long coverSize, long coverCount)
         {
             long lastOldPosBack = 0,
                  lastNewPosBack = 0;
@@ -431,17 +438,11 @@ namespace SharpHDiffPatch.Core.Patch
         }
 
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-        internal static unsafe void TBytesSetRleVectorAdvSimd(ref RleRefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
+        internal static unsafe void TBytesSetRleVectorAdvSimd128(ref RleRefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
         {
             int len = decodeStep;
 
-            if (
-#if !NET7_0_OR_GREATER
-                AdvSimd.IsSupported
-#else
-                Vector128.IsHardwareAccelerated
-#endif
-                && len >= Vector128<byte>.Count)
+            if (len >= Vector128<byte>.Count)
             {
                 AddVectorArm64_128:
                 len -= Vector128<byte>.Count;
@@ -449,13 +450,16 @@ namespace SharpHDiffPatch.Core.Patch
                 AdvSimd.Store(rlePtr + len, resultVector);
                 if (len >= Vector128<byte>.Count) goto AddVectorArm64_128;
             }
-            else if (
-#if !NET7_0_OR_GREATER
-                AdvSimd.IsSupported
-#else
-                Vector64.IsHardwareAccelerated
-#endif
-                && len >= Vector64<byte>.Count)
+
+            WriteRemainedRleSimdResultToStream(ref rleLoader, len, outCache, ref copyLength, decodeStep, rlePtr, rleBuffer, rleBufferIdx, oldPtr);
+        }
+
+
+        internal static unsafe void TBytesSetRleVectorAdvSimd64(ref RleRefClipStruct rleLoader, Stream outCache, ref long copyLength, int decodeStep, byte* rlePtr, byte[] rleBuffer, int rleBufferIdx, byte* oldPtr)
+        {
+            int len = decodeStep;
+
+            if (len >= Vector64<byte>.Count)
             {
                 AddVectorArm64_64:
                 len -= Vector64<byte>.Count;
@@ -471,7 +475,7 @@ namespace SharpHDiffPatch.Core.Patch
         {
             int len = decodeStep;
 
-            if (Sse2.IsSupported && len >= Vector128<byte>.Count)
+            if (len >= Vector128<byte>.Count)
             {
                 AddVectorSse2:
                 len -= Vector128<byte>.Count;
