@@ -5,7 +5,7 @@
         <Description>SharpHDiffPatch is a patching library for HDiffPatch format written in C#, purposedly as a port of HPatchZ implementation. Supporting file and directory patching with BZip2, Deflate, Zstd, LZMA2 (not LZMA) and No compression diff format.</Description>
         <PackageProjectUrl>https://github.com/CollapseLauncher/SharpHDiffPatch.Core</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <Copyright>Copyright (c) 2024 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>
+        <Copyright>Copyright (c) 2025 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>
         <Authors>neon-nyan</Authors>
         <TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
         <PackageIcon>icon.png</PackageIcon>
