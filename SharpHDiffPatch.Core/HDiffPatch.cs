@@ -33,7 +33,8 @@ namespace SharpHDiffPatch.Core
         public bool isOutputDir;
         public bool isSingleCompressedDiff;
         public string patchPath;
-        public string headerMagic;
+        public Func<Stream> patchCreateStream;
+        public string headerMagic;  
 
         public long stepMemSize;
 
@@ -109,20 +110,17 @@ namespace SharpHDiffPatch.Core
         public long coverEndPos;
     }
 
-    public sealed partial class HDiffPatch
+    public sealed class HDiffPatch
     {
-        private HeaderInfo headerInfo { get; set; }
+        private HeaderInfo headerInfo;
         private DataReferenceInfo referenceInfo { get; set; }
         private Stream diffStream { get; set; }
-        private string diffPath { get; set; }
         private bool isPatchDir { get; set; }
-
-        internal long currentSizePatched { get; set; }
-        internal long totalSizePatched { get; set; }
 
         internal static PatchEvent PatchEvent = new PatchEvent();
         public static EventListener Event = new EventListener();
-        public static Verbosity LogVerbosity = Verbosity.Quiet;
+
+        public static Verbosity LogVerbosity { get; set; } = Verbosity.Quiet;
 
         public HDiffPatch()
         {
@@ -132,14 +130,24 @@ namespace SharpHDiffPatch.Core
         #region Header Initialization
         public void Initialize(string diff)
         {
-            diffPath = diff;
-
             using (diffStream = new FileStream(diff, FileMode.Open, FileAccess.Read))
             {
-                isPatchDir = Header.TryParseHeaderInfo(diffStream, diffPath, out HeaderInfo headerInfo, out DataReferenceInfo referenceInfo);
+                isPatchDir = Header.TryParseHeaderInfo(diffStream, diff, out HeaderInfo info, out DataReferenceInfo reference);
 
-                this.headerInfo = headerInfo;
-                this.referenceInfo = referenceInfo;
+                headerInfo = info;
+                referenceInfo = reference;
+            }
+        }
+
+        public void Initialize(Func<Stream> diffCreateStream)
+        {
+            using (diffStream = diffCreateStream())
+            {
+                isPatchDir = Header.TryParseHeaderInfo(diffStream, null, out HeaderInfo info, out DataReferenceInfo reference);
+
+                headerInfo = info;
+                referenceInfo = reference;
+                headerInfo.patchCreateStream = diffCreateStream;
             }
         }
 
@@ -150,7 +158,7 @@ namespace SharpHDiffPatch.Core
             )
         {
             IPatch patcher;
-            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir) patcher = new PatchDir(headerInfo, referenceInfo, diffPath, token
+            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir) patcher = new PatchDir(headerInfo, referenceInfo, headerInfo.patchPath, token
 #if USEEXPERIMENTALMULTITHREAD
             useMultiThread
 #endif
@@ -199,13 +207,29 @@ namespace SharpHDiffPatch.Core
             return headerInfo.headerInfo.oldDataSize;
         }
 
+        public static long GetHDiffNewSize(Stream diffStream)
+        {
+            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffStream);
+            return headerInfo.headerInfo.newDataSize;
+        }
+
+        public static long GetHDiffOldSize(Stream diffStream)
+        {
+            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffStream);
+            return headerInfo.headerInfo.oldDataSize;
+        }
+
         public static HeaderInfoExt GetHDiffHeaderInfo(string diffFilePath)
         {
-            using (FileStream fs = new FileStream(diffFilePath, FileMode.Open, FileAccess.Read))
-            {
-                bool isDirPatch = Header.TryParseHeaderInfo(fs, diffFilePath, out HeaderInfo headerInfo, out DataReferenceInfo _headerInfo);
-                return new HeaderInfoExt() { headerInfo = headerInfo, dataReferenceInfo = _headerInfo };
-            }
+            using FileStream fs = new FileStream(diffFilePath, FileMode.Open, FileAccess.Read);
+            _ = Header.TryParseHeaderInfo(fs, diffFilePath, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
+            return new HeaderInfoExt { headerInfo = headerInfo, dataReferenceInfo = headerInfoReference };
+        }
+
+        public static HeaderInfoExt GetHDiffHeaderInfo(Stream diffStream)
+        {
+            _ = Header.TryParseHeaderInfo(diffStream, null, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
+            return new HeaderInfoExt { headerInfo = headerInfo, dataReferenceInfo = headerInfoReference };
         }
     }
 

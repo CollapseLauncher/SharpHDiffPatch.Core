@@ -1,4 +1,7 @@
-﻿namespace SharpHDiffPatch.Core.Patch
+﻿using System;
+using System.IO;
+
+namespace SharpHDiffPatch.Core.Patch
 {
     public interface IPatch
     {

@@ -8,7 +8,7 @@ namespace SharpHDiffPatch.Core.Patch
 {
     public sealed class PatchSingle(HeaderInfo headerInfo, CancellationToken token) : IPatch
     {
-        private readonly Func<Stream> _spawnPatchStream = () => new FileStream(headerInfo.patchPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        private readonly Func<Stream> _spawnPatchStream = headerInfo.patchCreateStream ?? (() => new FileStream(headerInfo.patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
 
         private bool _isUseBufferedPatch;
         private bool _isUseFullBuffer;

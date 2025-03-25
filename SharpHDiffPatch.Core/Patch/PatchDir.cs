@@ -32,7 +32,7 @@ namespace SharpHDiffPatch.Core.Patch
     {
         private HeaderInfo _headerInfo;
         private readonly DataReferenceInfo _referenceInfo;
-        private readonly Func<FileStream> _spawnPatchStream;
+        private readonly Func<Stream> _spawnPatchStream;
         private string _basePathInput;
         private string _basePathOutput;
         private bool _useBufferedPatch;
@@ -56,7 +56,7 @@ namespace SharpHDiffPatch.Core.Patch
 #if USEEXPERIMENTALMULTITHREAD
             useMultiThread = useMultiThread;
 #endif
-            _spawnPatchStream = () => new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            _spawnPatchStream = headerInfo.patchCreateStream ?? (() => new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
         }
 
         public void Patch(string input, string output, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
@@ -67,7 +67,7 @@ namespace SharpHDiffPatch.Core.Patch
             _useFullBuffer = useFullBuffer;
             _useFastBuffer = useFastBuffer;
 
-            using FileStream patchStream = _spawnPatchStream();
+            using Stream patchStream = _spawnPatchStream();
             _padding = _headerInfo.compMode == CompressionMode.zlib ? 1 : 0;
             HDiffPatch.Event.PushLog($"[PatchDir::Patch] Padding applied: {_padding} byte(s)", Verbosity.Debug);
 
