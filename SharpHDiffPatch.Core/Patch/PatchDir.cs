@@ -59,7 +59,7 @@ namespace SharpHDiffPatch.Core.Patch
             _spawnPatchStream = headerInfo.patchCreateStream ?? (() => new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
         }
 
-        public void Patch(string input, string output, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
+        public void Patch(string input, string output, Action<long> writeBytesDelegate, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
         {
             _basePathInput = input;
             _basePathOutput = output;
@@ -84,9 +84,9 @@ namespace SharpHDiffPatch.Core.Patch
                 else
 #endif
             if (_useFastBuffer && _useBufferedPatch && !_headerInfo.isSingleCompressedDiff)
-                patchCore = new PatchCoreFastBuffer(_headerInfo.newDataSize, Stopwatch.StartNew(), _basePathInput, _basePathOutput, _token);
+                patchCore = new PatchCoreFastBuffer(_headerInfo.newDataSize, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
             else
-                patchCore = new PatchCore(_headerInfo.newDataSize, Stopwatch.StartNew(), _basePathInput, _basePathOutput, _token);
+                patchCore = new PatchCore(_headerInfo.newDataSize, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
 
             CompressionStreamHelper.GetDecompressStreamPlugin(_headerInfo.compMode, patchStream, out Stream decompressedHeadStream,
                 _referenceInfo.headDataSize, _referenceInfo.headDataCompressedSize - headerPadding, out _, _useBufferedPatch);

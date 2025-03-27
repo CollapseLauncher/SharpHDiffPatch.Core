@@ -21,9 +21,9 @@ namespace SharpHDiffPatch.Core.Patch
 #endif
         private readonly PatchCore _core;
 
-        internal PatchCoreFastBuffer(long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath, CancellationToken token)
+        internal PatchCoreFastBuffer(long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath, Action<long> writeBytesDelegate, CancellationToken token)
         {
-            _core = new PatchCore(sizeToBePatched, stopwatch, inputPath, outputPath, token);
+            _core = new PatchCore(sizeToBePatched, stopwatch, inputPath, outputPath, writeBytesDelegate, token);
         }
 
         public void SetDirectoryReferencePair(DirectoryReferencePair pair) => _core.SetDirectoryReferencePair(pair);

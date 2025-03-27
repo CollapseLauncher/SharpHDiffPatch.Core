@@ -75,6 +75,8 @@ namespace SharpHDiffPatch.Core.Patch
         internal string PathOutput;
         internal DirectoryReferencePair? DirReferencePair;
 
+        private readonly Action<long>? _writeBytesDelegate;
+
         static unsafe PatchCore()
         {
             RleProcDelegate =
@@ -94,7 +96,7 @@ namespace SharpHDiffPatch.Core.Patch
                             TBytesSetRleVectorSoftware;
         }
 
-        internal PatchCore(long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath, CancellationToken token)
+        internal PatchCore(long sizeToBePatched, Stopwatch stopwatch, string inputPath, string outputPath, Action<long>? writeBytesDelegate, CancellationToken token)
         {
             Token = token;
             SizeToBePatched = sizeToBePatched;
@@ -102,6 +104,7 @@ namespace SharpHDiffPatch.Core.Patch
             SizePatched = 0;
             PathInput = inputPath;
             PathOutput = outputPath;
+            _writeBytesDelegate = writeBytesDelegate;
         }
 
         public void SetDirectoryReferencePair(DirectoryReferencePair pair) => DirReferencePair = pair;
@@ -304,6 +307,7 @@ namespace SharpHDiffPatch.Core.Patch
             long newPos = outputStream.Position;
             long read = newPos - oldPos;
 
+            _writeBytesDelegate?.Invoke(read);
             HDiffPatch.UpdateEvent(read, ref SizePatched, ref SizeToBePatched, Stopwatch);
         }
 

@@ -14,7 +14,7 @@ namespace SharpHDiffPatch.Core.Patch
         private bool _isUseFullBuffer;
         private bool _isUseFastBuffer;
 
-        public void Patch(string input, string output, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
+        public void Patch(string input, string output, Action<long> writeBytesDelegate, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
         {
             _isUseBufferedPatch = useBufferedPatch;
             _isUseFullBuffer = useFullBuffer;
@@ -28,11 +28,11 @@ namespace SharpHDiffPatch.Core.Patch
             HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Existing old file size: {inputStream.Length} is matched!", Verbosity.Verbose);
             HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Staring patching routine at position: {headerInfo.chunkInfo.headEndPos}", Verbosity.Verbose);
 
-            IPatchCore patchCore = null;
+            IPatchCore patchCore;
             if (_isUseFastBuffer && _isUseBufferedPatch)
-                patchCore = new PatchCoreFastBuffer(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, token);
+                patchCore = new PatchCoreFastBuffer(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
             else
-                patchCore = new PatchCore(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, token);
+                patchCore = new PatchCore(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
 
             StartPatchRoutine(inputStream, outputStream, patchCore);
         }

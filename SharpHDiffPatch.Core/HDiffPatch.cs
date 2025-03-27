@@ -155,16 +155,29 @@ namespace SharpHDiffPatch.Core
 #if USEEXPERIMENTALMULTITHREAD
             , bool useMultiThread = false
 #endif
+        )
+            => Patch(inputPath, outputPath, useBufferedPatch, null, token, useFullBuffer, useFastBuffer);
+
+        public void Patch(string inputPath, string outputPath, bool useBufferedPatch, Action<long> writeBytesDelegate, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false
+#if USEEXPERIMENTALMULTITHREAD
+            , bool useMultiThread = false
+#endif
             )
         {
             IPatch patcher;
-            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir) patcher = new PatchDir(headerInfo, referenceInfo, headerInfo.patchPath, token
+            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir)
+            {
+                patcher = new PatchDir(headerInfo, referenceInfo, headerInfo.patchPath, token
 #if USEEXPERIMENTALMULTITHREAD
-            useMultiThread
+                    useMultiThread
 #endif
-            );
-            else patcher = new PatchSingle(headerInfo, token);
-            patcher.Patch(inputPath, outputPath, useBufferedPatch, useFullBuffer, useFastBuffer);
+                );
+            }
+            else
+            {
+                patcher = new PatchSingle(headerInfo, token);
+            }
+            patcher.Patch(inputPath, outputPath, writeBytesDelegate, useBufferedPatch, useFullBuffer, useFastBuffer);
         }
 #endregion
 
