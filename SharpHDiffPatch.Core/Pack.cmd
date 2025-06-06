@@ -4,7 +4,7 @@ dotnet restore || goto :Fail
 dotnet clean -c Release SharpHDiffPatch.Core.csproj || goto :Fail
 call :Clean
 dotnet build -c Release SharpHDiffPatch.Core.csproj || goto :Fail
-dotnet pack -c Release -o artifacts SharpHDiffPatch.Core.csproj || goto :Fail
+dotnet pack -c Release -o artifacts -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg  SharpHDiffPatch.Core.csproj || goto :Fail
 goto :Success
 
 :Fail
