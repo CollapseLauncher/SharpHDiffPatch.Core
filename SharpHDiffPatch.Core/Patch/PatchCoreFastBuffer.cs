@@ -57,6 +57,11 @@ namespace SharpHDiffPatch.Core.Patch
             const int sizeOfLong  = sizeof(long) * 4;
             const int kSignTagBit = 1;
 
+            if (coverSize == 0)
+            {
+                return;
+            }
+
             byte[] sevenBitCoverBuffer = ArrayPool<byte>.Shared.Rent((int)coverSize);
             ref byte sevenBitBufferRef = ref sevenBitCoverBuffer[0];
 
@@ -181,9 +186,13 @@ namespace SharpHDiffPatch.Core.Patch
                     clips[2].ReadExactly(rleCodeBuffer, 0, (int)headerInfo.chunkInfo.rle_codeBuf_size);
                 }
 
-
                 long copyLength;
                 long newPosBack = 0;
+                if (coverBuffer.Length == 0)
+                {
+                    goto EndCoverRead;
+                }
+
                 ref CoverHeader cover = ref coverBuffer.AsRef<CoverHeader>();
                 ref CoverHeader lastCover = ref coverBuffer.AsRef<CoverHeader>(coverBufferLen - sizeOfCoverHeader);
 
