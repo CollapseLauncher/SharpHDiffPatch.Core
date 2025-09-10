@@ -257,5 +257,19 @@ namespace SharpHDiffPatch.Core.Binary
                 outPair[i] = new PairIndexReference { NewIndex = backNewValue, OldIndex = backOldValue };
             }
         }
+
+        public static int GetFileStreamBufferSize(this long fileSize)
+            => fileSize switch
+            {
+                // 128 KiB
+                <= 128 << 10 => 4 << 10,
+                // 1 MiB
+                <= 1 << 20 => 64 << 10,
+                // 32 MiB
+                <= 32 << 20 => 128 << 10,
+                // 100 MiB
+                <= 100 << 20 => 512 << 10,
+                _ => 1 << 20
+            };
     }
 }

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using SharpHDiffPatch.Core.Binary;
 using SharpHDiffPatch.Core.Binary.Compression;
 
 namespace SharpHDiffPatch.Core.Patch
@@ -20,8 +21,8 @@ namespace SharpHDiffPatch.Core.Patch
             _isUseFullBuffer = useFullBuffer;
             _isUseFastBuffer = useFastBuffer;
 
-            using FileStream inputStream = new FileStream(input, FileMode.Open, FileAccess.Read, FileShare.Read);
-            using FileStream outputStream = new FileStream(output, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+            using FileStream inputStream = new FileStream(input, FileMode.Open, FileAccess.Read, FileShare.Read, headerInfo.oldDataSize.GetFileStreamBufferSize());
+            using FileStream outputStream = new FileStream(output, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, headerInfo.newDataSize.GetFileStreamBufferSize());
             if (inputStream.Length != headerInfo.oldDataSize)
                 throw new InvalidDataException($"[PatchSingle::Patch] The patch directory is expecting old size to be equivalent as: {headerInfo.oldDataSize} bytes, but the input file has unmatched size: {inputStream.Length} bytes!");
 

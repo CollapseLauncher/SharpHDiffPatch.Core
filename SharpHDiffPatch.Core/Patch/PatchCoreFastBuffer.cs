@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.IO;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,9 +13,8 @@ namespace SharpHDiffPatch.Core.Patch
 {
     internal sealed class PatchCoreFastBuffer : IPatchCore
     {
-        private const int MaxMemBufferLenBig = 4 << 20;
-        private const int MaxMemBufferLimit = 2 << 20;
-        private const int MaxArrayPoolLen = 4 << 20;
+        private const int MaxMemBufferLenBig       = 32 << 20;
+        private const int MaxArrayPoolLen          = 4 << 20;
         private const int MaxArrayPoolSecondOffset = MaxArrayPoolLen / 2;
 #if NET6_0_OR_GREATER
         private const int MinUninitializedArrayLen = 2 << 10;
@@ -117,13 +117,40 @@ namespace SharpHDiffPatch.Core.Patch
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static ulong GetRoundUpToPowerOf2(ulong value)
+        {
+#if NET6_0_OR_GREATER
+            return BitOperations.RoundUpToPowerOf2((ulong)value);
+#else
+            --value;
+            value |= value >> 1;
+            value |= value >> 2;
+            value |= value >> 4;
+            value |= value >> 8;
+            value |= value >> 16;
+            value |= value >> 32;
+            return value + 1;
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static MemoryStream AllocCacheMemoryStream(long newDataSize)
+        {
+            int bufferSizePow2 = (int)GetRoundUpToPowerOf2((ulong)newDataSize);
+            if (bufferSizePow2 > MaxMemBufferLenBig)
+                bufferSizePow2 = MaxMemBufferLenBig;
+
+            return new MemoryStream(bufferSizePow2);
+        }
+
         private unsafe void WriteCoverStreamToOutputFast(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
             int rleCtrlIdx = 0, rleCodeIdx = 0;
 
 #if !NET6_0_OR_GREATER
             byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(MaxArrayPoolSecondOffset);
-            MemoryStream cacheOutputStream = new MemoryStream(MaxMemBufferLimit);
+            MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.newDataSize);
             int poolSizeRemained = MaxArrayPoolLen - sharedBuffer.Length;
 
             bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= poolSizeRemained;
@@ -136,7 +163,7 @@ namespace SharpHDiffPatch.Core.Patch
             : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
 #else
             byte[] sharedBuffer = GC.AllocateUninitializedArray<byte>(MaxArrayPoolSecondOffset);
-            MemoryStream cacheOutputStream = new MemoryStream(MaxMemBufferLimit);
+            MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.newDataSize);
 
             bool isCtrlUseArrayPool = MinUninitializedArrayLen > headerInfo.chunkInfo.rle_ctrlBuf_size;
             byte[] rleCtrlBuffer = isCtrlUseArrayPool ? GC.AllocateUninitializedArray<byte>((int)headerInfo.chunkInfo.rle_ctrlBuf_size)
