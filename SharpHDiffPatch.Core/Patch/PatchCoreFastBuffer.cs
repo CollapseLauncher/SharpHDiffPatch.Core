@@ -121,7 +121,7 @@ namespace SharpHDiffPatch.Core.Patch
         private static ulong GetRoundUpToPowerOf2(ulong value)
         {
 #if NET6_0_OR_GREATER
-            return BitOperations.RoundUpToPowerOf2((ulong)value);
+            return BitOperations.RoundUpToPowerOf2(value);
 #else
             --value;
             value |= value >> 1;
