@@ -14,9 +14,9 @@ namespace SharpHDiffPatch.Core.Binary
         public static int ReadExactly(this Stream stream, byte[] buffer, int offset, int count)
         {
             int totalRead = 0;
-            while (totalRead < buffer.Length)
+            while (totalRead < count)
             {
-                int read = stream.Read(buffer, offset, count);
+                int read = stream.Read(buffer, offset + totalRead, count - totalRead);
                 if (read == 0) return totalRead;
 
                 totalRead += read;
@@ -189,11 +189,13 @@ namespace SharpHDiffPatch.Core.Binary
 #else
                     if (*(inputPtr + idx++) == 0)
                     {
-                        outputPaths[strIdx++] = Encoding.UTF8.GetString(inputPtr + (idx - len), len == 0 ? 0 : --len);
+                        outputPaths[strIdx++] = Encoding.UTF8.GetString(inputPtr + (idx - len - 1), len);
                         len = 0;
                     }
-
-                    len++;
+                    else
+                    {
+                        len++;
+                    }
 #endif
                 } while (strIdx < count);
             }
