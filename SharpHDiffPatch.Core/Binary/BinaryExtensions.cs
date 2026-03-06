@@ -34,12 +34,19 @@ namespace SharpHDiffPatch.Core.Binary
             ArrayPool<byte> pool = ArrayPool<byte>.Shared;
             byte[] stringBuffer = pool.Rent(bufferSize);
 
-            while (stringBuffer.Length > i && (currentValue = reader.ReadByte()) != 0)
+            try
             {
-                stringBuffer[i++] = (byte)currentValue;
-            }
+                while (stringBuffer.Length > i && (currentValue = reader.ReadByte()) > 0)
+                {
+                    stringBuffer[i++] = (byte)currentValue;
+                }
 
-            return Encoding.UTF8.GetString(stringBuffer, 0, i);
+                return Encoding.UTF8.GetString(stringBuffer, 0, i);
+            }
+            finally
+            {
+                pool.Return(stringBuffer);
+            }
         }
 
         public static int ReadInt7Bit(this Stream inputStream, int tagBit = 0, byte prevTagBit = 0)
