@@ -29,13 +29,21 @@ namespace SharpHDiffPatch.Core.Patch
             HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Existing old file size: {inputStream.Length} is matched!", Verbosity.Verbose);
             HDiffPatch.Event.PushLog($"[PatchSingle::Patch] Staring patching routine at position: {headerInfo.chunkInfo.headEndPos}", Verbosity.Verbose);
 
-            IPatchCore patchCore;
-            if (_isUseFastBuffer && _isUseBufferedPatch)
-                patchCore = new PatchCoreFastBuffer(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
-            else
-                patchCore = new PatchCore(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
+            IPatchCore patchCore = CreatePatchCore(input, output, writeBytesDelegate);
 
             StartPatchRoutine(inputStream, outputStream, patchCore);
+        }
+
+        private IPatchCore CreatePatchCore(string input, string output, Action<long> writeBytesDelegate)
+        {
+            bool wantFastBuffer = _isUseFastBuffer && _isUseBufferedPatch;
+            if (wantFastBuffer && PatchSizeHelper.CanUseFastBuffer(headerInfo))
+                return new PatchCoreFastBuffer(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
+
+            if (wantFastBuffer)
+                HDiffPatch.Event.PushLog("[PatchSingle::CreatePatchCore] Fast buffer disabled: patch chunk sizes exceed int32-safe limits; using streaming patch core.", Verbosity.Info);
+
+            return new PatchCore(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
         }
 
         private void StartPatchRoutine(Stream inputStream, Stream outputStream, IPatchCore patchCore)

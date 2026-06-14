@@ -77,17 +77,6 @@ namespace SharpHDiffPatch.Core.Patch
 
             HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {_referenceInfo.headDataSize} bytes ({_referenceInfo.headDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
 
-            IPatchCore patchCore;
-#if USEEXPERIMENTALMULTITHREAD
-                if (this.useMultiThread && !headerInfo.isSingleCompressedDiff)
-                    patchCore = new PatchCoreMultiThread(token, headerInfo.newDataSize, Stopwatch.StartNew(), basePathInput, basePathOutput);
-                else
-#endif
-            if (_useFastBuffer && _useBufferedPatch && !_headerInfo.isSingleCompressedDiff)
-                patchCore = new PatchCoreFastBuffer(_headerInfo.newDataSize, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
-            else
-                patchCore = new PatchCore(_headerInfo.newDataSize, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
-
             CompressionStreamHelper.GetDecompressStreamPlugin(_headerInfo.compMode, patchStream, out Stream decompressedHeadStream,
                 _referenceInfo.headDataSize, _referenceInfo.headDataCompressedSize - headerPadding, out _, _useBufferedPatch);
 
@@ -97,12 +86,10 @@ namespace SharpHDiffPatch.Core.Patch
             using (decompressedHeadStream)
             {
                 DirectoryReferencePair dirData = InitializeDirPatcher(decompressedHeadStream);
-                patchCore.SetDirectoryReferencePair(dirData);
 
                 long newPatchSize = GetNewPatchedFileSize(dirData);
                 long samePathSize = GetSameFileSize(dirData);
                 long totalSizePatched = newPatchSize + samePathSize;
-                patchCore.SetSizeToBePatched(totalSizePatched);
 
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Total new size: {totalSizePatched} bytes ({newPatchSize} (new data) + {samePathSize} (same data))", Verbosity.Verbose);
 
@@ -118,6 +105,10 @@ namespace SharpHDiffPatch.Core.Patch
                     HDiffPatch.Event.PushLog("[PatchDir::Patch] This patch is a \"single diff\" type!");
 
                 _padding = _headerInfo.compMode == CompressionMode.zlib ? 1 : 0;
+
+                IPatchCore patchCore = CreatePatchCore(writeBytesDelegate, totalSizePatched);
+                patchCore.SetDirectoryReferencePair(dirData);
+                patchCore.SetSizeToBePatched(totalSizePatched);
 
                 using (Stream newStream = new CombinedStream(mergedNewStream))
                 using (Stream oldStream = new CombinedStream(mergedOldStream))
@@ -177,6 +168,22 @@ namespace SharpHDiffPatch.Core.Patch
         }
 
         private static long GetNewPatchedFileSize(DirectoryReferencePair dirData) => dirData.NewRefSizeList.Sum();
+
+        private IPatchCore CreatePatchCore(Action<long> writeBytesDelegate, long totalSizePatched)
+        {
+#if USEEXPERIMENTALMULTITHREAD
+            if (useMultiThread && !_headerInfo.isSingleCompressedDiff)
+                return new PatchCoreMultiThread(_token, totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput);
+#endif
+            bool wantFastBuffer = _useFastBuffer && _useBufferedPatch && !_headerInfo.isSingleCompressedDiff;
+            if (wantFastBuffer && PatchSizeHelper.CanUseFastBuffer(_headerInfo))
+                return new PatchCoreFastBuffer(totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
+
+            if (wantFastBuffer)
+                HDiffPatch.Event.PushLog("[PatchDir::CreatePatchCore] Fast buffer disabled: patch chunk sizes exceed int32-safe limits; using streaming patch core.", Verbosity.Info);
+
+            return new PatchCore(totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
+        }
 
         private void StartPatchRoutine(Stream inputStream, Stream outputStream, long newDataSize, long offset, IPatchCore patchCore)
         {
