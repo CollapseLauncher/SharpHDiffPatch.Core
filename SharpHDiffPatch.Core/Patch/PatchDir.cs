@@ -171,10 +171,6 @@ namespace SharpHDiffPatch.Core.Patch
 
         private IPatchCore CreatePatchCore(Action<long> writeBytesDelegate, long totalSizePatched)
         {
-#if USEEXPERIMENTALMULTITHREAD
-            if (useMultiThread && !_headerInfo.isSingleCompressedDiff)
-                return new PatchCoreMultiThread(_token, totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput);
-#endif
             bool wantFastBuffer = _useFastBuffer && _useBufferedPatch && !_headerInfo.isSingleCompressedDiff;
             if (wantFastBuffer && PatchSizeHelper.CanUseFastBuffer(_headerInfo))
                 return new PatchCoreFastBuffer(totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
