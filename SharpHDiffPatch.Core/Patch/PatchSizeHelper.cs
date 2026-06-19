@@ -4,8 +4,6 @@ namespace SharpHDiffPatch.Core.Patch
 {
     internal static class PatchSizeHelper
     {
-        private const int SizeOfCoverHeader = sizeof(long) * 4;
-
         internal static bool FitsInInt32(long value) => value is >= 0 and <= int.MaxValue;
 
         internal static int ToCheckedInt32(long value, string paramName)
@@ -28,9 +26,6 @@ namespace SharpHDiffPatch.Core.Patch
 
             DiffChunkInfo chunk = headerInfo.chunkInfo;
 
-            if (!FitsInInt32(headerInfo.newDataSize))
-                return false;
-
             if (!FitsInInt32(chunk.rle_ctrlBuf_size))
                 return false;
 
@@ -40,11 +35,24 @@ namespace SharpHDiffPatch.Core.Patch
             if (!FitsInInt32(chunk.cover_buf_size))
                 return false;
 
-            if (!FitsInInt32(chunk.coverCount))
-                return false;
+            long allBufferSize = chunk.rle_ctrlBuf_size + chunk.rle_codeBuf_size + chunk.cover_buf_size;
+            return IsMemorySufficient(allBufferSize);
+        }
 
-            long coverBufferLen = checked(SizeOfCoverHeader * chunk.coverCount);
-            return FitsInInt32(coverBufferLen);
+        private static bool IsMemorySufficient(long bufferSize)
+        {
+#if NET6_0_OR_GREATER
+            GCMemoryInfo info = GC.GetGCMemoryInfo();
+
+            // Get possible minimum free memory size.
+            // Let's say for a mid-end device with low memory capacity:
+            //     Free Mem: 2 GiB * 0.50 = 1 GiB
+            //     Divided by CPU threads: 1 GiB / 8 = 128 MiB
+            long thresholdPossibleFreeMemSize = (long)(info.TotalAvailableMemoryBytes * 0.50d / Environment.ProcessorCount);
+            return thresholdPossibleFreeMemSize >= bufferSize;
+#else
+            return true; // We have no simple way to get memory info. So, just pass it in.
+#endif
         }
     }
 }
