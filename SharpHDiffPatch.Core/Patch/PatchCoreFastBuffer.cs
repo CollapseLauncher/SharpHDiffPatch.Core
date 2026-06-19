@@ -36,6 +36,13 @@ namespace SharpHDiffPatch.Core.Patch
 
         public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo)
         {
+            if (!PatchSizeHelper.CanUseFastBuffer(headerInfo))
+            {
+                HDiffPatch.Event.PushLog("[PatchCoreFastBuffer::UncoverBufferClipsStream] Fast buffer requirements exceeded; delegating to streaming patch core.", Verbosity.Info);
+                _core.UncoverBufferClipsStream(clips, inputStream, outputStream, headerInfo);
+                return;
+            }
+
             if (_core.DirReferencePair != null)
             {
                 Task[] parallelTasks =
@@ -62,12 +69,13 @@ namespace SharpHDiffPatch.Core.Patch
                 return;
             }
 
-            byte[] sevenBitCoverBuffer = ArrayPool<byte>.Shared.Rent((int)coverSize);
+            byte[] sevenBitCoverBuffer = ArrayPool<byte>.Shared.Rent(PatchSizeHelper.ToCheckedInt32(coverSize, nameof(coverSize)));
             ref byte sevenBitBufferRef = ref sevenBitCoverBuffer[0];
 
             try
             {
-                coverStream.ReadExactly(sevenBitCoverBuffer, 0, (int)coverSize);
+                int coverSizeInt = PatchSizeHelper.ToCheckedInt32(coverSize, nameof(coverSize));
+                coverStream.ReadExactly(sevenBitCoverBuffer, 0, coverSizeInt);
 
                 long lastOldPosBack = 0;
                 long lastNewPosBack = 0;
@@ -137,7 +145,10 @@ namespace SharpHDiffPatch.Core.Patch
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static MemoryStream AllocCacheMemoryStream(long newDataSize)
         {
-            int bufferSizePow2 = (int)GetRoundUpToPowerOf2((ulong)newDataSize);
+            ulong roundedSize = GetRoundUpToPowerOf2((ulong)newDataSize);
+            int bufferSizePow2 = roundedSize > int.MaxValue
+                ? MaxMemBufferLenBig
+                : PatchSizeHelper.ToCheckedInt32((long)roundedSize, nameof(newDataSize));
             if (bufferSizePow2 > MaxMemBufferLenBig)
                 bufferSizePow2 = MaxMemBufferLenBig;
 
@@ -154,28 +165,32 @@ namespace SharpHDiffPatch.Core.Patch
             int poolSizeRemained = MaxArrayPoolLen - sharedBuffer.Length;
 
             bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= poolSizeRemained;
-            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_ctrlBuf_size)
-            : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+            int rleCtrlBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_ctrlBuf_size, nameof(headerInfo.chunkInfo.rle_ctrlBuf_size));
+            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(rleCtrlBufSize)
+            : new byte[rleCtrlBufSize];
             poolSizeRemained -= rleCtrlBuffer.Length;
 
             bool isRleUseArrayPool = headerInfo.chunkInfo.rle_codeBuf_size <= poolSizeRemained;
-            byte[] rleCodeBuffer = isRleUseArrayPool ? ArrayPool<byte>.Shared.Rent((int)headerInfo.chunkInfo.rle_codeBuf_size)
-            : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
+            int rleCodeBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_codeBuf_size, nameof(headerInfo.chunkInfo.rle_codeBuf_size));
+            byte[] rleCodeBuffer = isRleUseArrayPool ? ArrayPool<byte>.Shared.Rent(rleCodeBufSize)
+            : new byte[rleCodeBufSize];
 #else
             byte[] sharedBuffer = GC.AllocateUninitializedArray<byte>(MaxArrayPoolSecondOffset);
             MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.newDataSize);
 
-            bool isCtrlUseArrayPool = MinUninitializedArrayLen > headerInfo.chunkInfo.rle_ctrlBuf_size;
-            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? GC.AllocateUninitializedArray<byte>((int)headerInfo.chunkInfo.rle_ctrlBuf_size)
-            : new byte[headerInfo.chunkInfo.rle_ctrlBuf_size];
+            int rleCtrlBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_ctrlBuf_size, nameof(headerInfo.chunkInfo.rle_ctrlBuf_size));
+            bool isCtrlUseArrayPool = MinUninitializedArrayLen > rleCtrlBufSize;
+            byte[] rleCtrlBuffer = isCtrlUseArrayPool ? GC.AllocateUninitializedArray<byte>(rleCtrlBufSize)
+            : new byte[rleCtrlBufSize];
 
-            bool isRleUseArrayPool = MinUninitializedArrayLen > headerInfo.chunkInfo.rle_codeBuf_size;
-            byte[] rleCodeBuffer = isRleUseArrayPool ? GC.AllocateUninitializedArray<byte>((int)headerInfo.chunkInfo.rle_codeBuf_size)
-            : new byte[headerInfo.chunkInfo.rle_codeBuf_size];
+            int rleCodeBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_codeBuf_size, nameof(headerInfo.chunkInfo.rle_codeBuf_size));
+            bool isRleUseArrayPool = MinUninitializedArrayLen > rleCodeBufSize;
+            byte[] rleCodeBuffer = isRleUseArrayPool ? GC.AllocateUninitializedArray<byte>(rleCodeBufSize)
+            : new byte[rleCodeBufSize];
 #endif
 
             RleRefClipStruct rleStruct = new RleRefClipStruct();
-            int coverBufferLen = sizeof(CoverHeader) * (int)headerInfo.chunkInfo.coverCount;
+            int coverBufferLen = checked(sizeof(CoverHeader) * PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.coverCount, nameof(headerInfo.chunkInfo.coverCount)));
             byte[] coverBuffer =
 #if NET6_0_OR_GREATER
                 GC.AllocateUninitializedArray<byte>(coverBufferLen);
@@ -208,9 +223,9 @@ namespace SharpHDiffPatch.Core.Patch
 #endif
                         : "heap buffer";
                     HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Ctrl clip to {ctrlStats}");
-                    clips[1].ReadExactly(rleCtrlBuffer, 0, (int)headerInfo.chunkInfo.rle_ctrlBuf_size);
+                    clips[1].ReadExactly(rleCtrlBuffer, 0, rleCtrlBufSize);
                     HDiffPatch.Event.PushLog($"[PatchCoreFastBuffer::WriteCoverStreamToOutputFast] Buffering RLE Code clip to {rleStats}");
-                    clips[2].ReadExactly(rleCodeBuffer, 0, (int)headerInfo.chunkInfo.rle_codeBuf_size);
+                    clips[2].ReadExactly(rleCodeBuffer, 0, rleCodeBufSize);
                 }
 
                 long copyLength;

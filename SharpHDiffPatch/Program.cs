@@ -48,11 +48,6 @@ namespace SharpHDiffPatch
                 Buffers all clips into memory. This option is the fastest but it requires more memory depending on the patch size.
                 """));
             Command.AddOption(bufferFastOpt = new Option<bool>(["-B", "--fast-buffer"], () => false, "Use array-based buffer for RLE Control and Code clips."));
-            /* Command.AddOption(_multiThreadOpt = new Option<bool>(new string[] { "-m", "--use-multithread" }, () => false, 
-                @"[EXPERIMENTAL] Use multi-threading for processing patch (only available for Directory Patching for now).
-This multi-threading mode also uses fast buffer and Partial buffer mode by default. Any defined values for --buffer-mode
-or --fast-buffer will have no effect if multi-threading mode is enabled."));
-            */
             Command.AddOption(logLevelOpt = new Option<Verbosity>(["-l", "--log-level"], () => Verbosity.Info, "Defines the verbosity of the info to be displayed."));
 
             Command.SetHandler((context) =>
