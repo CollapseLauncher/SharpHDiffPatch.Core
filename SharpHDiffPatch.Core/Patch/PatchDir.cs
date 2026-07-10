@@ -93,8 +93,8 @@ namespace SharpHDiffPatch.Core.Patch
 
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Total new size: {totalSizePatched} bytes ({newPatchSize} (new data) + {samePathSize} (same data))", Verbosity.Verbose);
 
-                FileStream[] mergedOldStream = GetRefOldStreams(dirData);
-                NewFileCombinedStream[] mergedNewStream = GetRefNewStreams(dirData);
+                FileStream[]                        mergedOldStream = GetRefOldStreams(dirData);
+                CombinedStreamSegment<FileStream>[] mergedNewStream = GetRefNewStreams(dirData);
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Initialized {mergedOldStream.Length} old files and {mergedNewStream.Length} new files into combined stream", Verbosity.Verbose);
 
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Seek the patch stream to: {_referenceInfo.hdiffDataOffset}. Jump to read header for clip streams!", Verbosity.Verbose);
@@ -110,8 +110,8 @@ namespace SharpHDiffPatch.Core.Patch
                 patchCore.SetDirectoryReferencePair(dirData);
                 patchCore.SetSizeToBePatched(totalSizePatched);
 
-                using (Stream newStream = new CombinedStream(mergedNewStream))
-                using (Stream oldStream = new CombinedStream(mergedOldStream))
+                using (Stream newStream = new CombinedStream<FileStream>(mergedNewStream))
+                using (Stream oldStream = new CombinedStream<FileStream>(mergedOldStream))
                 {
                     long oldFileSize = GetOldFileSize(dirData);
                     if (oldStream.Length != _headerInfo.oldDataSize)
@@ -172,18 +172,21 @@ namespace SharpHDiffPatch.Core.Patch
         private IPatchCore CreatePatchCore(Action<long> writeBytesDelegate, long totalSizePatched)
         {
             bool wantFastBuffer = _useFastBuffer && _useBufferedPatch && !_headerInfo.isSingleCompressedDiff;
-            if (wantFastBuffer && PatchSizeHelper.CanUseFastBuffer(_headerInfo))
-                return new PatchCoreFastBuffer(totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
-
-            if (wantFastBuffer)
-                HDiffPatch.Event.PushLog("[PatchDir::CreatePatchCore] Fast buffer disabled: patch chunk sizes exceed int32-safe limits; using streaming patch core.", Verbosity.Info);
+            switch (wantFastBuffer)
+            {
+                case true when PatchSizeHelper.CanUseFastBuffer(_headerInfo):
+                    return new PatchCoreFastBuffer(totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
+                case true:
+                    HDiffPatch.Event.PushLog("[PatchDir::CreatePatchCore] Fast buffer disabled: patch chunk sizes exceed int32-safe limits; using streaming patch core.");
+                    break;
+            }
 
             return new PatchCore(totalSizePatched, Stopwatch.StartNew(), _basePathInput, _basePathOutput, writeBytesDelegate, _token);
         }
 
         private void StartPatchRoutine(Stream inputStream, Stream outputStream, long newDataSize, long offset, IPatchCore patchCore)
         {
-            Stream[] clips = new Stream[_headerInfo.isSingleCompressedDiff ? 1 : 4];
+            var clips = new Stream[_headerInfo.isSingleCompressedDiff ? 1 : 4];
             Stream[] sourceClips = _headerInfo.isSingleCompressedDiff ?
                 [ _spawnPatchStream() ] :
                 [
@@ -202,7 +205,7 @@ namespace SharpHDiffPatch.Core.Patch
                     offset += _headerInfo.singleChunkInfo.diffDataPos;
 
                     clips[0] = patchCore.GetBufferStreamFromOffset(_headerInfo.compMode, sourceClips[0], offset + coverPadding,
-                        _headerInfo.singleChunkInfo.uncompressedSize, _headerInfo.singleChunkInfo.compressedSize, out long nextLength,
+                        _headerInfo.singleChunkInfo.uncompressedSize, _headerInfo.singleChunkInfo.compressedSize, out long _,
                         _useBufferedPatch, false);
                 }
                 else
@@ -252,9 +255,9 @@ namespace SharpHDiffPatch.Core.Patch
             return streams;
         }
 
-        private NewFileCombinedStream[] GetRefNewStreams(DirectoryReferencePair dirData)
+        private CombinedStreamSegment<FileStream>[] GetRefNewStreams(DirectoryReferencePair dirData)
         {
-            NewFileCombinedStream[] streams = new NewFileCombinedStream[dirData.NewRefList.Length];
+            var streams = new CombinedStreamSegment<FileStream>[dirData.NewRefList.Length];
             for (int i = 0; i < dirData.NewRefList.Length; i++)
             {
                 ref string newPathByIndex = ref PatchCore.NewPathByIndex(dirData.NewUtf8PathList, dirData.NewRefList[i]);
@@ -266,12 +269,12 @@ namespace SharpHDiffPatch.Core.Patch
 
                 HDiffPatch.Event.PushLog($"[PatchDir::GetRefNewStreams] Assigning stream to the new path: {combinedNewPath}", Verbosity.Debug);
 
-                NewFileCombinedStream @new = new NewFileCombinedStream
+                var stream = new CombinedStreamSegment<FileStream>
                 {
                     Stream = new FileStream(combinedNewPath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite),
-                    Size = dirData.NewRefSizeList[i]
+                    Length = dirData.NewRefSizeList[i]
                 };
-                streams[i] = @new;
+                streams[i] = stream;
             }
 
             return streams;
@@ -280,7 +283,7 @@ namespace SharpHDiffPatch.Core.Patch
         private DirectoryReferencePair InitializeDirPatcher(Stream reader)
         {
             HDiffPatch.Event.PushLog("[PatchDir::InitializeDirPatcher] Reading PatchDir header...", Verbosity.Verbose);
-            DirectoryReferencePair returnValue = new DirectoryReferencePair();
+            DirectoryReferencePair returnValue = new();
 
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> OldPath: {(int)_referenceInfo.inputSumSize}", Verbosity.Verbose);
             reader.GetPathsFromStream(out returnValue.OldUtf8PathList, (int)_referenceInfo.inputSumSize, (int)_referenceInfo.inputDirCount);
