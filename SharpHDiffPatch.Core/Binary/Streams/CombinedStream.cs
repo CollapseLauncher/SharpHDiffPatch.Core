@@ -341,7 +341,9 @@ namespace SharpHDiffPatch.Core.Binary.Streams
             {
                 _underlyingStreams[_index].Position = _position - _underlyingStartingPositions[_index];
                 int bytesWrite = count;
-                int remainedMaxLength = (int)(_underlyingStreams[_index].Length - _underlyingStreams[_index].Position);
+                int remainedMaxLength = (int)Math.Min(
+                    _underlyingStreams[_index].Length - _underlyingStreams[_index].Position,
+                    int.MaxValue);
                 if (remainedMaxLength < count)
                 {
                     bytesWrite = remainedMaxLength;
@@ -381,7 +383,9 @@ namespace SharpHDiffPatch.Core.Binary.Streams
             {
                 _underlyingStreams[_index].Position = _position - _underlyingStartingPositions[_index];
                 int bytesWrite = count;
-                int remainedMaxLength = (int)(_underlyingStreams[_index].Length - _underlyingStreams[_index].Position);
+                int remainedMaxLength = (int)Math.Min(
+                    _underlyingStreams[_index].Length - _underlyingStreams[_index].Position,
+                    int.MaxValue);
                 if (remainedMaxLength < count)
                 {
                     bytesWrite = remainedMaxLength;
