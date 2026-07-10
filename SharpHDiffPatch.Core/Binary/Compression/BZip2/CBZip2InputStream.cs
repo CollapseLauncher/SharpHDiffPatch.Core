@@ -85,7 +85,7 @@ namespace SharpCompress.Compressors.BZip2
 
         private int bsBuff;
         private int bsLive;
-        private readonly CRC mCrc = new CRC();
+        private readonly CRC mCrc = new();
 
         private readonly bool[] inUse = new bool[256];
         private int nInUse;
@@ -179,8 +179,8 @@ namespace SharpCompress.Compressors.BZip2
 
         internal static int[][] InitIntArray(int n1, int n2)
         {
-            var a = new int[n1][];
-            for (var k = 0; k < n1; ++k)
+            int[][] a = new int[n1][];
+            for (int k = 0; k < n1; ++k)
             {
                 a[k] = new int[n2];
             }
@@ -189,8 +189,8 @@ namespace SharpCompress.Compressors.BZip2
 
         internal static char[][] InitCharArray(int n1, int n2)
         {
-            var a = new char[n1][];
-            for (var k = 0; k < n1; ++k)
+            char[][] a = new char[n1][];
+            for (int k = 0; k < n1; ++k)
             {
                 a[k] = new char[n2];
             }
@@ -203,7 +203,7 @@ namespace SharpCompress.Compressors.BZip2
             {
                 return -1;
             }
-            var retChar = currentChar;
+            int retChar = currentChar;
             switch (currentState)
             {
                 case START_BLOCK_STATE:
@@ -232,9 +232,9 @@ namespace SharpCompress.Compressors.BZip2
 
         private bool Initialize(bool isFirstStream)
         {
-            var magic0 = bsStream.ReadByte();
-            var magic1 = bsStream.ReadByte();
-            var magic2 = bsStream.ReadByte();
+            int magic0 = bsStream.ReadByte();
+            int magic1 = bsStream.ReadByte();
+            int magic2 = bsStream.ReadByte();
             if (magic0 == -1 && !isFirstStream)
             {
                 return false;
@@ -243,7 +243,7 @@ namespace SharpCompress.Compressors.BZip2
             {
                 throw new IOException("Not a BZIP2 marked stream");
             }
-            var magic3 = bsStream.ReadByte();
+            int magic3 = bsStream.ReadByte();
             if (magic3 < '1' || magic3 > '9')
             {
                 BsFinishedWithStream();
@@ -333,7 +333,7 @@ namespace SharpCompress.Compressors.BZip2
                 CrcError();
             }
 
-            computedCombinedCRC = (computedCombinedCRC << 1) | (int)(((uint)computedCombinedCRC) >> 31);
+            computedCombinedCRC =  (computedCombinedCRC << 1) | (int)((uint)computedCombinedCRC >> 31);
             computedCombinedCRC ^= computedBlockCRC;
         }
 
@@ -345,7 +345,7 @@ namespace SharpCompress.Compressors.BZip2
                 CrcError();
             }
 
-            var complete = !decompressConcatenated || !Initialize(false);
+            bool complete = !decompressConcatenated || !Initialize(false);
             if (complete)
             {
                 BsFinishedWithStream();
@@ -412,7 +412,7 @@ namespace SharpCompress.Compressors.BZip2
 
         private int BsGetint()
         {
-            var u = 0;
+            int u = 0;
             u = (u << 8) | BsR(8);
             u = (u << 8) | BsR(8);
             u = (u << 8) | BsR(8);
@@ -474,9 +474,9 @@ namespace SharpCompress.Compressors.BZip2
 
             for (i = minLen; i <= maxLen; i++)
             {
-                vec += (basev[i + 1] - basev[i]);
-                limit[i] = vec - 1;
-                vec <<= 1;
+                vec      +=  basev[i + 1] - basev[i];
+                limit[i] =   vec - 1;
+                vec      <<= 1;
             }
             for (i = minLen + 1; i <= maxLen; i++)
             {
@@ -486,7 +486,7 @@ namespace SharpCompress.Compressors.BZip2
 
         private void RecvDecodingTables()
         {
-            var len = InitCharArray(BZip2Constants.N_GROUPS, BZip2Constants.MAX_ALPHA_SIZE);
+            char[][] len = InitCharArray(BZip2Constants.N_GROUPS, BZip2Constants.MAX_ALPHA_SIZE);
             int i,
                 j,
                 t,
@@ -495,7 +495,7 @@ namespace SharpCompress.Compressors.BZip2
                 alphaSize;
             int minLen,
                 maxLen;
-            var inUse16 = new bool[16];
+            bool[] inUse16 = new bool[16];
 
             /* Receive the mapping table */
             for (i = 0; i < 16; i++)
@@ -523,7 +523,7 @@ namespace SharpCompress.Compressors.BZip2
                     {
                         if (BsR(1) == 1)
                         {
-                            inUse[(i * 16) + j] = true;
+                            inUse[i * 16 + j] = true;
                         }
                     }
                 }
@@ -547,7 +547,7 @@ namespace SharpCompress.Compressors.BZip2
 
             /* Undo the MTF values for the selectors. */
             {
-                var pos = new char[BZip2Constants.N_GROUPS];
+                char[] pos = new char[BZip2Constants.N_GROUPS];
                 char tmp,
                     v;
                 for (v = '\0'; v < nGroups; v++)
@@ -572,7 +572,7 @@ namespace SharpCompress.Compressors.BZip2
             /* Now the coding tables */
             for (t = 0; t < nGroups; t++)
             {
-                var curr = BsR(5);
+                int curr = BsR(5);
                 for (i = 0; i < alphaSize; i++)
                 {
                     while (BsR(1) == 1)
@@ -613,7 +613,7 @@ namespace SharpCompress.Compressors.BZip2
 
         private void GetAndMoveToFrontDecode()
         {
-            var yy = new char[256];
+            char[] yy = new char[256];
             int i,
                 j,
                 nextSym,
@@ -670,7 +670,7 @@ namespace SharpCompress.Compressors.BZip2
                             while (bsLive < 1)
                             {
                                 int zzi;
-                                var thech = '\0';
+                                char thech = '\0';
                                 try
                                 {
                                     thech = (char)bsStream.ReadByte();
@@ -706,8 +706,8 @@ namespace SharpCompress.Compressors.BZip2
                 if (nextSym == BZip2Constants.RUNA || nextSym == BZip2Constants.RUNB)
                 {
                     char ch;
-                    var s = -1;
-                    var N = 1;
+                    int s = -1;
+                    int N = 1;
                     do
                     {
                         if (nextSym == BZip2Constants.RUNA)
@@ -741,7 +741,7 @@ namespace SharpCompress.Compressors.BZip2
                                         while (bsLive < 1)
                                         {
                                             int zzi;
-                                            var thech = '\0';
+                                            char thech = '\0';
                                             try
                                             {
                                                 thech = (char)bsStream.ReadByte();
@@ -840,7 +840,7 @@ namespace SharpCompress.Compressors.BZip2
                                     while (bsLive < 1)
                                     {
                                         int zzi;
-                                        var thech = '\0';
+                                        char thech = '\0';
                                         try
                                         {
                                             thech = (char)bsStream.ReadByte();
@@ -922,7 +922,7 @@ namespace SharpCompress.Compressors.BZip2
                     }
                 }
                 rNToGo--;
-                ch2 ^= (rNToGo == 1) ? 1 : 0;
+                ch2 ^= rNToGo == 1 ? 1 : 0;
                 i2++;
 
                 currentChar = ch2;
@@ -983,9 +983,9 @@ namespace SharpCompress.Compressors.BZip2
                         }
                     }
                     rNToGo--;
-                    z ^= (char)((rNToGo == 1) ? 1 : 0);
-                    j2 = 0;
-                    currentState = RAND_PART_C_STATE;
+                    z            ^= (char)(rNToGo == 1 ? 1 : 0);
+                    j2           =  0;
+                    currentState =  RAND_PART_C_STATE;
                     SetupRandPartC();
                 }
                 else
@@ -1071,7 +1071,7 @@ namespace SharpCompress.Compressors.BZip2
                 return;
             }
 
-            var n = BZip2Constants.baseBlockSize * newSize100k;
+            int n = BZip2Constants.baseBlockSize * newSize100k;
             ll8 = new char[n];
             tt = new int[n];
         }
@@ -1080,7 +1080,7 @@ namespace SharpCompress.Compressors.BZip2
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            var c = -1;
+            int c = -1;
             int k;
             for (k = 0; k < count; ++k)
             {

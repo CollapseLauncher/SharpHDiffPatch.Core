@@ -37,7 +37,7 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
 
         internal static ulong GetSimple(ReadOnlySpan<byte> buffer, ulong s1, ulong s2)
         {
-            foreach (var n in buffer)
+            foreach (byte n in buffer)
             {
                 s1 = (s1 + n) % MOD64;
                 s2 = (s2 + s1) % MOD64;
@@ -54,13 +54,13 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
 
             if (buf.Length > MAXPART)
             {
-                int parts = (buf.Length / MAXPART) + 1;
+                int   parts  = buf.Length / MAXPART + 1;
                 ulong result = 0;
                 for (int i = 0; i < parts; i++)
                 {
-                    var start = MAXPART * i;
-                    var count = Math.Min(buf.Length - start, MAXPART);
-                    var slice = buf.Slice(start, count);
+                    int                start = MAXPART * i;
+                    int                count = Math.Min(buf.Length - start, MAXPART);
+                    ReadOnlySpan<byte> slice = buf.Slice(start, count);
                     result = GetSimpleOptimizedInternal(slice, adler, sum2);
                     adler = result & 0xffffffff;
                     sum2 = result >> 32;
@@ -86,7 +86,7 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
                     sum2 -= MOD64;
                 return adler | (sum2 << 32);
             }
-            var idx = 0;
+            int idx = 0;
             if (len < 16)
             {
                 while (len-- != 0)
@@ -224,7 +224,7 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
 
             fixed (byte* bufPtr = &MemoryMarshal.GetReference(buffer))
             {
-                var buf = bufPtr;
+                byte* buf = bufPtr;
 
                 while (blocks != 0)
                 {
@@ -258,22 +258,22 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
                         // bytes by [ 32, 31, 30, ... ] for s2.
                         Vector128<ushort> sad1 = Sse2.SumAbsoluteDifferences(bytes1, zero);
                         v_s1 = Sse2.Add(v_s1, sad1.AsUInt64());
-                        Vector128<short> mad11 = Ssse3.MultiplyAddAdjacent(bytes1, tap1);
-                        Vector128<int> mad12 = Sse2.MultiplyAddAdjacent(mad11, onesShort);
-                        var mad121 = Sse2.Add(mad12, Sse2.Shuffle(mad12, S2301));
-                        var madTrimmed1 = Ssse3.Shuffle(mad121.AsByte(), shuffleMaskTrim);
-                        var madTimmed1ULong = madTrimmed1.AsUInt64();
+                        Vector128<short> mad11           = Ssse3.MultiplyAddAdjacent(bytes1, tap1);
+                        Vector128<int>   mad12           = Sse2.MultiplyAddAdjacent(mad11, onesShort);
+                        Vector128<int>   mad121          = Sse2.Add(mad12, Sse2.Shuffle(mad12, S2301));
+                        Vector128<byte>  madTrimmed1     = Ssse3.Shuffle(mad121.AsByte(), shuffleMaskTrim);
+                        Vector128<ulong> madTimmed1ULong = madTrimmed1.AsUInt64();
                         v_s2 = Sse2.Add(v_s2, madTimmed1ULong);
 
 
 
                         Vector128<ushort> sad2 = Sse2.SumAbsoluteDifferences(bytes2, zero);
                         v_s1 = Sse2.Add(v_s1, sad2.AsUInt64());
-                        Vector128<short> mad2 = Ssse3.MultiplyAddAdjacent(bytes2, tap2);
-                        Vector128<int> mad22 = Sse2.MultiplyAddAdjacent(mad2, onesShort);
-                        var mad221 = Sse2.Add(mad22, Sse2.Shuffle(mad22, S2301));
-                        var madTrimmed2 = Ssse3.Shuffle(mad221.AsByte(), shuffleMaskTrim);
-                        var madTimmed2ULong = madTrimmed2.AsUInt64();
+                        Vector128<short> mad2            = Ssse3.MultiplyAddAdjacent(bytes2, tap2);
+                        Vector128<int>   mad22           = Sse2.MultiplyAddAdjacent(mad2, onesShort);
+                        Vector128<int>   mad221          = Sse2.Add(mad22, Sse2.Shuffle(mad22, S2301));
+                        Vector128<byte>  madTrimmed2     = Ssse3.Shuffle(mad221.AsByte(), shuffleMaskTrim);
+                        Vector128<ulong> madTimmed2ULong = madTrimmed2.AsUInt64();
                         v_s2 = Sse2.Add(v_s2, madTimmed2ULong);
 
 
@@ -283,7 +283,7 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
                     } while (n != 0);
 
 
-                    var shifted = Sse2.ShiftLeftLogical(v_ps, 5);
+                    Vector128<ulong> shifted = Sse2.ShiftLeftLogical(v_ps, 5);
                     v_s2 = Sse2.Add(v_s2, shifted);
 
                     s1 += v_s1.GetElement(0);
@@ -301,28 +301,28 @@ namespace SharpHDiffPatch.Core.Hash.Adler64
                 {
                     if (len >= 16)
                     {
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
-                        s2 += (s1 += *buf++);
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
+                        s2  += s1 += *buf++;
                         len -= 16;
                     }
 
                     while (len-- > 0)
                     {
-                        s2 += (s1 += *buf++);
+                        s2 += s1 += *buf++;
                     }
                     if (s1 >= MOD64)
                     {

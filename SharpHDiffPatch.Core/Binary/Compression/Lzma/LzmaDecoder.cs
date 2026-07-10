@@ -9,16 +9,16 @@ namespace SharpCompress.Compressors.LZMA
     {
         private class LenDecoder
         {
-            private BitDecoder _choice = new BitDecoder();
-            private BitDecoder _choice2 = new BitDecoder();
-            private readonly BitTreeDecoder[] _lowCoder = new BitTreeDecoder[Base.K_NUM_POS_STATES_MAX];
-            private readonly BitTreeDecoder[] _midCoder = new BitTreeDecoder[Base.K_NUM_POS_STATES_MAX];
-            private BitTreeDecoder _highCoder = new BitTreeDecoder(Base.K_NUM_HIGH_LEN_BITS);
-            private uint _numPosStates;
+            private          BitDecoder       _choice    = new();
+            private          BitDecoder       _choice2   = new();
+            private readonly BitTreeDecoder[] _lowCoder  = new BitTreeDecoder[Base.K_NUM_POS_STATES_MAX];
+            private readonly BitTreeDecoder[] _midCoder  = new BitTreeDecoder[Base.K_NUM_POS_STATES_MAX];
+            private          BitTreeDecoder   _highCoder = new(Base.K_NUM_HIGH_LEN_BITS);
+            private          uint             _numPosStates;
 
             public void Create(uint numPosStates)
             {
-                for (var posState = _numPosStates; posState < numPosStates; posState++)
+                for (uint posState = _numPosStates; posState < numPosStates; posState++)
                 {
                     _lowCoder[posState] = new BitTreeDecoder(Base.K_NUM_LOW_LEN_BITS);
                     _midCoder[posState] = new BitTreeDecoder(Base.K_NUM_MID_LEN_BITS);
@@ -44,7 +44,7 @@ namespace SharpCompress.Compressors.LZMA
                 {
                     return _lowCoder[posState].Decode(rangeDecoder);
                 }
-                var symbol = Base.K_NUM_LOW_LEN_SYMBOLS;
+                uint symbol = Base.K_NUM_LOW_LEN_SYMBOLS;
                 if (_choice2.Decode(rangeDecoder) == 0)
                 {
                     symbol += _midCoder[posState].Decode(rangeDecoder);
@@ -68,7 +68,7 @@ namespace SharpCompress.Compressors.LZMA
 
                 public void Init()
                 {
-                    for (var i = 0; i < 0x300; i++)
+                    for (int i = 0; i < 0x300; i++)
                     {
                         _decoders[i].Init();
                     }
@@ -89,9 +89,9 @@ namespace SharpCompress.Compressors.LZMA
                     uint symbol = 1;
                     do
                     {
-                        var matchBit = (uint)(matchByte >> 7) & 1;
+                        uint matchBit = (uint)(matchByte >> 7) & 1;
                         matchByte <<= 1;
-                        var bit = _decoders[((1 + matchBit) << 8) + symbol].Decode(rangeDecoder);
+                        uint bit = _decoders[((1 + matchBit) << 8) + symbol].Decode(rangeDecoder);
                         symbol = (symbol << 1) | bit;
                         if (matchBit != bit)
                         {
@@ -120,7 +120,7 @@ namespace SharpCompress.Compressors.LZMA
                 _numPosBits = numPosBits;
                 _posMask = ((uint)1 << numPosBits) - 1;
                 _numPrevBits = numPrevBits;
-                var numStates = (uint)1 << (_numPrevBits + _numPosBits);
+                uint numStates = (uint)1 << (_numPrevBits + _numPosBits);
                 _coders = new Decoder2[numStates];
                 for (uint i = 0; i < numStates; i++)
                 {
@@ -130,7 +130,7 @@ namespace SharpCompress.Compressors.LZMA
 
             public void Init()
             {
-                var numStates = (uint)1 << (_numPrevBits + _numPosBits);
+                uint numStates = (uint)1 << (_numPrevBits + _numPosBits);
                 for (uint i = 0; i < numStates; i++)
                 {
                     _coders[i].Init();
@@ -171,18 +171,18 @@ namespace SharpCompress.Compressors.LZMA
             Base.K_NUM_FULL_DISTANCES - Base.K_END_POS_MODEL_INDEX
         ];
 
-        private BitTreeDecoder _posAlignDecoder = new BitTreeDecoder(Base.K_NUM_ALIGN_BITS);
+        private BitTreeDecoder _posAlignDecoder = new(Base.K_NUM_ALIGN_BITS);
 
-        private readonly LenDecoder _lenDecoder = new LenDecoder();
-        private readonly LenDecoder _repLenDecoder = new LenDecoder();
+        private readonly LenDecoder _lenDecoder    = new();
+        private readonly LenDecoder _repLenDecoder = new();
 
-        private readonly LiteralDecoder _literalDecoder = new LiteralDecoder();
+        private readonly LiteralDecoder _literalDecoder = new();
 
         private int _dictionarySize;
 
         private uint _posStateMask;
 
-        private Base.State _state = new Base.State();
+        private Base.State _state = new();
         private uint _rep0,
             _rep1,
             _rep2,
@@ -191,7 +191,7 @@ namespace SharpCompress.Compressors.LZMA
         public Decoder()
         {
             _dictionarySize = -1;
-            for (var i = 0; i < Base.K_NUM_LEN_TO_POS_STATES; i++)
+            for (int i = 0; i < Base.K_NUM_LEN_TO_POS_STATES; i++)
             {
                 _posSlotDecoder[i] = new BitTreeDecoder(Base.K_NUM_POS_SLOT_BITS);
             }
@@ -204,7 +204,7 @@ namespace SharpCompress.Compressors.LZMA
                 throw new InvalidParamException();
             }
             _outWindow = new OutWindow();
-            var blockSize = Math.Max(_dictionarySize, (1 << 12));
+            int blockSize = Math.Max(_dictionarySize, 1 << 12);
             _outWindow.Create(blockSize);
         }
 
@@ -227,7 +227,7 @@ namespace SharpCompress.Compressors.LZMA
             {
                 throw new InvalidParamException();
             }
-            var numPosStates = (uint)1 << pb;
+            uint numPosStates = (uint)1 << pb;
             _lenDecoder.Create(numPosStates);
             _repLenDecoder.Create(numPosStates);
             _posStateMask = numPosStates - 1;
@@ -240,7 +240,7 @@ namespace SharpCompress.Compressors.LZMA
             {
                 for (uint j = 0; j <= _posStateMask; j++)
                 {
-                    var index = (i << Base.K_NUM_POS_STATES_BITS_MAX) + j;
+                    uint index = (i << Base.K_NUM_POS_STATES_BITS_MAX) + j;
                     _isMatchDecoders[index].Init();
                     _isRep0LongDecoders[index].Init();
                 }
@@ -295,7 +295,7 @@ namespace SharpCompress.Compressors.LZMA
                 _outWindow.SetLimit(long.MaxValue - _outWindow._total);
             }
 
-            var rangeDecoder = new RangeCoder.Decoder();
+            RangeCoder.Decoder rangeDecoder = new();
             rangeDecoder.Init(inStream);
 
             Code(_dictionarySize, _outWindow, rangeDecoder);
@@ -308,13 +308,13 @@ namespace SharpCompress.Compressors.LZMA
 
         internal bool Code(int dictionarySize, OutWindow outWindow, RangeCoder.Decoder rangeDecoder)
         {
-            var dictionarySizeCheck = Math.Max(dictionarySize, 1);
+            int dictionarySizeCheck = Math.Max(dictionarySize, 1);
 
             outWindow.CopyPending();
 
             while (outWindow.HasSpace)
             {
-                var posState = (uint)outWindow._total & _posStateMask;
+                uint posState = (uint)outWindow._total & _posStateMask;
                 if (
                     _isMatchDecoders[
                         (_state._index << Base.K_NUM_POS_STATES_BITS_MAX) + posState
@@ -322,7 +322,7 @@ namespace SharpCompress.Compressors.LZMA
                 )
                 {
                     byte b;
-                    var prevByte = outWindow.GetByte(0);
+                    byte prevByte = outWindow.GetByte(0);
                     if (!_state.IsCharState())
                     {
                         b = _literalDecoder.DecodeWithMatchByte(
@@ -394,11 +394,11 @@ namespace SharpCompress.Compressors.LZMA
                         _rep1 = _rep0;
                         len = Base.K_MATCH_MIN_LEN + _lenDecoder.Decode(rangeDecoder, posState);
                         _state.UpdateMatch();
-                        var posSlot = _posSlotDecoder[Base.GetLenToPosState(len)].Decode(rangeDecoder);
+                        uint posSlot = _posSlotDecoder[Base.GetLenToPosState(len)].Decode(rangeDecoder);
                         if (posSlot >= Base.K_START_POS_MODEL_INDEX)
                         {
-                            var numDirectBits = (int)((posSlot >> 1) - 1);
-                            _rep0 = ((2 | (posSlot & 1)) << numDirectBits);
+                            int numDirectBits = (int)((posSlot >> 1) - 1);
+                            _rep0 = (2 | (posSlot & 1)) << numDirectBits;
                             if (posSlot < Base.K_END_POS_MODEL_INDEX)
                             {
                                 _rep0 += BitTreeDecoder.ReverseDecode(
@@ -410,10 +410,8 @@ namespace SharpCompress.Compressors.LZMA
                             }
                             else
                             {
-                                _rep0 += (
-                                    rangeDecoder.DecodeDirectBits(numDirectBits - Base.K_NUM_ALIGN_BITS)
-                                    << Base.K_NUM_ALIGN_BITS
-                                );
+                                _rep0 += rangeDecoder.DecodeDirectBits(numDirectBits - Base.K_NUM_ALIGN_BITS)
+                                         << Base.K_NUM_ALIGN_BITS;
                                 _rep0 += _posAlignDecoder.ReverseDecode(rangeDecoder);
                             }
                         }
@@ -442,10 +440,10 @@ namespace SharpCompress.Compressors.LZMA
             {
                 throw new InvalidParamException();
             }
-            var lc = properties[0] % 9;
-            var remainder = properties[0] / 9;
-            var lp = remainder % 5;
-            var pb = remainder / 5;
+            int lc = properties[0] % 9;
+            int remainder = properties[0] / 9;
+            int lp = remainder % 5;
+            int pb = remainder / 5;
             if (pb > Base.K_NUM_POS_STATES_BITS_MAX)
             {
                 throw new InvalidParamException();
@@ -456,7 +454,7 @@ namespace SharpCompress.Compressors.LZMA
             if (properties.Length >= 5)
             {
                 _dictionarySize = 0;
-                for (var i = 0; i < 4; i++)
+                for (int i = 0; i < 4; i++)
                 {
                     _dictionarySize += properties[1 + i] << (i * 8);
                 }

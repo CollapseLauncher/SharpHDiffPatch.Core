@@ -19,7 +19,7 @@ namespace SharpHDiffPatch.Core.Hash.Crc32
 
         private readonly bool _isBigEndian = true;
 
-        private readonly SafeProxy _proxy = new SafeProxy();
+        private readonly SafeProxy _proxy = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Crc32Algorithm"/> class.
@@ -203,8 +203,8 @@ namespace SharpHDiffPatch.Core.Hash.Crc32
         {
             if (length + 4 > input.Length)
                 throw new ArgumentOutOfRangeException("length", "Length of data should be less than array length - 4 bytes of CRC data");
-            var crc = Append(0, input, offset, length);
-            var r = offset + length;
+            uint crc = Append(0, input, offset, length);
+            int r = offset + length;
             input[r] = (byte)crc;
             input[r + 1] = (byte)(crc >> 8);
             input[r + 2] = (byte)(crc >> 16);

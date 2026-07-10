@@ -8,13 +8,13 @@ namespace SharpCompress.Compressors.LZMA
     internal class LzmaStream : Stream
     {
         private readonly Stream _inputStream;
-        private readonly long _inputSize;
-        private readonly long _outputSize;
+        private readonly long   _inputSize;
+        private readonly long   _outputSize;
 
-        private readonly int _dictionarySize;
-        private readonly OutWindow _outWindow = new OutWindow();
-        private readonly RangeCoder.Decoder _rangeDecoder = new RangeCoder.Decoder();
-        private Decoder _decoder;
+        private readonly int                _dictionarySize;
+        private readonly OutWindow          _outWindow    = new();
+        private readonly RangeCoder.Decoder _rangeDecoder = new();
+        private          Decoder            _decoder;
 
         private long _position;
         private bool _endReached;
@@ -125,7 +125,7 @@ namespace SharpCompress.Compressors.LZMA
                 return 0;
             }
 
-            var total = 0;
+            int total = 0;
             while (total < count)
             {
                 if (_availableBytes == 0)
@@ -144,7 +144,7 @@ namespace SharpCompress.Compressors.LZMA
                     }
                 }
 
-                var toProcess = count - total;
+                int toProcess = count - total;
                 if (toProcess > _availableBytes)
                 {
                     toProcess = (int)_availableBytes;
@@ -160,7 +160,7 @@ namespace SharpCompress.Compressors.LZMA
                     _availableBytes = _outWindow.AvailableBytes;
                 }
 
-                var read = _outWindow.Read(buffer, offset, toProcess);
+                int read = _outWindow.Read(buffer, offset, toProcess);
                 total += read;
                 offset += read;
                 _position += read;
@@ -210,7 +210,7 @@ namespace SharpCompress.Compressors.LZMA
 
         private void DecodeChunkHeader()
         {
-            var control = _inputStream.ReadByte();
+            int control = _inputStream.ReadByte();
             _inputPosition++;
 
             if (control == 0x00)

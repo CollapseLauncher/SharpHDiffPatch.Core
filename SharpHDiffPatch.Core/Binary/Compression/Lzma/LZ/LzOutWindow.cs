@@ -44,8 +44,8 @@ namespace SharpCompress.Compressors.LZMA.LZ
 
         public void Train(Stream stream)
         {
-            var len = stream.Length;
-            var size = (len < _windowSize) ? (int)len : _windowSize;
+            long len = stream.Length;
+            int size = len < _windowSize ? (int)len : _windowSize;
             stream.Position = len - size;
             _total = 0;
             _limit = size;
@@ -70,7 +70,7 @@ namespace SharpCompress.Compressors.LZMA.LZ
             {
                 return;
             }
-            var size = _pos - _streamPos;
+            int size = _pos - _streamPos;
             if (size == 0)
             {
                 return;
@@ -85,8 +85,8 @@ namespace SharpCompress.Compressors.LZMA.LZ
 
         public void CopyBlock(int distance, int len)
         {
-            var size = len;
-            var pos = _pos - distance - 1;
+            int size = len;
+            int pos = _pos - distance - 1;
             if (pos < 0)
             {
                 pos += _windowSize;
@@ -120,7 +120,7 @@ namespace SharpCompress.Compressors.LZMA.LZ
 
         public byte GetByte(int distance)
         {
-            var pos = _pos - distance - 1;
+            int pos = _pos - distance - 1;
             if (pos < 0)
             {
                 pos += _windowSize;
@@ -130,10 +130,10 @@ namespace SharpCompress.Compressors.LZMA.LZ
 
         public int CopyStream(Stream stream, int len)
         {
-            var size = len;
+            int size = len;
             while (size > 0 && _pos < _windowSize && _total < _limit)
             {
-                var curSize = _windowSize - _pos;
+                int curSize = _windowSize - _pos;
                 if (curSize > _limit - _total)
                 {
                     curSize = (int)(_limit - _total);
@@ -142,7 +142,7 @@ namespace SharpCompress.Compressors.LZMA.LZ
                 {
                     curSize = size;
                 }
-                var numReadBytes = stream.Read(_buffer, _pos, curSize);
+                int numReadBytes = stream.Read(_buffer, _pos, curSize);
                 if (numReadBytes == 0)
                 {
                     throw new DataErrorException();
@@ -171,7 +171,7 @@ namespace SharpCompress.Compressors.LZMA.LZ
                 return 0;
             }
 
-            var size = _pos - _streamPos;
+            int size = _pos - _streamPos;
             if (size > count)
             {
                 size = count;

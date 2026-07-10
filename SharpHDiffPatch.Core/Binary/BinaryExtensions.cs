@@ -178,10 +178,9 @@ namespace SharpHDiffPatch.Core.Binary
         public static unsafe void GetPathsFromBuffer(this Span<byte> buffer, out string[] outputPaths, int count)
         {
             outputPaths = new string[count];
-            int inLen = buffer.Length;
 
             int idx = 0, strIdx = 0;
-#if (NETSTANDARD2_0 || NET461_OR_GREATER)
+#if NETSTANDARD2_0 || NET461_OR_GREATER
             int len = 0;
 #endif
             fixed (byte* inputPtr = &MemoryMarshal.GetReference(buffer))

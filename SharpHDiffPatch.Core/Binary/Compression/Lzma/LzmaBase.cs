@@ -64,7 +64,7 @@ namespace SharpCompress.Compressors.LZMA
 
         public const int K_NUM_ALIGN_BITS = 4;
         public const uint K_ALIGN_TABLE_SIZE = 1 << K_NUM_ALIGN_BITS;
-        public const uint K_ALIGN_MASK = (K_ALIGN_TABLE_SIZE - 1);
+        public const uint K_ALIGN_MASK = K_ALIGN_TABLE_SIZE - 1;
 
         public const uint K_START_POS_MODEL_INDEX = 4;
         public const uint K_END_POS_MODEL_INDEX = 14;
@@ -75,10 +75,10 @@ namespace SharpCompress.Compressors.LZMA
         public const uint K_NUM_LIT_POS_STATES_BITS_ENCODING_MAX = 4;
         public const uint K_NUM_LIT_CONTEXT_BITS_MAX = 8;
 
-        public const int K_NUM_POS_STATES_BITS_MAX = 4;
-        public const uint K_NUM_POS_STATES_MAX = (1 << K_NUM_POS_STATES_BITS_MAX);
-        public const int K_NUM_POS_STATES_BITS_ENCODING_MAX = 4;
-        public const uint K_NUM_POS_STATES_ENCODING_MAX = (1 << K_NUM_POS_STATES_BITS_ENCODING_MAX);
+        public const int  K_NUM_POS_STATES_BITS_MAX          = 4;
+        public const uint K_NUM_POS_STATES_MAX               = 1 << K_NUM_POS_STATES_BITS_MAX;
+        public const int  K_NUM_POS_STATES_BITS_ENCODING_MAX = 4;
+        public const uint K_NUM_POS_STATES_ENCODING_MAX      = 1 << K_NUM_POS_STATES_BITS_ENCODING_MAX;
 
         public const int K_NUM_LOW_LEN_BITS = 3;
         public const int K_NUM_MID_LEN_BITS = 3;

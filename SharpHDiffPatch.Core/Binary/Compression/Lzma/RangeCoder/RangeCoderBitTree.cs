@@ -13,7 +13,7 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
 
         public void Init()
         {
-            for (uint i = 1; i < (1 << _numBitLevels); i++)
+            for (uint i = 1; i < 1 << _numBitLevels; i++)
             {
                 _models[i].Init();
             }
@@ -22,7 +22,7 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
         public uint Decode(Decoder rangeDecoder)
         {
             uint m = 1;
-            for (var bitIndex = _numBitLevels; bitIndex > 0; bitIndex--)
+            for (int bitIndex = _numBitLevels; bitIndex > 0; bitIndex--)
             {
                 m = (m << 1) + _models[m].Decode(rangeDecoder);
             }
@@ -33,12 +33,12 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
         {
             uint m = 1;
             uint symbol = 0;
-            for (var bitIndex = 0; bitIndex < _numBitLevels; bitIndex++)
+            for (int bitIndex = 0; bitIndex < _numBitLevels; bitIndex++)
             {
-                var bit = _models[m].Decode(rangeDecoder);
+                uint bit = _models[m].Decode(rangeDecoder);
                 m <<= 1;
                 m += bit;
-                symbol |= (bit << bitIndex);
+                symbol |= bit << bitIndex;
             }
             return symbol;
         }
@@ -52,12 +52,12 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
         {
             uint m = 1;
             uint symbol = 0;
-            for (var bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
+            for (int bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
             {
-                var bit = models[startIndex + m].Decode(rangeDecoder);
+                uint bit = models[startIndex + m].Decode(rangeDecoder);
                 m <<= 1;
                 m += bit;
-                symbol |= (bit << bitIndex);
+                symbol |= bit << bitIndex;
             }
             return symbol;
         }

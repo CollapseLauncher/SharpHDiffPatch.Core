@@ -135,8 +135,8 @@ namespace SharpHDiffPatch.Core.Patch
 
         private MemoryStream CreateAndCopyToMemoryStream(Stream source)
         {
-            MemoryStream returnStream = new MemoryStream();
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(MaxArrayPoolLen);
+            MemoryStream returnStream = new();
+            byte[]       buffer       = ArrayPool<byte>.Shared.Rent(MaxArrayPoolLen);
 
             try
             {
@@ -189,7 +189,7 @@ namespace SharpHDiffPatch.Core.Patch
                     oldPosBack   = oldPos;
                     newPosBack  += copyLength;
 
-                    oldPosBack += true ? coverLength : 0;
+                    oldPosBack += coverLength;
 
                     yield return new CoverHeader(oldPos, newPosBack, coverLength, coverCount);
                     newPosBack += coverLength;
@@ -217,7 +217,7 @@ namespace SharpHDiffPatch.Core.Patch
                     newPosBack += copyLength;
                     oldPosBack = oldPos;
 
-                    oldPosBack += true ? coverLength : 0;
+                    oldPosBack += coverLength;
 
                     yield return new CoverHeader(oldPos, newPosBack, coverLength, coverCount);
                     newPosBack += coverLength;
@@ -243,15 +243,15 @@ namespace SharpHDiffPatch.Core.Patch
         private void WriteCoverStreamToOutput(Stream[] clips, Stream inputStream, Stream outputStream, long coverCount, long coverSize, long newDataSize)
         {
             byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(MaxArrayPoolLen);
-            MemoryStream cacheOutputStream = new MemoryStream();
+            MemoryStream cacheOutputStream = new();
 
             try
             {
                 RunCopySimilarFilesRoutine();
 
-                long newPosBack = 0;
-                RleRefClipStruct rleStruct = new RleRefClipStruct();
-                CoverHeader[] headers = EnumerateCoverHeaders(clips[0], coverSize, coverCount).ToArray();
+                long             newPosBack = 0;
+                RleRefClipStruct rleStruct  = new();
+                CoverHeader[]    headers    = EnumerateCoverHeaders(clips[0], coverSize, coverCount).ToArray();
 
                 for (int i = 0; i < headers.Length; i++)
                 {
@@ -559,8 +559,8 @@ namespace SharpHDiffPatch.Core.Patch
 
             while (curPathIndex < pathCount)
             {
-                if ((curNewRefIndex < newRefCount)
-                    && (curPathIndex == (dirData.NewRefList.Length > 0 ? (int)dirData.NewRefList[curNewRefIndex] : curNewRefIndex)))
+                if (curNewRefIndex < newRefCount
+                    && curPathIndex == (dirData.NewRefList.Length > 0 ? (int)dirData.NewRefList[curNewRefIndex] : curNewRefIndex))
                 {
                     bool isPathADir = IsPathADir(dirData.NewUtf8PathList[(int)dirData.NewRefList[curNewRefIndex]]);
 
@@ -568,7 +568,7 @@ namespace SharpHDiffPatch.Core.Patch
                     ++curNewRefIndex;
                 }
                 else if (curSamePairIndex < samePairCount
-                    && (curPathIndex == (int)dirData.DataSamePairList[curSamePairIndex].NewIndex))
+                    && curPathIndex == (int)dirData.DataSamePairList[curSamePairIndex].NewIndex)
                 {
                     ++curSamePairIndex;
                     ++curPathIndex;
@@ -620,9 +620,9 @@ namespace SharpHDiffPatch.Core.Patch
 #else
             byte[] buffer = new byte[MaxArrayCopyLen];
 #endif
-            using FileStream ifs = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            using FileStream ofs = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.Write);
-            int read;
+            using FileStream ifs = new(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using FileStream ofs = new(outputPath, FileMode.Create, FileAccess.Write, FileShare.Write);
+            int              read;
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
             while ((read = ifs.Read(buffer)) > 0)
 #else

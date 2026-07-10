@@ -117,7 +117,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
 
         private static Stream CreateZstdManagedStream(Stream rawStream)
         {
-            ZstdManagedDecompressor decompressor = new ZstdManagedDecompressor();
+            ZstdManagedDecompressor decompressor = new();
             decompressor.SetParameter(ZstdManagedDecompressorParameter.ZSTD_d_windowLogMax, ZstdWindowLogMax);
             return new ZstdManagedStream(rawStream, decompressor, 16 << 10);
         }

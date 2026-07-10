@@ -4,9 +4,9 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
 {
     internal class Decoder
     {
-        public const uint K_TOP_VALUE = (1 << 24);
-        public uint _range;
-        public uint _code;
+        public const uint K_TOP_VALUE = 1 << 24;
+        public       uint _range;
+        public       uint _code;
 
         // public Buffer.InBuffer Stream = new Buffer.InBuffer(1 << 16);
         public Stream _stream;
@@ -19,7 +19,7 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
 
             _code = 0;
             _range = 0xFFFFFFFF;
-            for (var i = 0; i < 5; i++)
+            for (int i = 0; i < 5; i++)
             {
                 _code = (_code << 8) | (byte)_stream.ReadByte();
             }
@@ -63,10 +63,10 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
 
         public uint DecodeDirectBits(int numTotalBits)
         {
-            var range = _range;
-            var code = _code;
+            uint range = _range;
+            uint code = _code;
             uint result = 0;
-            for (var i = numTotalBits; i > 0; i--)
+            for (int i = numTotalBits; i > 0; i--)
             {
                 range >>= 1;
                 /*
@@ -77,7 +77,7 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
                     result |= 1;
                 }
                 */
-                var t = (code - range) >> 31;
+                uint t = (code - range) >> 31;
                 code -= range & (t - 1);
                 result = (result << 1) | (1 - t);
 
@@ -95,7 +95,7 @@ namespace SharpCompress.Compressors.LZMA.RangeCoder
 
         public uint DecodeBit(uint size0, int numTotalBits)
         {
-            var newBound = (_range >> numTotalBits) * size0;
+            uint newBound = (_range >> numTotalBits) * size0;
             uint symbol;
             if (_code < newBound)
             {
