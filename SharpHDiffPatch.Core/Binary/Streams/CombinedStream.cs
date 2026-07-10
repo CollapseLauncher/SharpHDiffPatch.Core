@@ -277,10 +277,21 @@ public sealed class CombinedStream<T> : Stream
 
             int requested = (int)Math.Min(buffer.Length, available);
 
+            int read;
+#if NET6_0_OR_GREATER
+            if (stream is FileStream { SafeFileHandle: not null } fileStream)
+            {
+                read = RandomAccess.Read(fileStream.SafeFileHandle,
+                                         buffer[..requested],
+                                         localPosition);
+                goto Advance;
+            }
+#endif
+
             if (stream.Position != localPosition)
                 stream.Position = localPosition;
 
-            int read = stream.Read(buffer[..requested]);
+            read = stream.Read(buffer[..requested]);
 
             if (read == 0)
             {
@@ -295,6 +306,7 @@ public sealed class CombinedStream<T> : Stream
                 continue;
             }
 
+        Advance:
             totalRead += read;
             _position += read;
             buffer    =  buffer[read..];
@@ -339,10 +351,20 @@ public sealed class CombinedStream<T> : Stream
 
             int requested = (int)Math.Min(count, available);
 
+            int read;
+#if NET6_0_OR_GREATER
+            if (stream is FileStream { SafeFileHandle: not null } fileStream)
+            {
+                read = RandomAccess.Read(fileStream.SafeFileHandle,
+                                         buffer.AsSpan(offset, requested),
+                                         localPosition);
+                goto Advance;
+            }
+#endif
             if (stream.Position != localPosition)
                 stream.Position = localPosition;
 
-            int read = stream.Read(buffer, offset, requested);
+            read = stream.Read(buffer, offset, requested);
 
             if (read == 0)
             {
@@ -359,6 +381,7 @@ public sealed class CombinedStream<T> : Stream
                 continue;
             }
 
+        Advance:
             totalRead += read;
             offset    += read;
             count     -= read;
@@ -412,11 +435,22 @@ public sealed class CombinedStream<T> : Stream
 
             int writable = (int)Math.Min(buffer.Length, available);
 
+#if NET6_0_OR_GREATER
+            if (stream is FileStream { SafeFileHandle: not null } fileStream)
+            {
+                RandomAccess.Write(fileStream.SafeFileHandle,
+                                   buffer[..writable],
+                                   localPosition);
+                goto Advance;
+            }
+#endif
+
             if (stream.Position != localPosition)
                 stream.Position = localPosition;
 
             stream.Write(buffer[..writable]);
 
+        Advance:
             _position += writable;
             buffer    =  buffer[writable..];
         }
@@ -456,11 +490,22 @@ public sealed class CombinedStream<T> : Stream
 
             int writable = (int)Math.Min(count, available);
 
+#if NET6_0_OR_GREATER
+            if (stream is FileStream { SafeFileHandle: not null } fileStream)
+            {
+                RandomAccess.Write(fileStream.SafeFileHandle,
+                                   buffer.AsSpan(offset, writable),
+                                   localPosition);
+                goto Advance;
+            }
+#endif
+
             if (stream.Position != localPosition)
                 stream.Position = localPosition;
 
             stream.Write(buffer, offset, writable);
 
+        Advance:
             offset    += writable;
             count     -= writable;
             _position += writable;
