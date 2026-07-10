@@ -129,31 +129,42 @@ public sealed class CombinedStream<T> : Stream
         bool canWrite = true;
         long totalLength = 0;
 
-        for (int i = 0; i < _underlyingStreams.Length; i++)
+        for (int i = 0; i < underlyingStreams.Length; i++)
         {
-            Stream stream = _underlyingStreams[i];
+            CombinedStreamSegment<T> segment = underlyingStreams[i];
+
+            if (segment == null)
+            {
+                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] The array contains a null segment.", nameof(underlyingStreams));
+            }
+
+            T stream = segment.Stream;
 
             if (stream == null)
             {
-                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] The array contains a null stream.",
-                                            nameof(underlyingStreams));
+                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] A segment contains a null stream.", nameof(underlyingStreams));
+            }
+
+            if (segment.Length < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(underlyingStreams), $"[{nameof(CombinedStream<T>)}()] Segment length cannot be negative.");
             }
 
             if (!stream.CanRead)
             {
-                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] Every underlying stream must be readable.",
-                                            nameof(underlyingStreams));
+                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] Every underlying stream must be readable.", nameof(underlyingStreams));
             }
 
             if (!stream.CanSeek)
             {
-                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] Every underlying stream must be seekable.",
-                                            nameof(underlyingStreams));
+                throw new ArgumentException($"[{nameof(CombinedStream<T>)}()] Every underlying stream must be seekable.", nameof(underlyingStreams));
             }
 
             canWrite &= stream.CanWrite;
 
-            totalLength    = checked(totalLength + _underlyingStreams[i].Length);
+            _underlyingStreams[i] = stream;
+
+            totalLength = checked(totalLength + segment.Length);
             _streamEnds[i] = totalLength;
         }
 
