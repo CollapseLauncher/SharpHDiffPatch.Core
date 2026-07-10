@@ -11,6 +11,10 @@ using System;
 using System.IO;
 using System.Linq;
 
+#if !NETCOREAPP
+#pragma warning disable IDE0056
+#endif
+
 namespace SharpHDiffPatch.Core.Binary.Streams
 {
     public class NewFileCombinedStream
@@ -335,20 +339,19 @@ namespace SharpHDiffPatch.Core.Binary.Streams
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override void Write(ReadOnlySpan<byte> buffer)
         {
-            int count = buffer.Length;
-            int offset = 0;
+            long count = buffer.Length;
+            long offset = 0;
             while (count > 0)
             {
                 _underlyingStreams[_index].Position = _position - _underlyingStartingPositions[_index];
-                int bytesWrite = count;
-                int remainedMaxLength = (int)Math.Min(
-                    _underlyingStreams[_index].Length - _underlyingStreams[_index].Position,
-                    int.MaxValue);
+                long bytesWrite = count;
+                long remainedMaxLength = Math.Min(_underlyingStreams[_index].Length - _underlyingStreams[_index].Position,
+                                                  long.MaxValue);
                 if (remainedMaxLength < count)
                 {
                     bytesWrite = remainedMaxLength;
                 }
-                _underlyingStreams[_index].Write(buffer.Slice(offset, bytesWrite));
+                _underlyingStreams[_index].Write(buffer.Slice((int)offset, (int)bytesWrite));
                 offset += bytesWrite;
                 count -= bytesWrite;
                 _position += bytesWrite;
