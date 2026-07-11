@@ -121,14 +121,14 @@ namespace SharpHDiffPatch.Core.Binary.Compression
         private static Stream CreateLzmaStream(Stream rawStream)
         {
             int propLen = rawStream.ReadByte();
-            if (propLen != 5) return new LzmaStream([(byte)propLen], rawStream, true); // Get LZMA2 if propLen != 5
+            if (propLen != 5) return new LzmaInputStream([(byte)propLen], rawStream, true); // Get LZMA2 if propLen != 5
 
             // Get LZMA if propLen == 5
             byte[] props = new byte[propLen];
             _ = rawStream.Read(props, 0, propLen);
             int dicSize = MemoryMarshal.Read<int>(props.AsSpan(1));
             HDiffPatch.Event.PushLog($"[PatchCore::CreateLzmaStream] Assigning LZMA stream with dictionary size: {dicSize}", Verbosity.Verbose);
-            return new LzmaStream(props, rawStream, -1, -1, rawStream, false, true);
+            return new LzmaInputStream(props, rawStream, -1, -1, rawStream, false, true);
         }
     }
 }

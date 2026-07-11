@@ -6,7 +6,7 @@ using SharpHDiffPatch.Core.Binary.Compression.Lzma.RangeCoder;
 
 namespace SharpHDiffPatch.Core.Binary.Compression.Lzma;
 
-public sealed class LzmaStream : Stream
+public sealed class LzmaInputStream : Stream
 {
     private readonly Stream _inputStream;
     private readonly long   _inputSize;
@@ -32,16 +32,16 @@ public sealed class LzmaStream : Stream
     private bool _needProps     = true;
     private bool _isDisposed;
 
-    public LzmaStream(byte[] properties, Stream inputStream, bool leaveOpen = false)
+    public LzmaInputStream(byte[] properties, Stream inputStream, bool leaveOpen = false)
         : this(properties, inputStream, -1, -1, null, properties.Length < 5, leaveOpen) { }
 
-    public LzmaStream(byte[] properties, Stream inputStream, long inputSize, bool leaveOpen = false)
+    public LzmaInputStream(byte[] properties, Stream inputStream, long inputSize, bool leaveOpen = false)
         : this(properties, inputStream, inputSize, -1, null, properties.Length < 5, leaveOpen) { }
 
-    public LzmaStream(byte[] properties, Stream inputStream, long inputSize, long outputSize, bool leaveOpen = false)
+    public LzmaInputStream(byte[] properties, Stream inputStream, long inputSize, long outputSize, bool leaveOpen = false)
         : this(properties, inputStream, inputSize, outputSize, null, properties.Length < 5, leaveOpen) { }
 
-    public LzmaStream(
+    public LzmaInputStream(
         byte[] properties,
         Stream inputStream,
         long   inputSize,
