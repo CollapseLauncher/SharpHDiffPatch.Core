@@ -2,7 +2,7 @@
   "profiles": {
     "SharpHDiffPatch-bin": {
       "commandName": "Project",
-      "commandLineArgs": "\"G:\\CollapseData\\Hi3SEA\\BH3_v8.0.0_647b2f09ce4e\" \"G:\\CollapseData\\Hi3SEA\\delta-m0.diff\" \"G:\\CollapseData\\Hi3SEA\\BH3_v8.1.0_d950a68ed449_dotnet\" -l Verbose -B -b partial"
+      "commandLineArgs": "\"G:\\Hi3SEA\" \"G:\\Hi3CNRecipe.cookbook.bz2\" \"K:\\Hi3CN-dotnet\" -l Verbose -B -b partial"
     }
   }
 }

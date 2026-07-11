@@ -158,9 +158,9 @@ namespace SharpHDiffPatch
         {
             string label = e.LogLevel switch
             {
-                Verbosity.Info => $"[Info] ",
-                Verbosity.Verbose => $"[Verbose] ",
-                Verbosity.Debug => $"[Debug] ",
+                Verbosity.Info => "[Info] ",
+                Verbosity.Verbose => "[Verbose] ",
+                Verbosity.Debug => "[Debug] ",
                 _ => ""
             };
 
@@ -174,8 +174,14 @@ namespace SharpHDiffPatch
                 if (await CheckIfNeedRefreshStopwatch())
                 {
                     Console.Write(
-                        $"Patching: {e.ProgressPercentage}% | {SummarizeSizeSimple(e.CurrentSizePatched)}/{SummarizeSizeSimple(e.TotalSizeToBePatched)} @{SummarizeSizeSimple(e.Speed)}/s    \r");
+                        $"Patching: {e.ProgressPercentage}% | " +
+                        $"{SummarizeSizeSimple(e.CurrentSizePatched)}/{SummarizeSizeSimple(e.TotalSizeToBePatched)} " +
+                        $"@{SummarizeSizeSimple(e.Speed)}/s " +
+                        $"[{string.Format("{0:hh}h:{0:mm}m:{0:ss}s remaining", TimeSpan.FromSeconds((e.TotalSizeToBePatched - e.CurrentSizePatched) / UnZeroed(e.Speed)))}]    \r");
                 }
+
+                return;
+                static double UnZeroed(double input) => Math.Max(input, 1);
             }
             catch
             {
