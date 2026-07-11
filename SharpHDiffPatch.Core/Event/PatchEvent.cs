@@ -30,8 +30,9 @@ namespace SharpHDiffPatch.Core.Event
             get => _currentSizePatched;
             private set
             {
-                Speed               = (long)CalculateSpeed(value - _currentSizePatched);
-                TimeLeft            = TimeSpan.FromSeconds((TotalSizeToBePatched - value) / UnZeroed(Speed));
+                double speed = CalculateSpeed(value - _currentSizePatched);
+                Speed               = (long)speed;
+                TimeLeft            = TimeSpan.FromSeconds((TotalSizeToBePatched - value) / (double.IsInfinity(speed) || speed <= 0 ? 1 : speed));
                 ProgressPercentage  = Math.Round(value / (double)TotalSizeToBePatched * 100, 2);
                 _currentSizePatched = value;
             }
@@ -42,7 +43,6 @@ namespace SharpHDiffPatch.Core.Event
         public         long     Read                   { get; private set; }
         public         long     Speed                  { get; private set; }
         public         TimeSpan TimeLeft               { get; private set; }
-        private static double   UnZeroed(double input) => Math.Max(input, 1);
 
         private double CalculateSpeed(long receivedBytes) => CalculateSpeed(receivedBytes, ref _scLastSpeed, ref _scLastReceivedBytes, ref _scLastTick);
 
