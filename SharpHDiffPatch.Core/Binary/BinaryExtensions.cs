@@ -1,10 +1,10 @@
-﻿using SharpHDiffPatch.Core.Patch;
-using System;
+﻿using System;
 using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using SharpHDiffPatch.Core.Patch;
 
 namespace SharpHDiffPatch.Core.Binary
 {

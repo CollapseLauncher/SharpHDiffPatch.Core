@@ -1,5 +1,4 @@
 ﻿using SharpHDiffPatch.Core.Binary;
-using SharpHDiffPatch.Core.Binary.Compression;
 using System;
 using System.IO;
 
@@ -8,7 +7,7 @@ namespace SharpHDiffPatch.Core.Patch
     internal sealed class Header
     {
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-        private static readonly char[] HDIFF_HEAD = new char[] { 'H', 'D', 'I', 'F', 'F' };
+        private static readonly char[] HDIFF_HEAD = ['H', 'D', 'I', 'F', 'F'];
 #else
         private const string HDIFF_HEAD = "HDIFF";
 #endif

@@ -14,7 +14,6 @@ namespace SharpHDiffPatch.Core.Binary.Streams
         private bool IsDisposing { get; }
 
         public ChunkStream(Stream stream, long start, long end, bool isDisposing = false)
-            : base()
         {
             _stream = stream;
 

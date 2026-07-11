@@ -9,8 +9,8 @@ namespace SharpCompress.Compressors.LZMA
     {
         private class LenDecoder
         {
-            private          BitDecoder       _choice    = new();
-            private          BitDecoder       _choice2   = new();
+            private          BitDecoder       _choice;
+            private          BitDecoder       _choice2;
             private readonly BitTreeDecoder[] _lowCoder  = new BitTreeDecoder[Base.K_NUM_POS_STATES_MAX];
             private readonly BitTreeDecoder[] _midCoder  = new BitTreeDecoder[Base.K_NUM_POS_STATES_MAX];
             private          BitTreeDecoder   _highCoder = new(Base.K_NUM_HIGH_LEN_BITS);
@@ -182,7 +182,7 @@ namespace SharpCompress.Compressors.LZMA
 
         private uint _posStateMask;
 
-        private Base.State _state = new();
+        private Base.State _state;
         private uint _rep0,
             _rep1,
             _rep2,

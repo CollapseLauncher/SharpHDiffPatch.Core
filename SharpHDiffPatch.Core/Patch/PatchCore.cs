@@ -251,7 +251,7 @@ namespace SharpHDiffPatch.Core.Patch
 
                 long             newPosBack = 0;
                 RleRefClipStruct rleStruct  = new();
-                CoverHeader[]    headers    = EnumerateCoverHeaders(clips[0], coverSize, coverCount).ToArray();
+                CoverHeader[]    headers    = [.. EnumerateCoverHeaders(clips[0], coverSize, coverCount)];
 
                 for (int i = 0; i < headers.Length; i++)
                 {
