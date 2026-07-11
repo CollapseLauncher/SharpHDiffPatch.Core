@@ -3,21 +3,25 @@
 // ReSharper disable CommentTypo
 // ReSharper disable InconsistentNaming
 
-using SharpCompress.Compressors.BZip2;
 using SharpCompress.Compressors.LZMA;
+using SharpHDiffPatch.Core.Binary.Compression.BZip2;
 using SharpHDiffPatch.Core.Binary.Streams;
 using System;
-#if NET6_0_OR_GREATER
-using System.Collections.Generic;
-#endif
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+
+#if NET6_0_OR_GREATER
+using System.Collections.Generic;
+using ZstdNet;
+#endif
+
 #if NETSTANDARD2_0_OR_GREATER || NET6_0_OR_GREATER
 using ZstdManagedDecompressor = ZstdSharp.Decompressor;
 using ZstdManagedDecompressorParameter = ZstdSharp.Unsafe.ZSTD_dParameter;
 using ZstdManagedStream = ZstdSharp.DecompressionStream;
 #endif
+
 #if !NETSTANDARD2_0_OR_GREATER
 using ZstdNativeDecompressor = ZstdNet.DecompressionOptions;
 using ZstdNativeDecompressorParameter = ZstdNet.ZSTD_dParameter;
@@ -75,9 +79,9 @@ namespace SharpHDiffPatch.Core.Binary.Compression
                 case CompressionMode.zlib:
                     decompStream = new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true); break;
                 case CompressionMode.bz2:
-                    decompStream = new CBZip2InputStream(rawStream, false, true); break;
+                    decompStream = new BZip2InputStream(rawStream, false, true); break;
                 case CompressionMode.pbz2:
-                    decompStream = new CBZip2InputStream(rawStream, true, true); break;
+                    decompStream = new BZip2InputStream(rawStream, true, true); break;
                 case CompressionMode.lzma:
                 case CompressionMode.lzma2:
                     decompStream = CreateLzmaStream(rawStream); break;
@@ -91,7 +95,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
             if (_createZstdStreamFallback != null) return _createZstdStreamFallback(rawStream);
 
 #if !(NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER)
-            if (ZstdNet.DllUtils.IsLibraryExist(ZstdNet.DllUtils.DllName))
+            if (DllUtils.IsLibraryExist(DllUtils.DllName))
                 _createZstdStreamFallback = CreateZstdNativeStream;
             else
                 _createZstdStreamFallback = CreateZstdManagedStream;
@@ -109,7 +113,7 @@ namespace SharpHDiffPatch.Core.Binary.Compression
          */
 #if !NETSTANDARD2_0_OR_GREATER
         private static Stream CreateZstdNativeStream(Stream rawStream) =>
-            new ZstdNativeStream(rawStream, new ZstdNativeDecompressor(null, new Dictionary<ZstdNativeDecompressorParameter, int>()
+            new ZstdNativeStream(rawStream, new ZstdNativeDecompressor(null, new Dictionary<ZstdNativeDecompressorParameter, int>
             {
                 { ZstdNativeDecompressorParameter.ZSTD_d_windowLogMax, ZstdWindowLogMax }
             }));
