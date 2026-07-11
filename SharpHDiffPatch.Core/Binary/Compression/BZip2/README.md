@@ -16,7 +16,7 @@ Hardware Bench:
 - CPU: AMD Ryzen 7 9800X3D
 - Memory: G.Skill Ripjaws M5 64GB (32x2) DDR5-6000 CL36-36-36-96
 
-Big credits to the original authors of SharpZipLib for their work on BZip2 compression.
+Big credits to the original authors of SharpZipLib for their work on BZip2 decompression.
 - [Mike Krüger](http://www.icsharpcode.net/pub/relations/krueger.aspx)
 - John Reilly
 - David Pierson
