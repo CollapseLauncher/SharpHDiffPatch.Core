@@ -1,65 +1,69 @@
-namespace SharpCompress.Compressors.LZMA.RangeCoder
+using System.Runtime.CompilerServices;
+
+namespace SharpHDiffPatch.Core.Binary.Compression.Lzma.RangeCoder;
+
+internal readonly struct BitTreeDecoder(int numBitLevels)
 {
-    internal readonly struct BitTreeDecoder
+    private readonly BitDecoder[] _models = new BitDecoder[1 << numBitLevels];
+
+    public void Init()
     {
-        private readonly BitDecoder[] _models;
-        private readonly int _numBitLevels;
+        ref BitDecoder current = ref _models[1];
+        ref BitDecoder end     = ref Unsafe.Add(ref current, _models.Length - 1);
 
-        public BitTreeDecoder(int numBitLevels)
+        while (Unsafe.IsAddressLessThan(ref current, ref end))
         {
-            _numBitLevels = numBitLevels;
-            _models = new BitDecoder[1 << numBitLevels];
+            current.Init();
+            current = ref Unsafe.Add(ref current, 1);
         }
+    }
 
-        public void Init()
-        {
-            for (uint i = 1; i < 1 << _numBitLevels; i++)
-            {
-                _models[i].Init();
-            }
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint Decode(RangeDecoder rangeDecoder)
+    {
+        ref BitDecoder models = ref _models[0];
+        uint           m      = 1;
 
-        public uint Decode(Decoder rangeDecoder)
+        for (int bitIndex = numBitLevels; bitIndex > 0; bitIndex--)
         {
-            uint m = 1;
-            for (int bitIndex = _numBitLevels; bitIndex > 0; bitIndex--)
-            {
-                m = (m << 1) + _models[m].Decode(rangeDecoder);
-            }
-            return m - ((uint)1 << _numBitLevels);
+            m = (m << 1) + Unsafe.Add(ref models, (int)m).Decode(rangeDecoder);
         }
+        return m - ((uint)1 << numBitLevels);
+    }
 
-        public uint ReverseDecode(Decoder rangeDecoder)
-        {
-            uint m = 1;
-            uint symbol = 0;
-            for (int bitIndex = 0; bitIndex < _numBitLevels; bitIndex++)
-            {
-                uint bit = _models[m].Decode(rangeDecoder);
-                m <<= 1;
-                m += bit;
-                symbol |= bit << bitIndex;
-            }
-            return symbol;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint ReverseDecode(RangeDecoder rangeDecoder)
+    {
+        ref BitDecoder models = ref _models[0];
+        uint           m      = 1;
+        uint           symbol = 0;
 
-        public static uint ReverseDecode(
-            BitDecoder[] models,
-            uint startIndex,
-            Decoder rangeDecoder,
-            int numBitLevels
-        )
+        for (int bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
         {
-            uint m = 1;
-            uint symbol = 0;
-            for (int bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
-            {
-                uint bit = models[startIndex + m].Decode(rangeDecoder);
-                m <<= 1;
-                m += bit;
-                symbol |= bit << bitIndex;
-            }
-            return symbol;
+            uint bit = Unsafe.Add(ref models, (int)m).Decode(rangeDecoder);
+            m      =  (m << 1) + bit;
+            symbol |= bit << bitIndex;
         }
+        return symbol;
+    }
+
+    public static uint ReverseDecode(
+        BitDecoder[] models,
+        uint         startIndex,
+        RangeDecoder rangeDecoder,
+        int          numBitLevels)
+    {
+        ref BitDecoder modelBase = ref models[0];
+        uint           m         = 1;
+        uint           symbol    = 0;
+
+        for (int bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
+        {
+            int  modelIndex = unchecked((int)(startIndex + m));
+            uint bit        = Unsafe.Add(ref modelBase, modelIndex).Decode(rangeDecoder);
+            m      =  (m << 1) + bit;
+            symbol |= bit << bitIndex;
+        }
+        return symbol;
     }
 }
