@@ -184,7 +184,7 @@ public sealed class LzmaInputStream : Stream
                 if (!_decoder.Code(_dictionarySize, _outWindow, _rangeDecoder))
                 {
                     _rangeDecoder.ReleaseStream();
-                    throw new DataErrorException();
+                    throw new LzmaDataErrorException();
                 }
             }
 
@@ -192,14 +192,14 @@ public sealed class LzmaInputStream : Stream
             _inputPosition += _rangeDecoder.Total;
             if (_outWindow.HasPending)
             {
-                throw new DataErrorException();
+                throw new LzmaDataErrorException();
             }
         }
 
         if (!_endReached) return total;
         if ((_inputSize >= 0 && _inputPosition != _inputSize) || (_outputSize >= 0 && _position != _outputSize))
         {
-            throw new DataErrorException();
+            throw new LzmaDataErrorException();
         }
 
         return total;
@@ -225,7 +225,7 @@ public sealed class LzmaInputStream : Stream
             {
                 if (_needDictReset)
                 {
-                    throw new DataErrorException();
+                    throw new LzmaDataErrorException();
                 }
 
                 break;
@@ -256,7 +256,7 @@ public sealed class LzmaInputStream : Stream
                 }
                 else if (_needProps)
                 {
-                    throw new DataErrorException();
+                    throw new LzmaDataErrorException();
                 }
                 else if (control >= 0xA0)
                 {
@@ -268,7 +268,7 @@ public sealed class LzmaInputStream : Stream
                 break;
             }
             case > 0x02:
-                throw new DataErrorException();
+                throw new LzmaDataErrorException();
             default:
                 _uncompressedChunk =  true;
                 _availableBytes    =  (_inputStream.ReadByte() << 8) + _inputStream.ReadByte() + 1;

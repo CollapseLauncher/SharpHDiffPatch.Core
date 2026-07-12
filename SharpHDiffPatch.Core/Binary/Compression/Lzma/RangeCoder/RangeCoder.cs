@@ -105,7 +105,7 @@ internal class RangeDecoder : IDisposable
         long remaining = _inputLimit - Total;
         if (remaining <= 0)
         {
-            throw new DataErrorException();
+            throw new LzmaDataErrorException();
         }
 
         if (_inputBuffer.Length == 0)
@@ -118,7 +118,7 @@ internal class RangeDecoder : IDisposable
         _inputOffset = 0;
         if (_inputCount <= 0)
         {
-            throw new DataErrorException();
+            throw new LzmaDataErrorException();
         }
     }
 

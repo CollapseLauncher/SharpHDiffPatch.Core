@@ -200,7 +200,7 @@ internal class Decoder : IDisposable
     {
         if (_dictionarySize < 0)
         {
-            throw new InvalidParamException();
+            throw new LzmaInvalidParamException();
         }
         _outWindow = new OutWindow();
         int blockSize = Math.Max(_dictionarySize, 1 << 12);
@@ -211,7 +211,7 @@ internal class Decoder : IDisposable
     {
         if (lp > 8 || lc > 8)
         {
-            throw new InvalidParamException();
+            throw new LzmaInvalidParamException();
         }
 
         _literalDecoder.Create(lp, lc);
@@ -221,7 +221,7 @@ internal class Decoder : IDisposable
     {
         if (pb > Base.KNumPosStatesBitsMax)
         {
-            throw new InvalidParamException();
+            throw new LzmaInvalidParamException();
         }
 
         uint numPosStates = (uint)1 << pb;
@@ -414,7 +414,7 @@ internal class Decoder : IDisposable
                 {
                     return _rep0 == 0xFFFFFFFF
                         ? true
-                        : throw new DataErrorException();
+                        : throw new LzmaDataErrorException();
                 }
                 outWindow.CopyBlock((int)_rep0, (int)len);
             }
@@ -426,7 +426,7 @@ internal class Decoder : IDisposable
     {
         if (properties.Length < 1)
         {
-            throw new InvalidParamException();
+            throw new LzmaInvalidParamException();
         }
 
         int lc        = properties[0] % 9;
@@ -435,7 +435,7 @@ internal class Decoder : IDisposable
         int pb        = remainder / 5;
         if (pb > Base.KNumPosStatesBitsMax)
         {
-            throw new InvalidParamException();
+            throw new LzmaInvalidParamException();
         }
 
         SetLiteralProperties(lp, lc);

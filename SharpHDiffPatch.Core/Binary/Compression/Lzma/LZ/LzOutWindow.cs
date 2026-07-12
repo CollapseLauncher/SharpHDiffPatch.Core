@@ -199,7 +199,7 @@ internal class OutWindow : IDisposable
             int numReadBytes = stream.Read(_buffer, _pos, curSize);
             if (numReadBytes == 0)
             {
-                throw new DataErrorException();
+                throw new LzmaDataErrorException();
             }
 
             size  -= numReadBytes;
