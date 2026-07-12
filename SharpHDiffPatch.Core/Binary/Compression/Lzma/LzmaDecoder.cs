@@ -9,21 +9,23 @@ namespace SharpHDiffPatch.Core.Binary.Compression.Lzma;
 
 internal class Decoder : IDisposable
 {
-    private class LenDecoder
+    private class LenDecoder : IDisposable
     {
-        private          BitDecoder       _choice;
-        private          BitDecoder       _choice2;
-        private readonly BitTreeDecoder[] _lowCoder  = new BitTreeDecoder[Base.KNumPosStatesMax];
-        private readonly BitTreeDecoder[] _midCoder  = new BitTreeDecoder[Base.KNumPosStatesMax];
-        private readonly BitTreeDecoder   _highCoder = new(Base.KNumHighLenBits);
-        private          uint             _numPosStates;
+        private const int KLowModelsCount   = (int)Base.KNumPosStatesMax << Base.KNumLowLenBits;
+        private const int KMidModelsOffset  = KLowModelsCount;
+        private const int KHighModelsOffset = KMidModelsOffset + ((int)Base.KNumPosStatesMax << Base.KNumMidLenBits);
+        private const int KModelsCount      = KHighModelsOffset + (1 << Base.KNumHighLenBits);
+
+        private BitDecoder   _choice;
+        private BitDecoder   _choice2;
+        private BitDecoder[] _models = [];
+        private uint         _numPosStates;
 
         public void Create(uint numPosStates)
         {
-            for (uint posState = _numPosStates; posState < numPosStates; posState++)
+            if (_models.Length == 0)
             {
-                _lowCoder[posState] = new BitTreeDecoder(Base.KNumLowLenBits);
-                _midCoder[posState] = new BitTreeDecoder(Base.KNumMidLenBits);
+                _models = ArrayPool<BitDecoder>.Shared.Rent(KModelsCount);
             }
             _numPosStates = numPosStates;
         }
@@ -31,13 +33,13 @@ internal class Decoder : IDisposable
         public void Init()
         {
             _choice.Init();
-            for (uint posState = 0; posState < _numPosStates; posState++)
-            {
-                _lowCoder[posState].Init();
-                _midCoder[posState].Init();
-            }
             _choice2.Init();
-            _highCoder.Init();
+
+            int activeLowModels = (int)_numPosStates << Base.KNumLowLenBits;
+            int activeMidModels = (int)_numPosStates << Base.KNumMidLenBits;
+            BitDecoder.Init(_models, 0, activeLowModels);
+            BitDecoder.Init(_models, KMidModelsOffset, activeMidModels);
+            BitDecoder.Init(_models, KHighModelsOffset, 1 << Base.KNumHighLenBits);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -45,20 +47,34 @@ internal class Decoder : IDisposable
         {
             if (_choice.Decode(rangeDecoder) == 0)
             {
-                return Unsafe.Add(ref _lowCoder[0], (int)posState).Decode(rangeDecoder);
+                int modelOffset = (int)posState << Base.KNumLowLenBits;
+                return BitTreeDecoder.Decode(_models, modelOffset, rangeDecoder, Base.KNumLowLenBits);
             }
 
             uint symbol = Base.KNumLowLenSymbols;
             if (_choice2.Decode(rangeDecoder) == 0)
             {
-                symbol += Unsafe.Add(ref _midCoder[0], (int)posState).Decode(rangeDecoder);
+                int modelOffset = KMidModelsOffset + ((int)posState << Base.KNumMidLenBits);
+                symbol += BitTreeDecoder.Decode(_models, modelOffset, rangeDecoder, Base.KNumMidLenBits);
             }
             else
             {
                 symbol += Base.KNumMidLenSymbols;
-                symbol += _highCoder.Decode(rangeDecoder);
+                symbol += BitTreeDecoder.Decode(_models, KHighModelsOffset, rangeDecoder, Base.KNumHighLenBits);
             }
             return symbol;
+        }
+
+        public void Dispose()
+        {
+            BitDecoder[] models = _models;
+            _models       = [];
+            _numPosStates = 0;
+
+            if (models.Length != 0)
+            {
+                ArrayPool<BitDecoder>.Shared.Return(models);
+            }
         }
     }
 
@@ -155,17 +171,22 @@ internal class Decoder : IDisposable
 
     private OutWindow _outWindow;
 
-    private readonly BitDecoder[] _isMatchDecoders    = new BitDecoder[Base.KNumStates << Base.KNumPosStatesBitsMax];
-    private readonly BitDecoder[] _isRepDecoders      = new BitDecoder[Base.KNumStates];
-    private readonly BitDecoder[] _isRepG0Decoders    = new BitDecoder[Base.KNumStates];
-    private readonly BitDecoder[] _isRepG1Decoders    = new BitDecoder[Base.KNumStates];
-    private readonly BitDecoder[] _isRepG2Decoders    = new BitDecoder[Base.KNumStates];
-    private readonly BitDecoder[] _isRep0LongDecoders = new BitDecoder[Base.KNumStates << Base.KNumPosStatesBitsMax];
+    private const int KStatePosModelsCount  = (int)Base.KNumStates << Base.KNumPosStatesBitsMax;
+    private const int KStateModelsCount     = (int)Base.KNumStates;
+    private const int KIsMatchOffset        = 0;
+    private const int KIsRepOffset          = KIsMatchOffset + KStatePosModelsCount;
+    private const int KIsRepG0Offset        = KIsRepOffset + KStateModelsCount;
+    private const int KIsRepG1Offset        = KIsRepG0Offset + KStateModelsCount;
+    private const int KIsRepG2Offset        = KIsRepG1Offset + KStateModelsCount;
+    private const int KIsRep0LongOffset     = KIsRepG2Offset + KStateModelsCount;
+    private const int KPosDecodersOffset    = KIsRep0LongOffset + KStatePosModelsCount;
+    private const int KPosDecodersCount     = (int)(Base.KNumFullDistances - Base.KEndPosModelIndex);
+    private const int KPosSlotModelsOffset  = KPosDecodersOffset + KPosDecodersCount;
+    private const int KPosSlotModelsCount   = (int)Base.KNumLenToPosStates << Base.KNumPosSlotBits;
+    private const int KPosAlignModelsOffset = KPosSlotModelsOffset + KPosSlotModelsCount;
+    private const int KModelsCount          = KPosAlignModelsOffset + (1 << Base.KNumAlignBits);
 
-    private readonly BitDecoder[]     _posDecoders = new BitDecoder[Base.KNumFullDistances - Base.KEndPosModelIndex];
-    private readonly BitTreeDecoder[] _posSlotDecoder  = new BitTreeDecoder[Base.KNumLenToPosStates];
-    private readonly BitTreeDecoder   _posAlignDecoder = new(Base.KNumAlignBits);
-
+    private BitDecoder[] _models;
     private readonly LenDecoder     _lenDecoder     = new();
     private readonly LenDecoder     _repLenDecoder  = new();
     private readonly LiteralDecoder _literalDecoder = new();
@@ -180,10 +201,7 @@ internal class Decoder : IDisposable
     public Decoder()
     {
         _dictionarySize = -1;
-        for (int i = 0; i < Base.KNumLenToPosStates; i++)
-        {
-            _posSlotDecoder[i] = new BitTreeDecoder(Base.KNumPosSlotBits);
-        }
+        _models = ArrayPool<BitDecoder>.Shared.Rent(KModelsCount);
     }
 
     private void CreateDictionary()
@@ -222,24 +240,11 @@ internal class Decoder : IDisposable
 
     private void Init()
     {
-        BitDecoder.Init(_isMatchDecoders);
-        BitDecoder.Init(_isRepDecoders);
-        BitDecoder.Init(_isRepG0Decoders);
-        BitDecoder.Init(_isRepG1Decoders);
-        BitDecoder.Init(_isRepG2Decoders);
-        BitDecoder.Init(_isRep0LongDecoders);
+        BitDecoder.Init(_models, 0, KModelsCount);
 
         _literalDecoder.Init();
-        for (int i = 0; i < Base.KNumLenToPosStates; i++)
-        {
-            _posSlotDecoder[i].Init();
-        }
-
-        BitDecoder.Init(_posDecoders);
-
         _lenDecoder.Init();
         _repLenDecoder.Init();
-        _posAlignDecoder.Init();
 
         _state.Init();
         _rep0 = 0;
@@ -289,13 +294,13 @@ internal class Decoder : IDisposable
 
         outWindow.CopyPending();
 
-        ref BitDecoder     isMatchDecoders    = ref _isMatchDecoders[0];
-        ref BitDecoder     isRepDecoders      = ref _isRepDecoders[0];
-        ref BitDecoder     isRepG0Decoders    = ref _isRepG0Decoders[0];
-        ref BitDecoder     isRepG1Decoders    = ref _isRepG1Decoders[0];
-        ref BitDecoder     isRepG2Decoders    = ref _isRepG2Decoders[0];
-        ref BitDecoder     isRep0LongDecoders = ref _isRep0LongDecoders[0];
-        ref BitTreeDecoder posSlotDecoders    = ref _posSlotDecoder[0];
+        ref BitDecoder models             = ref _models[0];
+        ref BitDecoder isMatchDecoders    = ref Unsafe.Add(ref models, KIsMatchOffset);
+        ref BitDecoder isRepDecoders      = ref Unsafe.Add(ref models, KIsRepOffset);
+        ref BitDecoder isRepG0Decoders    = ref Unsafe.Add(ref models, KIsRepG0Offset);
+        ref BitDecoder isRepG1Decoders    = ref Unsafe.Add(ref models, KIsRepG1Offset);
+        ref BitDecoder isRepG2Decoders    = ref Unsafe.Add(ref models, KIsRepG2Offset);
+        ref BitDecoder isRep0LongDecoders = ref Unsafe.Add(ref models, KIsRep0LongOffset);
 
         while (outWindow.HasSpace)
         {
@@ -362,7 +367,8 @@ internal class Decoder : IDisposable
                     len = Base.KMatchMinLen + _lenDecoder.Decode(rangeDecoder, posState);
                     _state.UpdateMatch();
 
-                    uint posSlot = Unsafe.Add(ref posSlotDecoders, (int)Base.GetLenToPosState(len)).Decode(rangeDecoder);
+                    int posSlotOffset = KPosSlotModelsOffset + ((int)Base.GetLenToPosState(len) << Base.KNumPosSlotBits);
+                    uint posSlot = BitTreeDecoder.Decode(_models, posSlotOffset, rangeDecoder, Base.KNumPosSlotBits);
                     if (posSlot >= Base.KStartPosModelIndex)
                     {
                         int numDirectBits = (int)((posSlot >> 1) - 1);
@@ -371,8 +377,8 @@ internal class Decoder : IDisposable
                         if (posSlot < Base.KEndPosModelIndex)
                         {
                             _rep0 += BitTreeDecoder.ReverseDecode(
-                                _posDecoders,
-                                _rep0 - posSlot - 1,
+                                _models,
+                                (uint)KPosDecodersOffset + _rep0 - posSlot - 1,
                                 rangeDecoder,
                                 numDirectBits
                             );
@@ -380,7 +386,11 @@ internal class Decoder : IDisposable
                         else
                         {
                             _rep0 += rangeDecoder.DecodeDirectBits(numDirectBits - Base.KNumAlignBits) << Base.KNumAlignBits;
-                            _rep0 += _posAlignDecoder.ReverseDecode(rangeDecoder);
+                            _rep0 += BitTreeDecoder.ReverseDecode(
+                                _models,
+                                KPosAlignModelsOffset,
+                                rangeDecoder,
+                                Base.KNumAlignBits);
                         }
                     }
                     else
@@ -439,5 +449,18 @@ internal class Decoder : IDisposable
         _outWindow?.Train(stream);
     }
 
-    public void Dispose() => _literalDecoder.Dispose();
+    public void Dispose()
+    {
+        BitDecoder[] models = _models;
+        _models = [];
+
+        _lenDecoder.Dispose();
+        _repLenDecoder.Dispose();
+        _literalDecoder.Dispose();
+
+        if (models.Length != 0)
+        {
+            ArrayPool<BitDecoder>.Shared.Return(models);
+        }
+    }
 }
