@@ -6,17 +6,7 @@ internal readonly struct BitTreeDecoder(int numBitLevels)
 {
     private readonly BitDecoder[] _models = new BitDecoder[1 << numBitLevels];
 
-    public void Init()
-    {
-        ref BitDecoder current = ref _models[1];
-        ref BitDecoder end     = ref Unsafe.Add(ref current, _models.Length - 1);
-
-        while (Unsafe.IsAddressLessThan(ref current, ref end))
-        {
-            current.Init();
-            current = ref Unsafe.Add(ref current, 1);
-        }
-    }
+    public void Init() => BitDecoder.Init(_models, 1, _models.Length - 1);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint Decode(RangeDecoder rangeDecoder)

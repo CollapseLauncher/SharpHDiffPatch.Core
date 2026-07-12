@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 
 namespace SharpHDiffPatch.Core.Binary.Compression.Lzma.RangeCoder;
@@ -11,6 +12,10 @@ internal struct BitDecoder
     private uint _prob;
 
     public void Init() => _prob = KBitModelTotal >> 1;
+
+    public static void Init(BitDecoder[] decoders) => Init(decoders, 0, decoders.Length);
+
+    public static void Init(BitDecoder[] decoders, int start, int length) => decoders.AsSpan(start, length).Fill(new BitDecoder { _prob = KBitModelTotal >> 1 });
 
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

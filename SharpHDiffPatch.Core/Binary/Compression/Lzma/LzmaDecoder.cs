@@ -91,17 +91,7 @@ internal class Decoder : IDisposable
             _modelCount = modelCount;
         }
 
-        public void Init()
-        {
-            ref BitDecoder current = ref _coders[0];
-            ref BitDecoder end     = ref Unsafe.Add(ref current, _modelCount);
-
-            while (Unsafe.IsAddressLessThan(ref current, ref end))
-            {
-                current.Init();
-                current = ref Unsafe.Add(ref current, 1);
-            }
-        }
+        public void Init() => BitDecoder.Init(_coders, 0, _modelCount);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private uint GetState(uint pos, byte prevByte) => ((pos & _posMask) << _numPrevBits) + (uint)(prevByte >> (8 - _numPrevBits));
@@ -232,32 +222,20 @@ internal class Decoder : IDisposable
 
     private void Init()
     {
-        uint i;
-        for (i = 0; i < Base.KNumStates; i++)
-        {
-            for (uint j = 0; j <= _posStateMask; j++)
-            {
-                uint index = (i << Base.KNumPosStatesBitsMax) + j;
-                _isMatchDecoders[index].Init();
-                _isRep0LongDecoders[index].Init();
-            }
-
-            _isRepDecoders[i].Init();
-            _isRepG0Decoders[i].Init();
-            _isRepG1Decoders[i].Init();
-            _isRepG2Decoders[i].Init();
-        }
+        BitDecoder.Init(_isMatchDecoders);
+        BitDecoder.Init(_isRepDecoders);
+        BitDecoder.Init(_isRepG0Decoders);
+        BitDecoder.Init(_isRepG1Decoders);
+        BitDecoder.Init(_isRepG2Decoders);
+        BitDecoder.Init(_isRep0LongDecoders);
 
         _literalDecoder.Init();
-        for (i = 0; i < Base.KNumLenToPosStates; i++)
+        for (int i = 0; i < Base.KNumLenToPosStates; i++)
         {
             _posSlotDecoder[i].Init();
         }
 
-        for (i = 0; i < Base.KNumFullDistances - Base.KEndPosModelIndex; i++)
-        {
-            _posDecoders[i].Init();
-        }
+        BitDecoder.Init(_posDecoders);
 
         _lenDecoder.Init();
         _repLenDecoder.Init();
