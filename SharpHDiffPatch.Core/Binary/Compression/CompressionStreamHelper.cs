@@ -7,8 +7,8 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using SharpHDiffPatch.Core.Binary.Compression.Lzma;
 using SharpHDiffPatch.Core.Binary.Compression.BZip2;
+using SharpHDiffPatch.Core.Binary.Compression.Lzma;
 using SharpHDiffPatch.Core.Binary.Streams;
 
 #if NET6_0_OR_GREATER
