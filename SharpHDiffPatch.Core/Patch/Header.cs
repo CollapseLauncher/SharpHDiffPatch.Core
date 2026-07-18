@@ -1,5 +1,4 @@
 ﻿using SharpHDiffPatch.Core.Binary;
-using SharpHDiffPatch.Core.Binary.Compression;
 using System;
 using System.IO;
 
@@ -8,7 +7,7 @@ namespace SharpHDiffPatch.Core.Patch
     internal sealed class Header
     {
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-        private static readonly char[] HDIFF_HEAD = new char[] { 'H', 'D', 'I', 'F', 'F' };
+        private static readonly char[] HDIFF_HEAD = ['H', 'D', 'I', 'F', 'F'];
 #else
         private const string HDIFF_HEAD = "HDIFF";
 #endif
@@ -71,7 +70,7 @@ namespace SharpHDiffPatch.Core.Patch
             long curPos = sr.Position;
             referenceInfo.headDataOffset = curPos;
 
-            curPos += (referenceInfo.headDataCompressedSize > 0 ? referenceInfo.headDataCompressedSize : referenceInfo.headDataSize);
+            curPos += referenceInfo.headDataCompressedSize > 0 ? referenceInfo.headDataCompressedSize : referenceInfo.headDataSize;
             referenceInfo.privateExternDataOffset = curPos;
 
             curPos += referenceInfo.privateExternDataSize;
@@ -145,10 +144,10 @@ namespace SharpHDiffPatch.Core.Patch
 
             GetDiffChunkInfo(sr, out headerInfo.chunkInfo, typeEndPos);
 
-            headerInfo.compressedCount = ((headerInfo.chunkInfo.compress_cover_buf_size > 1) ? 1 : 0)
-                                       + ((headerInfo.chunkInfo.compress_rle_ctrlBuf_size > 1) ? 1 : 0)
-                                       + ((headerInfo.chunkInfo.compress_rle_codeBuf_size > 1) ? 1 : 0)
-                                       + ((headerInfo.chunkInfo.compress_newDataDiff_size > 1) ? 1 : 0);
+            headerInfo.compressedCount = (headerInfo.chunkInfo.compress_cover_buf_size > 1 ? 1 : 0)
+                                       + (headerInfo.chunkInfo.compress_rle_ctrlBuf_size > 1 ? 1 : 0)
+                                       + (headerInfo.chunkInfo.compress_rle_codeBuf_size > 1 ? 1 : 0)
+                                       + (headerInfo.chunkInfo.compress_newDataDiff_size > 1 ? 1 : 0);
 
             HDiffPatch.Event.PushLog($"[Header::TryReadNonSingleFileHeaderInfo] compressedCount: {headerInfo.compressedCount}", Verbosity.Debug);
         }

@@ -21,8 +21,8 @@ namespace SharpHDiffPatch.Core.Patch
             _isUseFullBuffer = useFullBuffer;
             _isUseFastBuffer = useFastBuffer;
 
-            using FileStream inputStream = new FileStream(input, FileMode.Open, FileAccess.Read, FileShare.Read, headerInfo.oldDataSize.GetFileStreamBufferSize());
-            using FileStream outputStream = new FileStream(output, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, headerInfo.newDataSize.GetFileStreamBufferSize());
+            using FileStream inputStream  = new(input, FileMode.Open, FileAccess.Read, FileShare.Read, headerInfo.oldDataSize.GetFileStreamBufferSize());
+            using FileStream outputStream = new(output, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite, headerInfo.newDataSize.GetFileStreamBufferSize());
             if (inputStream.Length != headerInfo.oldDataSize)
                 throw new InvalidDataException($"[PatchSingle::Patch] The patch directory is expecting old size to be equivalent as: {headerInfo.oldDataSize} bytes, but the input file has unmatched size: {inputStream.Length} bytes!");
 
@@ -41,7 +41,7 @@ namespace SharpHDiffPatch.Core.Patch
                 return new PatchCoreFastBuffer(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
 
             if (wantFastBuffer)
-                HDiffPatch.Event.PushLog("[PatchSingle::CreatePatchCore] Fast buffer disabled: patch chunk sizes exceed int32-safe limits; using streaming patch core.", Verbosity.Info);
+                HDiffPatch.Event.PushLog("[PatchSingle::CreatePatchCore] Fast buffer disabled: patch chunk sizes exceed int32-safe limits; using streaming patch core.");
 
             return new PatchCore(headerInfo.newDataSize, Stopwatch.StartNew(), input, output, writeBytesDelegate, token);
         }

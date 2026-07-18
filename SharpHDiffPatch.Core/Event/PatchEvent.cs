@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 
 namespace SharpHDiffPatch.Core.Event
 {
@@ -10,28 +11,57 @@ namespace SharpHDiffPatch.Core.Event
 
     public sealed class PatchEvent
     {
-        public PatchEvent()
+        private const double ScOneSecond = 1000;
+        private       long   _scLastTick = Environment.TickCount;
+        private       long   _scLastReceivedBytes;
+        private       double _scLastSpeed;
+
+        public void UpdateEvent(long currentSizePatched, long totalSizeToBePatched, long read, double totalSecond)
         {
-            Speed = 0;
-            CurrentSizePatched = 0;
-            TotalSizeToBePatched = 0;
-            Read = 0;
+            Speed                = (long)(currentSizePatched / totalSecond);
+            CurrentSizePatched   = currentSizePatched;
+            TotalSizeToBePatched = totalSizeToBePatched;
+            Read                 = read;
         }
 
-        public void UpdateEvent(long CurrentSizePatched, long TotalSizeToBePatched, long Read, double TotalSecond)
+        private long _currentSizePatched;
+        public long CurrentSizePatched
         {
-            Speed = (long)(CurrentSizePatched / TotalSecond);
-            this.CurrentSizePatched = CurrentSizePatched;
-            this.TotalSizeToBePatched = TotalSizeToBePatched;
-            this.Read = Read;
+            get => _currentSizePatched;
+            private set
+            {
+                double speed = CalculateSpeed(value - _currentSizePatched);
+                Speed               = (long)speed;
+                TimeLeft            = TimeSpan.FromSeconds((TotalSizeToBePatched - value) / (double.IsInfinity(speed) || speed <= 0 ? 1 : speed));
+                ProgressPercentage  = Math.Round(value / (double)TotalSizeToBePatched * 100, 2);
+                _currentSizePatched = value;
+            }
         }
 
-        public long CurrentSizePatched { get; private set; }
-        public long TotalSizeToBePatched { get; private set; }
-        public double ProgressPercentage => Math.Round((CurrentSizePatched / (double)TotalSizeToBePatched) * 100, 2);
-        public long Read { get; private set; }
-        public long Speed { get; private set; }
-        public TimeSpan TimeLeft => checked(TimeSpan.FromSeconds((TotalSizeToBePatched - CurrentSizePatched) / UnZeroed(Speed)));
-        private long UnZeroed(long Input) => Math.Max(Input, 1);
+        public         long     TotalSizeToBePatched   { get; private set; }
+        public         double   ProgressPercentage     { get; private set; }
+        public         long     Read                   { get; private set; }
+        public         long     Speed                  { get; private set; }
+        public         TimeSpan TimeLeft               { get; private set; }
+
+        private double CalculateSpeed(long receivedBytes) => CalculateSpeed(receivedBytes, ref _scLastSpeed, ref _scLastReceivedBytes, ref _scLastTick);
+
+        private static double CalculateSpeed(long receivedBytes, ref double lastSpeedToUse, ref long lastReceivedBytesToUse, ref long lastTickToUse)
+        {
+            long   currentTick           = Environment.TickCount - lastTickToUse + 1;
+            long   totalReceivedInSecond = Interlocked.Add(ref lastReceivedBytesToUse, receivedBytes);
+            double speed                 = totalReceivedInSecond * ScOneSecond / currentTick;
+
+            if (!(currentTick > ScOneSecond))
+            {
+                return lastSpeedToUse;
+            }
+
+            lastSpeedToUse = speed;
+            _              = Interlocked.Exchange(ref lastSpeedToUse,         speed);
+            _              = Interlocked.Exchange(ref lastReceivedBytesToUse, 0);
+            _              = Interlocked.Exchange(ref lastTickToUse,          Environment.TickCount);
+            return lastSpeedToUse;
+        }
     }
 }

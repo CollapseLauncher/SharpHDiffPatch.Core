@@ -1,42 +1,55 @@
-namespace SharpCompress.Compressors.LZMA.RangeCoder
+using System;
+using System.Runtime.CompilerServices;
+
+namespace SharpHDiffPatch.Core.Binary.Compression.Lzma.RangeCoder;
+
+internal struct BitDecoder
 {
-    internal struct BitDecoder
+    public const  int  KNumBitModelTotalBits = 11;
+    public const  uint KBitModelTotal        = 1 << KNumBitModelTotalBits;
+    private const int  KNumMoveBits          = 5;
+
+    private uint _prob;
+
+    public void Init() => _prob = KBitModelTotal >> 1;
+
+    public static void Init(BitDecoder[] decoders) => Init(decoders, 0, decoders.Length);
+
+    public static void Init(BitDecoder[] decoders, int start, int length) => decoders.AsSpan(start, length).Fill(new BitDecoder { _prob = KBitModelTotal >> 1 });
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public uint Decode(RangeDecoder rangeDecoder)
     {
-        public const int K_NUM_BIT_MODEL_TOTAL_BITS = 11;
-        public const uint K_BIT_MODEL_TOTAL = (1 << K_NUM_BIT_MODEL_TOTAL_BITS);
-        private const int K_NUM_MOVE_BITS = 5;
+        uint range       = rangeDecoder.Range;
+        uint code        = rangeDecoder.Code;
+        uint probability = _prob;
+        uint newBound    = (range >> KNumBitModelTotalBits) * probability;
+        uint symbol;
 
-        private uint _prob;
-
-        public void Init() => _prob = K_BIT_MODEL_TOTAL >> 1;
-
-        public uint Decode(Decoder rangeDecoder)
+        if (code < newBound)
         {
-            var newBound = (rangeDecoder._range >> K_NUM_BIT_MODEL_TOTAL_BITS) * _prob;
-            if (rangeDecoder._code < newBound)
-            {
-                rangeDecoder._range = newBound;
-                _prob += (K_BIT_MODEL_TOTAL - _prob) >> K_NUM_MOVE_BITS;
-                if (rangeDecoder._range < Decoder.K_TOP_VALUE)
-                {
-                    rangeDecoder._code =
-                        (rangeDecoder._code << 8) | (byte)rangeDecoder._stream.ReadByte();
-                    rangeDecoder._range <<= 8;
-                    rangeDecoder._total++;
-                }
-                return 0;
-            }
-            rangeDecoder._range -= newBound;
-            rangeDecoder._code -= newBound;
-            _prob -= (_prob) >> K_NUM_MOVE_BITS;
-            if (rangeDecoder._range < Decoder.K_TOP_VALUE)
-            {
-                rangeDecoder._code = (rangeDecoder._code << 8) | (byte)rangeDecoder._stream.ReadByte();
-                rangeDecoder._range <<= 8;
-                rangeDecoder._total++;
-            }
-            return 1;
+            range       =  newBound;
+            probability += (KBitModelTotal - probability) >> KNumMoveBits;
+            symbol      =  0;
         }
-    }
+        else
+        {
+            range       -= newBound;
+            code        -= newBound;
+            probability -= probability >> KNumMoveBits;
+            symbol      =  1;
+        }
 
+        if (range < RangeDecoder.KTopValue)
+        {
+            code = (code << 8) | rangeDecoder.ReadByte();
+            range <<= 8;
+        }
+
+        rangeDecoder.Range = range;
+        rangeDecoder.Code  = code;
+        _prob              = probability;
+        return symbol;
+    }
 }

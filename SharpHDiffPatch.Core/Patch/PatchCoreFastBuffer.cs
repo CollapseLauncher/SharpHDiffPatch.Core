@@ -38,7 +38,7 @@ namespace SharpHDiffPatch.Core.Patch
         {
             if (!PatchSizeHelper.CanUseFastBuffer(headerInfo))
             {
-                HDiffPatch.Event.PushLog("[PatchCoreFastBuffer::UncoverBufferClipsStream] Fast buffer requirements exceeded; delegating to streaming patch core.", Verbosity.Info);
+                HDiffPatch.Event.PushLog("[PatchCoreFastBuffer::UncoverBufferClipsStream] Fast buffer requirements exceeded; delegating to streaming patch core.");
                 _core.UncoverBufferClipsStream(clips, inputStream, outputStream, headerInfo);
                 return;
             }
@@ -189,8 +189,8 @@ namespace SharpHDiffPatch.Core.Patch
             : new byte[rleCodeBufSize];
 #endif
 
-            RleRefClipStruct rleStruct = new RleRefClipStruct();
-            int coverBufferLen = checked(sizeof(CoverHeader) * PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.coverCount, nameof(headerInfo.chunkInfo.coverCount)));
+            RleRefClipStruct rleStruct      = new();
+            int              coverBufferLen = checked(sizeof(CoverHeader) * PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.coverCount, nameof(headerInfo.chunkInfo.coverCount)));
             byte[] coverBuffer =
 #if NET6_0_OR_GREATER
                 GC.AllocateUninitializedArray<byte>(coverBufferLen);

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.IO;
 
 namespace SharpHDiffPatch.Core.Binary.Streams
@@ -14,7 +15,6 @@ namespace SharpHDiffPatch.Core.Binary.Streams
         private bool IsDisposing { get; }
 
         public ChunkStream(Stream stream, long start, long end, bool isDisposing = false)
-            : base()
         {
             _stream = stream;
 
@@ -85,7 +85,21 @@ namespace SharpHDiffPatch.Core.Binary.Streams
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
         public override void CopyTo(Stream destination, int bufferSize)
         {
-            throw new NotSupportedException();
+            if (bufferSize <= 0) bufferSize = 4 << 10;
+
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+            try
+            {
+                int read;
+                while ((read = Read(buffer.AsSpan(0, bufferSize))) > 0)
+                {
+                    destination.Write(buffer.AsSpan(0, read));
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 #endif
 

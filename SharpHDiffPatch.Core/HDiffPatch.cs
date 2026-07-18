@@ -117,8 +117,8 @@ namespace SharpHDiffPatch.Core
         private Stream diffStream { get; set; }
         private bool isPatchDir { get; set; }
 
-        internal static PatchEvent PatchEvent = new PatchEvent();
-        public static EventListener Event = new EventListener();
+        internal static PatchEvent    PatchEvent = new();
+        public static   EventListener Event      = new();
 
         public static Verbosity LogVerbosity { get; set; } = Verbosity.Quiet;
 
@@ -234,7 +234,7 @@ namespace SharpHDiffPatch.Core
 
         public static HeaderInfoExt GetHDiffHeaderInfo(string diffFilePath)
         {
-            using FileStream fs = new FileStream(diffFilePath, FileMode.Open, FileAccess.Read);
+            using FileStream fs = new(diffFilePath, FileMode.Open, FileAccess.Read);
             _ = Header.TryParseHeaderInfo(fs, diffFilePath, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
             return new HeaderInfoExt { headerInfo = headerInfo, dataReferenceInfo = headerInfoReference };
         }
