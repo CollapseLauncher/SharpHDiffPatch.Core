@@ -939,7 +939,9 @@ public sealed class BZip2InputStream : Stream
         // 4 × 256 local histograms and 4 × 256 independent cursors.
         Span<int> chunkCounts  = stackalloc int[chunkCount * symbolCount];
         Span<int> chunkCursors = stackalloc int[chunkCount * symbolCount];
+#if NET6_0_OR_GREATER
         chunkCounts.Clear();
+#endif
 
         int chunkSize = length / chunkCount;
 
@@ -1242,7 +1244,9 @@ public sealed class BZip2InputStream : Stream
         int alphaOffset = table * AlphaTableStride;
 
         Span<int> lengthCounts = stackalloc int[CodeTableStride];
+#if NET6_0_OR_GREATER
         lengthCounts.Clear();
+#endif
 
         ref int  countRef   = ref lengthCounts[0];
         ref byte lengthsRef = ref Unsafe.Add(ref _codeLengths[0], alphaOffset);

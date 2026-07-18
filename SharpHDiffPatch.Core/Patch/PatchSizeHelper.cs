@@ -21,21 +21,21 @@ namespace SharpHDiffPatch.Core.Patch
         /// </summary>
         internal static bool CanUseFastBuffer(HeaderInfo headerInfo)
         {
-            if (headerInfo.isSingleCompressedDiff)
+            if (headerInfo.IsSingleCompressedDiff)
                 return false;
 
-            DiffChunkInfo chunk = headerInfo.chunkInfo;
+            DiffChunkInfo chunk = headerInfo.ChunkInfo;
 
-            if (!FitsInInt32(chunk.rle_ctrlBuf_size))
+            if (!FitsInInt32(chunk.RleCtrlBufSize))
                 return false;
 
-            if (!FitsInInt32(chunk.rle_codeBuf_size))
+            if (!FitsInInt32(chunk.RleCodeBufSize))
                 return false;
 
-            if (!FitsInInt32(chunk.cover_buf_size))
+            if (!FitsInInt32(chunk.CoverBufSize))
                 return false;
 
-            long allBufferSize = chunk.rle_ctrlBuf_size + chunk.rle_codeBuf_size + chunk.cover_buf_size;
+            long allBufferSize = chunk.RleCtrlBufSize + chunk.RleCodeBufSize + chunk.CoverBufSize;
             return IsMemorySufficient(allBufferSize);
         }
 

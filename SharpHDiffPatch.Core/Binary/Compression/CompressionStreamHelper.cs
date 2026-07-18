@@ -30,7 +30,7 @@ using ZstdNativeStream = ZstdNet.DecompressionStream;
 
 namespace SharpHDiffPatch.Core.Binary.Compression
 {
-    public enum CompressionMode
+    public enum HDiffCompressionMode
     {
         nocomp,
         zstd,
@@ -47,8 +47,14 @@ namespace SharpHDiffPatch.Core.Binary.Compression
         private static ZstdStreamFallback _createZstdStreamFallback;
         private static readonly int ZstdWindowLogMax = Environment.Is64BitProcess ? 31 : 30;
 
-        internal static void GetDecompressStreamPlugin(CompressionMode type, Stream sourceStream, out Stream decompStream,
-            long length, long compLength, out long outLength, bool isBuffered)
+        internal static void GetDecompressStreamPlugin(
+            HDiffCompressionMode type,
+            Stream               sourceStream,
+            out Stream           decompStream,
+            long                 length,
+            long                 compLength,
+            out long             outLength,
+            bool                 isBuffered)
         {
             long toPosition = sourceStream.Position;
             outLength = compLength > 0 ? compLength : length;
@@ -61,10 +67,10 @@ namespace SharpHDiffPatch.Core.Binary.Compression
             else
             {
                 sourceStream.Position = toPosition;
-                rawStream = sourceStream;
+                rawStream             = sourceStream;
             }
 
-            if (type != CompressionMode.nocomp && compLength == 0)
+            if (type != HDiffCompressionMode.nocomp && compLength == 0)
             {
                 decompStream = rawStream;
                 return;
@@ -72,12 +78,12 @@ namespace SharpHDiffPatch.Core.Binary.Compression
 
             decompStream = type switch
             {
-                CompressionMode.nocomp => rawStream,
-                CompressionMode.zstd => CreateZstdStream(rawStream),
-                CompressionMode.zlib => new DeflateStream(rawStream, System.IO.Compression.CompressionMode.Decompress, true),
-                CompressionMode.bz2 => new BZip2InputStream(rawStream, false, true),
-                CompressionMode.pbz2 => new BZip2InputStream(rawStream, true, true),
-                CompressionMode.lzma or CompressionMode.lzma2 => CreateLzmaStream(rawStream),
+                HDiffCompressionMode.nocomp => rawStream,
+                HDiffCompressionMode.zstd => CreateZstdStream(rawStream),
+                HDiffCompressionMode.zlib => new DeflateStream(rawStream, CompressionMode.Decompress, true),
+                HDiffCompressionMode.bz2 => new BZip2InputStream(rawStream, false, true),
+                HDiffCompressionMode.pbz2 => new BZip2InputStream(rawStream, true, true),
+                HDiffCompressionMode.lzma or HDiffCompressionMode.lzma2 => CreateLzmaStream(rawStream),
                 _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
             };
         }

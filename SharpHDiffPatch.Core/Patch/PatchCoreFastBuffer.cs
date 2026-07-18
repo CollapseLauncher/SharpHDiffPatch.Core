@@ -30,7 +30,7 @@ namespace SharpHDiffPatch.Core.Patch
 
         public void SetSizeToBePatched(long sizeToBePatched, long sizeToPatch = 0) => _core.SetSizeToBePatched(sizeToBePatched, sizeToPatch);
 
-        public Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
+        public Stream GetBufferStreamFromOffset(HDiffCompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed) =>
             _core.GetBufferStreamFromOffset(compMode, sourceStream, start, length, compLength, out outLength, isBuffered, isFastBufferUsed);
 
@@ -161,36 +161,36 @@ namespace SharpHDiffPatch.Core.Patch
 
 #if !NET6_0_OR_GREATER
             byte[] sharedBuffer = ArrayPool<byte>.Shared.Rent(MaxArrayPoolSecondOffset);
-            MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.newDataSize);
+            MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.NewDataSize);
             int poolSizeRemained = MaxArrayPoolLen - sharedBuffer.Length;
 
-            bool isCtrlUseArrayPool = headerInfo.chunkInfo.rle_ctrlBuf_size <= poolSizeRemained;
-            int rleCtrlBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_ctrlBuf_size, nameof(headerInfo.chunkInfo.rle_ctrlBuf_size));
+            bool isCtrlUseArrayPool = headerInfo.ChunkInfo.RleCtrlBufSize <= poolSizeRemained;
+            int rleCtrlBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.ChunkInfo.RleCtrlBufSize, nameof(headerInfo.ChunkInfo.RleCtrlBufSize));
             byte[] rleCtrlBuffer = isCtrlUseArrayPool ? ArrayPool<byte>.Shared.Rent(rleCtrlBufSize)
             : new byte[rleCtrlBufSize];
             poolSizeRemained -= rleCtrlBuffer.Length;
 
-            bool isRleUseArrayPool = headerInfo.chunkInfo.rle_codeBuf_size <= poolSizeRemained;
-            int rleCodeBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_codeBuf_size, nameof(headerInfo.chunkInfo.rle_codeBuf_size));
+            bool isRleUseArrayPool = headerInfo.ChunkInfo.RleCodeBufSize <= poolSizeRemained;
+            int rleCodeBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.ChunkInfo.RleCodeBufSize, nameof(headerInfo.ChunkInfo.RleCodeBufSize));
             byte[] rleCodeBuffer = isRleUseArrayPool ? ArrayPool<byte>.Shared.Rent(rleCodeBufSize)
             : new byte[rleCodeBufSize];
 #else
             byte[] sharedBuffer = GC.AllocateUninitializedArray<byte>(MaxArrayPoolSecondOffset);
-            MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.newDataSize);
+            MemoryStream cacheOutputStream = AllocCacheMemoryStream(headerInfo.NewDataSize);
 
-            int rleCtrlBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_ctrlBuf_size, nameof(headerInfo.chunkInfo.rle_ctrlBuf_size));
+            int rleCtrlBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.ChunkInfo.RleCtrlBufSize, nameof(headerInfo.ChunkInfo.RleCtrlBufSize));
             bool isCtrlUseArrayPool = MinUninitializedArrayLen > rleCtrlBufSize;
             byte[] rleCtrlBuffer = isCtrlUseArrayPool ? GC.AllocateUninitializedArray<byte>(rleCtrlBufSize)
             : new byte[rleCtrlBufSize];
 
-            int rleCodeBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.rle_codeBuf_size, nameof(headerInfo.chunkInfo.rle_codeBuf_size));
+            int rleCodeBufSize = PatchSizeHelper.ToCheckedInt32(headerInfo.ChunkInfo.RleCodeBufSize, nameof(headerInfo.ChunkInfo.RleCodeBufSize));
             bool isRleUseArrayPool = MinUninitializedArrayLen > rleCodeBufSize;
             byte[] rleCodeBuffer = isRleUseArrayPool ? GC.AllocateUninitializedArray<byte>(rleCodeBufSize)
             : new byte[rleCodeBufSize];
 #endif
 
             RleRefClipStruct rleStruct      = new();
-            int              coverBufferLen = checked(sizeof(CoverHeader) * PatchSizeHelper.ToCheckedInt32(headerInfo.chunkInfo.coverCount, nameof(headerInfo.chunkInfo.coverCount)));
+            int              coverBufferLen = checked(sizeof(CoverHeader) * PatchSizeHelper.ToCheckedInt32(headerInfo.ChunkInfo.CoverCount, nameof(headerInfo.ChunkInfo.CoverCount)));
             byte[] coverBuffer =
 #if NET6_0_OR_GREATER
                 GC.AllocateUninitializedArray<byte>(coverBufferLen);
@@ -198,7 +198,7 @@ namespace SharpHDiffPatch.Core.Patch
                 new byte[coverBufferLen];
 #endif
 
-            CreateCoverHeaderAsOutputBuffer(clips[0], coverBuffer, headerInfo.chunkInfo.cover_buf_size, headerInfo.chunkInfo.coverCount);
+            CreateCoverHeaderAsOutputBuffer(clips[0], coverBuffer, headerInfo.ChunkInfo.CoverBufSize, headerInfo.ChunkInfo.CoverCount);
 
             const int sizeOfCoverHeader = sizeof(long) * 4;
             try
@@ -265,9 +265,9 @@ namespace SharpHDiffPatch.Core.Patch
                 goto StartCoverRead;
 
             EndCoverRead:
-                if (newPosBack >= headerInfo.newDataSize) return;
+                if (newPosBack >= headerInfo.NewDataSize) return;
 
-                copyLength = headerInfo.newDataSize - newPosBack;
+                copyLength = headerInfo.NewDataSize - newPosBack;
                 PatchCore.TBytesCopyStreamFromOldClip(cacheOutputStream, clips[3], copyLength, sharedBuffer);
                 TBytesDetermineRleType(ref rleStruct, cacheOutputStream, copyLength, sharedBuffer, rleCtrlBuffer, ref rleCtrlIdx, rleCodeBuffer, ref rleCodeIdx);
                 _core.WriteInMemoryOutputToStream(cacheOutputStream, outputStream);

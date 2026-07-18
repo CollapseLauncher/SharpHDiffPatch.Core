@@ -38,22 +38,6 @@ internal readonly struct BitTreeDecoder(int numBitLevels)
         return m - ((uint)1 << numBitLevels);
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public uint ReverseDecode(RangeDecoder rangeDecoder)
-    {
-        ref BitDecoder models = ref _models[0];
-        uint           m      = 1;
-        uint           symbol = 0;
-
-        for (int bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
-        {
-            uint bit = Unsafe.Add(ref models, (int)m).Decode(rangeDecoder);
-            m      =  (m << 1) + bit;
-            symbol |= bit << bitIndex;
-        }
-        return symbol;
-    }
-
     public static uint ReverseDecode(
         BitDecoder[] models,
         uint         startIndex,

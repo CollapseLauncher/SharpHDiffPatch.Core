@@ -6,256 +6,236 @@ using System.IO;
 using System.Threading;
 using SharpHDiffPatch.Core.Binary.Compression;
 
-namespace SharpHDiffPatch.Core
+namespace SharpHDiffPatch.Core;
+
+public enum BufferMode { None, Partial, Full }
+public enum Verbosity { Quiet, Info, Verbose, Debug }
+
+public enum ChecksumMode
 {
-    public enum BufferMode { None, Partial, Full }
-    public enum Verbosity { Quiet, Info, Verbose, Debug }
+    NoChecksum,
+    Crc32,
+    FAdler64
+}
 
-    public enum ChecksumMode
+public struct HeaderInfoExt
+{
+    public HeaderInfo HeaderInfo;
+    public DataReferenceInfo DataReferenceInfo;
+}
+
+public struct HeaderInfo
+{
+    public HDiffCompressionMode CompMode;
+    public ChecksumMode ChecksumMode;
+
+    public bool IsInputDir;
+    public bool IsOutputDir;
+    public bool IsSingleCompressedDiff;
+    public string PatchPath;
+    public Func<Stream> PatchCreateStream;
+    public string HeaderMagic;  
+
+    public long StepMemSize;
+
+    public bool DirDataIsCompressed;
+
+    public long OldDataSize;
+    public long NewDataSize;
+    public long CompressedCount;
+
+    public DiffSingleChunkInfo SingleChunkInfo;
+    public DiffChunkInfo ChunkInfo;
+}
+
+public struct DataReferenceInfo
+{
+    public long InputDirCount;
+    public long InputRefFileCount;
+    public long InputRefFileSize;
+    public long InputSumSize;
+
+    public long OutputDirCount;
+    public long OutputRefFileCount;
+    public long OutputRefFileSize;
+    public long OutputSumSize;
+
+    public long SameFilePairCount;
+    public long SameFileSize;
+
+    public int NewExecuteCount;
+
+    public long PrivateReservedDataSize;
+    public long PrivateExternDataSize;
+    public long PrivateExternDataOffset;
+
+    public long ExternDataOffset;
+    public long ExternDataSize;
+
+    public long CompressSizeBeginPos;
+
+    public byte ChecksumByteSize;
+    public long ChecksumOffset;
+
+    public long HeadDataSize;
+    public long HeadDataOffset;
+    public long HeadDataCompressedSize;
+
+    public long HDiffDataOffset;
+    public long HDiffDataSize;
+}
+
+public struct DiffSingleChunkInfo
+{
+    public long UncompressedSize;
+    public long CompressedSize;
+
+    public long DiffDataPos;
+}
+
+public struct DiffChunkInfo
+{
+    public long TypesEndPos;
+    public long CoverCount;
+    public long CompressSizeBeginPos;
+    public long CoverBufSize;
+    public long CompressCoverBufSize;
+    public long RleCtrlBufSize;
+    public long CompressRleCtrlBufSize;
+    public long RleCodeBufSize;
+    public long CompressRleCodeBufSize;
+    public long NewDataDiffSize;
+    public long CompressNewDataDiffSize;
+    public long HeadEndPos;
+    public long CoverEndPos;
+}
+
+public sealed class HDiffPatch
+{
+    private HeaderInfo        _headerInfo;
+    private DataReferenceInfo ReferenceInfo { get; set; }
+    private Stream            DiffStream    { get; set; }
+    private bool              IsPatchDir    { get; set; } = true;
+
+    internal static PatchEvent    PatchEvent = new();
+    public static   EventListener Event      = new();
+
+    public static Verbosity LogVerbosity { get; set; } = Verbosity.Quiet;
+
+#region Header Initialization
+    public void Initialize(string diff)
     {
-        nochecksum,
-        crc32,
-        fadler64
-    }
-
-    public struct HeaderInfoExt
-    {
-        public HeaderInfo headerInfo;
-        public DataReferenceInfo dataReferenceInfo;
-    }
-
-    public struct HeaderInfo
-    {
-        public CompressionMode compMode;
-        public ChecksumMode checksumMode;
-
-        public bool isInputDir;
-        public bool isOutputDir;
-        public bool isSingleCompressedDiff;
-        public string patchPath;
-        public Func<Stream> patchCreateStream;
-        public string headerMagic;  
-
-        public long stepMemSize;
-
-        public bool dirDataIsCompressed;
-
-        public long oldDataSize;
-        public long newDataSize;
-        public long compressedCount;
-
-        public DiffSingleChunkInfo singleChunkInfo;
-        public DiffChunkInfo chunkInfo;
-    }
-
-    public struct DataReferenceInfo
-    {
-        public long inputDirCount;
-        public long inputRefFileCount;
-        public long inputRefFileSize;
-        public long inputSumSize;
-
-        public long outputDirCount;
-        public long outputRefFileCount;
-        public long outputRefFileSize;
-        public long outputSumSize;
-
-        public long sameFilePairCount;
-        public long sameFileSize;
-
-        public int newExecuteCount;
-
-        public long privateReservedDataSize;
-        public long privateExternDataSize;
-        public long privateExternDataOffset;
-
-        public long externDataOffset;
-        public long externDataSize;
-
-        public long compressSizeBeginPos;
-
-        public byte checksumByteSize;
-        public long checksumOffset;
-
-        public long headDataSize;
-        public long headDataOffset;
-        public long headDataCompressedSize;
-
-        public long hdiffDataOffset;
-        public long hdiffDataSize;
-    }
-
-    public struct DiffSingleChunkInfo
-    {
-        public long uncompressedSize;
-        public long compressedSize;
-
-        public long diffDataPos;
-    }
-
-    public struct DiffChunkInfo
-    {
-        public long typesEndPos;
-        public long coverCount;
-        public long compressSizeBeginPos;
-        public long cover_buf_size;
-        public long compress_cover_buf_size;
-        public long rle_ctrlBuf_size;
-        public long compress_rle_ctrlBuf_size;
-        public long rle_codeBuf_size;
-        public long compress_rle_codeBuf_size;
-        public long newDataDiff_size;
-        public long compress_newDataDiff_size;
-        public long headEndPos;
-        public long coverEndPos;
-    }
-
-    public sealed class HDiffPatch
-    {
-        private HeaderInfo headerInfo;
-        private DataReferenceInfo referenceInfo { get; set; }
-        private Stream diffStream { get; set; }
-        private bool isPatchDir { get; set; }
-
-        internal static PatchEvent    PatchEvent = new();
-        public static   EventListener Event      = new();
-
-        public static Verbosity LogVerbosity { get; set; } = Verbosity.Quiet;
-
-        public HDiffPatch()
+        using (DiffStream = new FileStream(diff, FileMode.Open, FileAccess.Read))
         {
-            isPatchDir = true;
+            IsPatchDir = Header.TryParseHeaderInfo(DiffStream, diff, out HeaderInfo info, out DataReferenceInfo reference);
+            _headerInfo = info;
+            ReferenceInfo = reference;
         }
+    }
 
-        #region Header Initialization
-        public void Initialize(string diff)
+    public void Initialize(Func<Stream> diffCreateStream)
+    {
+        using (DiffStream = diffCreateStream())
         {
-            using (diffStream = new FileStream(diff, FileMode.Open, FileAccess.Read))
-            {
-                isPatchDir = Header.TryParseHeaderInfo(diffStream, diff, out HeaderInfo info, out DataReferenceInfo reference);
-
-                headerInfo = info;
-                referenceInfo = reference;
-            }
+            IsPatchDir = Header.TryParseHeaderInfo(DiffStream, null, out HeaderInfo info, out DataReferenceInfo reference);
+            _headerInfo = info;
+            ReferenceInfo = reference;
+            _headerInfo.PatchCreateStream = diffCreateStream;
         }
+    }
 
-        public void Initialize(Func<Stream> diffCreateStream)
+    public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false)
+        => Patch(inputPath, outputPath, useBufferedPatch, null, token, useFullBuffer, useFastBuffer);
+
+    public void Patch(string inputPath, string outputPath, bool useBufferedPatch, Action<long> writeBytesDelegate, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false)
+    {
+        IPatch patcher;
+        if (IsPatchDir && _headerInfo is { IsInputDir: true, IsOutputDir: true })
         {
-            using (diffStream = diffCreateStream())
-            {
-                isPatchDir = Header.TryParseHeaderInfo(diffStream, null, out HeaderInfo info, out DataReferenceInfo reference);
-
-                headerInfo = info;
-                referenceInfo = reference;
-                headerInfo.patchCreateStream = diffCreateStream;
-            }
+            patcher = new PatchDir(_headerInfo, ReferenceInfo, _headerInfo.PatchPath, token);
         }
-
-        public void Patch(string inputPath, string outputPath, bool useBufferedPatch, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false
-#if USEEXPERIMENTALMULTITHREAD
-            , bool useMultiThread = false
-#endif
-        )
-            => Patch(inputPath, outputPath, useBufferedPatch, null, token, useFullBuffer, useFastBuffer);
-
-        public void Patch(string inputPath, string outputPath, bool useBufferedPatch, Action<long> writeBytesDelegate, CancellationToken token = default, bool useFullBuffer = false, bool useFastBuffer = false
-#if USEEXPERIMENTALMULTITHREAD
-            , bool useMultiThread = false
-#endif
-            )
+        else
         {
-            IPatch patcher;
-            if (isPatchDir && headerInfo.isInputDir && headerInfo.isOutputDir)
-            {
-                patcher = new PatchDir(headerInfo, referenceInfo, headerInfo.patchPath, token
-#if USEEXPERIMENTALMULTITHREAD
-                    useMultiThread
-#endif
-                );
-            }
-            else
-            {
-                patcher = new PatchSingle(headerInfo, token);
-            }
-            patcher.Patch(inputPath, outputPath, writeBytesDelegate, useBufferedPatch, useFullBuffer, useFastBuffer);
+            patcher = new PatchSingle(_headerInfo, token);
         }
+        patcher.Patch(inputPath, outputPath, writeBytesDelegate, useBufferedPatch, useFullBuffer, useFastBuffer);
+    }
 #endregion
 
-        internal static void DisplayDirPatchInformation(long oldFileSize, long newFileSize, HeaderInfo headerInfo)
+    internal static void DisplayDirPatchInformation(long oldFileSize, long newFileSize, HeaderInfo headerInfo)
+    {
+        Event.PushLog("Patch Information:");
+        Event.PushLog($"    Size -> Old: {oldFileSize} bytes | New: {newFileSize} bytes");
+        Event.PushLog("Technical Information:");
+        if (!headerInfo.IsSingleCompressedDiff)
         {
-            Event.PushLog("Patch Information:");
-            Event.PushLog($"    Size -> Old: {oldFileSize} bytes | New: {newFileSize} bytes");
-            Event.PushLog("Technical Information:");
-            if (!headerInfo.isSingleCompressedDiff)
-            {
-                Event.PushLog($"    Cover Data -> Count: {headerInfo.chunkInfo.coverCount} | Offset: {headerInfo.chunkInfo.headEndPos} | Size: {headerInfo.chunkInfo.cover_buf_size}");
-                Event.PushLog($"    RLE Data -> Offset: {headerInfo.chunkInfo.coverEndPos} | Control: {headerInfo.chunkInfo.rle_ctrlBuf_size} | Code: {headerInfo.chunkInfo.rle_codeBuf_size}");
-                Event.PushLog($"    Diff Data -> Size: {headerInfo.chunkInfo.newDataDiff_size}");
-            }
-            else
-            {
-                Event.PushLog($"    Cover Data -> Count: {headerInfo.chunkInfo.coverCount} | DiffDataPos: {headerInfo.singleChunkInfo.diffDataPos}");
-                Event.PushLog($"    RLE Data -> Compressed Size: {headerInfo.singleChunkInfo.compressedSize} | Size: {headerInfo.singleChunkInfo.uncompressedSize}");
-            }
+            Event.PushLog($"    Cover Data -> Count: {headerInfo.ChunkInfo.CoverCount} | Offset: {headerInfo.ChunkInfo.HeadEndPos} | Size: {headerInfo.ChunkInfo.CoverBufSize}");
+            Event.PushLog($"    RLE Data -> Offset: {headerInfo.ChunkInfo.CoverEndPos} | Control: {headerInfo.ChunkInfo.RleCtrlBufSize} | Code: {headerInfo.ChunkInfo.RleCodeBufSize}");
+            Event.PushLog($"    Diff Data -> Size: {headerInfo.ChunkInfo.NewDataDiffSize}");
         }
-
-        internal static void UpdateEvent(long read, ref long currentSizePatched, ref long totalSizePatched, Stopwatch patchStopwatch)
+        else
         {
-            lock (PatchEvent)
-            {
-                PatchEvent.UpdateEvent(currentSizePatched += read, totalSizePatched, read, patchStopwatch.Elapsed.TotalSeconds);
-                Event.PushEvent(PatchEvent);
-            }
-        }
-
-        public static long GetHDiffNewSize(string diffFilePath)
-        {
-            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffFilePath);
-            return headerInfo.headerInfo.newDataSize;
-        }
-
-        public static long GetHDiffOldSize(string diffFilePath)
-        {
-            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffFilePath);
-            return headerInfo.headerInfo.oldDataSize;
-        }
-
-        public static long GetHDiffNewSize(Stream diffStream)
-        {
-            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffStream);
-            return headerInfo.headerInfo.newDataSize;
-        }
-
-        public static long GetHDiffOldSize(Stream diffStream)
-        {
-            HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffStream);
-            return headerInfo.headerInfo.oldDataSize;
-        }
-
-        public static HeaderInfoExt GetHDiffHeaderInfo(string diffFilePath)
-        {
-            using FileStream fs = new(diffFilePath, FileMode.Open, FileAccess.Read);
-            _ = Header.TryParseHeaderInfo(fs, diffFilePath, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
-            return new HeaderInfoExt { headerInfo = headerInfo, dataReferenceInfo = headerInfoReference };
-        }
-
-        public static HeaderInfoExt GetHDiffHeaderInfo(Stream diffStream)
-        {
-            _ = Header.TryParseHeaderInfo(diffStream, null, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
-            return new HeaderInfoExt { headerInfo = headerInfo, dataReferenceInfo = headerInfoReference };
+            Event.PushLog($"    Cover Data -> Count: {headerInfo.ChunkInfo.CoverCount} | DiffDataPos: {headerInfo.SingleChunkInfo.DiffDataPos}");
+            Event.PushLog($"    RLE Data -> Compressed Size: {headerInfo.SingleChunkInfo.CompressedSize} | Size: {headerInfo.SingleChunkInfo.UncompressedSize}");
         }
     }
 
-    public class EventListener
+    internal static void UpdateEvent(long read, ref long currentSizePatched, ref long totalSizePatched, Stopwatch patchStopwatch)
     {
-        // Log for external listener
-        public static event EventHandler<PatchEvent> PatchEvent;
-        public static event EventHandler<LoggerEvent> LoggerEvent;
-        public void PushEvent(PatchEvent patchEvent) => PatchEvent?.Invoke(this, patchEvent);
-        public void PushLog(in string message, Verbosity logLevel = Verbosity.Info)
+        lock (PatchEvent)
         {
-            if (logLevel != Verbosity.Quiet)
-                LoggerEvent?.Invoke(this, new LoggerEvent(message, logLevel));
+            PatchEvent.UpdateEvent(currentSizePatched += read, totalSizePatched, read, patchStopwatch.Elapsed.TotalSeconds);
+            Event.PushEvent(PatchEvent);
         }
+    }
+
+    public static long GetHDiffNewSize(string diffFilePath)
+    {
+        HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffFilePath);
+        return headerInfo.HeaderInfo.NewDataSize;
+    }
+
+    public static long GetHDiffOldSize(string diffFilePath)
+    {
+        HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffFilePath);
+        return headerInfo.HeaderInfo.OldDataSize;
+    }
+
+    public static long GetHDiffNewSize(Stream diffStream)
+    {
+        HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffStream);
+        return headerInfo.HeaderInfo.NewDataSize;
+    }
+
+    public static long GetHDiffOldSize(Stream diffStream)
+    {
+        HeaderInfoExt headerInfo = GetHDiffHeaderInfo(diffStream);
+        return headerInfo.HeaderInfo.OldDataSize;
+    }
+
+    public static HeaderInfoExt GetHDiffHeaderInfo(string diffFilePath)
+    {
+        using FileStream fs = new(diffFilePath, FileMode.Open, FileAccess.Read);
+        _ = Header.TryParseHeaderInfo(fs, diffFilePath, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
+        return new HeaderInfoExt { HeaderInfo = headerInfo, DataReferenceInfo = headerInfoReference };
+    }
+
+    public static HeaderInfoExt GetHDiffHeaderInfo(Stream diffStream)
+    {
+        _ = Header.TryParseHeaderInfo(diffStream, null, out HeaderInfo headerInfo, out DataReferenceInfo headerInfoReference);
+        return new HeaderInfoExt { HeaderInfo = headerInfo, DataReferenceInfo = headerInfoReference };
+    }
+}
+
+public class EventListener
+{
+    // Log for external listener
+    public static event EventHandler<PatchEvent> PatchEvent;
+    public static event EventHandler<LoggerEvent> LoggerEvent;
+    public void PushEvent(PatchEvent patchEvent) => PatchEvent?.Invoke(this, patchEvent);
+    public void PushLog(in string message, Verbosity logLevel = Verbosity.Info)
+    {
+        if (logLevel != Verbosity.Quiet)
+            LoggerEvent?.Invoke(this, new LoggerEvent(message, logLevel));
     }
 }

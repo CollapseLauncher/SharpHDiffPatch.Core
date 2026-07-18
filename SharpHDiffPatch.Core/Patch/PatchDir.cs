@@ -56,7 +56,7 @@ namespace SharpHDiffPatch.Core.Patch
 #if USEEXPERIMENTALMULTITHREAD
             useMultiThread = useMultiThread;
 #endif
-            _spawnPatchStream = headerInfo.patchCreateStream ?? (() => new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
+            _spawnPatchStream = headerInfo.PatchCreateStream ?? (() => new FileStream(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read));
         }
 
         public void Patch(string input, string output, Action<long> writeBytesDelegate, bool useBufferedPatch, bool useFullBuffer, bool useFastBuffer)
@@ -68,17 +68,17 @@ namespace SharpHDiffPatch.Core.Patch
             _useFastBuffer = useFastBuffer;
 
             using Stream patchStream = _spawnPatchStream();
-            _padding = _headerInfo.compMode == CompressionMode.zlib ? 1 : 0;
+            _padding = _headerInfo.CompMode == HDiffCompressionMode.zlib ? 1 : 0;
             HDiffPatch.Event.PushLog($"[PatchDir::Patch] Padding applied: {_padding} byte(s)", Verbosity.Debug);
 
-            int headerPadding = _referenceInfo.headDataCompressedSize > 0 ? _padding : 0;
-            patchStream.Position = _referenceInfo.headDataOffset + headerPadding;
-            HDiffPatch.Event.PushLog($"[PatchDir::Patch] Patch stream position moved from: {patchStream.Position - (_referenceInfo.headDataOffset + headerPadding)} to: {patchStream.Position}", Verbosity.Debug);
+            int headerPadding = _referenceInfo.HeadDataCompressedSize > 0 ? _padding : 0;
+            patchStream.Position = _referenceInfo.HeadDataOffset + headerPadding;
+            HDiffPatch.Event.PushLog($"[PatchDir::Patch] Patch stream position moved from: {patchStream.Position - (_referenceInfo.HeadDataOffset + headerPadding)} to: {patchStream.Position}", Verbosity.Debug);
 
-            HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {_referenceInfo.headDataSize} bytes ({_referenceInfo.headDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
+            HDiffPatch.Event.PushLog($"[PatchDir::Patch] Getting stream for header at size: {_referenceInfo.HeadDataSize} bytes ({_referenceInfo.HeadDataCompressedSize - headerPadding} bytes compressed)", Verbosity.Verbose);
 
-            CompressionStreamHelper.GetDecompressStreamPlugin(_headerInfo.compMode, patchStream, out Stream decompressedHeadStream,
-                _referenceInfo.headDataSize, _referenceInfo.headDataCompressedSize - headerPadding, out _, _useBufferedPatch);
+            CompressionStreamHelper.GetDecompressStreamPlugin(_headerInfo.CompMode, patchStream, out Stream decompressedHeadStream,
+                _referenceInfo.HeadDataSize, _referenceInfo.HeadDataCompressedSize - headerPadding, out _, _useBufferedPatch);
 
             HDiffPatch.Event.PushLog("[PatchDir::Patch] Initializing stream to binary readers", Verbosity.Debug);
 
@@ -97,14 +97,14 @@ namespace SharpHDiffPatch.Core.Patch
                 CombinedStreamSegment<FileStream>[] mergedNewStream = GetRefNewStreams(dirData);
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Initialized {mergedOldStream.Length} old files and {mergedNewStream.Length} new files into combined stream", Verbosity.Verbose);
 
-                HDiffPatch.Event.PushLog($"[PatchDir::Patch] Seek the patch stream to: {_referenceInfo.hdiffDataOffset}. Jump to read header for clip streams!", Verbosity.Verbose);
-                patchStream.Position = _referenceInfo.hdiffDataOffset;
-                if (!_headerInfo.isSingleCompressedDiff)
+                HDiffPatch.Event.PushLog($"[PatchDir::Patch] Seek the patch stream to: {_referenceInfo.HDiffDataOffset}. Jump to read header for clip streams!", Verbosity.Verbose);
+                patchStream.Position = _referenceInfo.HDiffDataOffset;
+                if (!_headerInfo.IsSingleCompressedDiff)
                     _ = Header.TryParseHeaderInfo(patchStream, "", out _headerInfo, out _);
                 else
                     HDiffPatch.Event.PushLog("[PatchDir::Patch] This patch is a \"single diff\" type!");
 
-                _padding = _headerInfo.compMode == CompressionMode.zlib ? 1 : 0;
+                _padding = _headerInfo.CompMode == HDiffCompressionMode.zlib ? 1 : 0;
 
                 IPatchCore patchCore = CreatePatchCore(writeBytesDelegate, totalSizePatched);
                 patchCore.SetDirectoryReferencePair(dirData);
@@ -114,8 +114,8 @@ namespace SharpHDiffPatch.Core.Patch
                 using (Stream oldStream = new CombinedStream<FileStream>(mergedOldStream))
                 {
                     long oldFileSize = GetOldFileSize(dirData);
-                    if (oldStream.Length != _headerInfo.oldDataSize)
-                        throw new InvalidDataException($"[PatchDir::Patch] The patch directory is expecting old size to be equivalent as: {_headerInfo.oldDataSize} bytes, but the input file has unmatch size: {oldStream.Length} bytes!");
+                    if (oldStream.Length != _headerInfo.OldDataSize)
+                        throw new InvalidDataException($"[PatchDir::Patch] The patch directory is expecting old size to be equivalent as: {_headerInfo.OldDataSize} bytes, but the input file has unmatch size: {oldStream.Length} bytes!");
 
                     HDiffPatch.Event.PushLog($"[PatchDir::Patch] Existing old directory size: {oldFileSize} is matched!", Verbosity.Verbose);
 
@@ -123,7 +123,7 @@ namespace SharpHDiffPatch.Core.Patch
                     HDiffPatch.Event.PushLog($"[PatchDir::Patch] Staring patching routine at position: {lastPos}", Verbosity.Verbose);
 
                     HDiffPatch.DisplayDirPatchInformation(oldFileSize, totalSizePatched, _headerInfo);
-                    StartPatchRoutine(oldStream, newStream, _headerInfo.newDataSize, lastPos, patchCore);
+                    StartPatchRoutine(oldStream, newStream, _headerInfo.NewDataSize, lastPos, patchCore);
                 }
             }
         }
@@ -171,7 +171,7 @@ namespace SharpHDiffPatch.Core.Patch
 
         private IPatchCore CreatePatchCore(Action<long> writeBytesDelegate, long totalSizePatched)
         {
-            bool wantFastBuffer = _useFastBuffer && _useBufferedPatch && !_headerInfo.isSingleCompressedDiff;
+            bool wantFastBuffer = _useFastBuffer && _useBufferedPatch && !_headerInfo.IsSingleCompressedDiff;
             switch (wantFastBuffer)
             {
                 case true when PatchSizeHelper.CanUseFastBuffer(_headerInfo):
@@ -186,8 +186,8 @@ namespace SharpHDiffPatch.Core.Patch
 
         private void StartPatchRoutine(Stream inputStream, Stream outputStream, long newDataSize, long offset, IPatchCore patchCore)
         {
-            var clips = new Stream[_headerInfo.isSingleCompressedDiff ? 1 : 4];
-            Stream[] sourceClips = _headerInfo.isSingleCompressedDiff ?
+            var clips = new Stream[_headerInfo.IsSingleCompressedDiff ? 1 : 4];
+            Stream[] sourceClips = _headerInfo.IsSingleCompressedDiff ?
                 [ _spawnPatchStream() ] :
                 [
                     _spawnPatchStream(),
@@ -198,38 +198,38 @@ namespace SharpHDiffPatch.Core.Patch
 
             try
             {
-                if (_headerInfo.isSingleCompressedDiff)
+                if (_headerInfo.IsSingleCompressedDiff)
                 {
-                    sourceClips[0].Position += _referenceInfo.hdiffDataOffset + _headerInfo.singleChunkInfo.diffDataPos;
-                    int coverPadding = _headerInfo.singleChunkInfo.compressedSize > 0 ? _padding : 0;
-                    offset += _headerInfo.singleChunkInfo.diffDataPos;
+                    sourceClips[0].Position += _referenceInfo.HDiffDataOffset + _headerInfo.SingleChunkInfo.DiffDataPos;
+                    int coverPadding = _headerInfo.SingleChunkInfo.CompressedSize > 0 ? _padding : 0;
+                    offset += _headerInfo.SingleChunkInfo.DiffDataPos;
 
-                    clips[0] = patchCore.GetBufferStreamFromOffset(_headerInfo.compMode, sourceClips[0], offset + coverPadding,
-                        _headerInfo.singleChunkInfo.uncompressedSize, _headerInfo.singleChunkInfo.compressedSize, out long _,
+                    clips[0] = patchCore.GetBufferStreamFromOffset(_headerInfo.CompMode, sourceClips[0], offset + coverPadding,
+                        _headerInfo.SingleChunkInfo.UncompressedSize, _headerInfo.SingleChunkInfo.CompressedSize, out long _,
                         _useBufferedPatch, false);
                 }
                 else
                 {
-                    int coverPadding = _headerInfo.chunkInfo.compress_cover_buf_size > 0 ? _padding : 0;
-                    clips[0] = patchCore.GetBufferStreamFromOffset(_headerInfo.compMode, sourceClips[0], offset + coverPadding,
-                        _headerInfo.chunkInfo.cover_buf_size, _headerInfo.chunkInfo.compress_cover_buf_size, out long nextLength, _useBufferedPatch, false);
+                    int coverPadding = _headerInfo.ChunkInfo.CompressCoverBufSize > 0 ? _padding : 0;
+                    clips[0] = patchCore.GetBufferStreamFromOffset(_headerInfo.CompMode, sourceClips[0], offset + coverPadding,
+                        _headerInfo.ChunkInfo.CoverBufSize, _headerInfo.ChunkInfo.CompressCoverBufSize, out long nextLength, _useBufferedPatch, false);
 
                     offset += nextLength;
-                    int rleCtrlBufPadding = _headerInfo.chunkInfo.compress_rle_ctrlBuf_size > 0 ? _padding : 0;
-                    clips[1] = patchCore.GetBufferStreamFromOffset(_headerInfo.compMode, sourceClips[1], offset + rleCtrlBufPadding,
-                        _headerInfo.chunkInfo.rle_ctrlBuf_size, _headerInfo.chunkInfo.compress_rle_ctrlBuf_size, out nextLength, _useBufferedPatch, _useFastBuffer);
+                    int rleCtrlBufPadding = _headerInfo.ChunkInfo.CompressRleCtrlBufSize > 0 ? _padding : 0;
+                    clips[1] = patchCore.GetBufferStreamFromOffset(_headerInfo.CompMode, sourceClips[1], offset + rleCtrlBufPadding,
+                        _headerInfo.ChunkInfo.RleCtrlBufSize, _headerInfo.ChunkInfo.CompressRleCtrlBufSize, out nextLength, _useBufferedPatch, _useFastBuffer);
 
                     offset += nextLength;
-                    int rleCodeBufPadding = _headerInfo.chunkInfo.compress_rle_codeBuf_size > 0 ? _padding : 0;
-                    clips[2] = patchCore.GetBufferStreamFromOffset(_headerInfo.compMode, sourceClips[2], offset + rleCodeBufPadding,
-                        _headerInfo.chunkInfo.rle_codeBuf_size, _headerInfo.chunkInfo.compress_rle_codeBuf_size, out nextLength, _useBufferedPatch, _useFastBuffer);
+                    int rleCodeBufPadding = _headerInfo.ChunkInfo.CompressRleCodeBufSize > 0 ? _padding : 0;
+                    clips[2] = patchCore.GetBufferStreamFromOffset(_headerInfo.CompMode, sourceClips[2], offset + rleCodeBufPadding,
+                        _headerInfo.ChunkInfo.RleCodeBufSize, _headerInfo.ChunkInfo.CompressRleCodeBufSize, out nextLength, _useBufferedPatch, _useFastBuffer);
 
                     offset += nextLength;
-                    int newDataDiffPadding = _headerInfo.chunkInfo.compress_newDataDiff_size > 0 ? _padding : 0;
-                    clips[3] = patchCore.GetBufferStreamFromOffset(_headerInfo.compMode, sourceClips[3], offset + newDataDiffPadding,
-                        _headerInfo.chunkInfo.newDataDiff_size, _headerInfo.chunkInfo.compress_newDataDiff_size - _padding, out _, _useBufferedPatch && _useFullBuffer, false);
+                    int newDataDiffPadding = _headerInfo.ChunkInfo.CompressNewDataDiffSize > 0 ? _padding : 0;
+                    clips[3] = patchCore.GetBufferStreamFromOffset(_headerInfo.CompMode, sourceClips[3], offset + newDataDiffPadding,
+                        _headerInfo.ChunkInfo.NewDataDiffSize, _headerInfo.ChunkInfo.CompressNewDataDiffSize - _padding, out _, _useBufferedPatch && _useFullBuffer, false);
 
-                    _headerInfo.newDataSize = newDataSize;
+                    _headerInfo.NewDataSize = newDataSize;
                 }
                 patchCore.UncoverBufferClipsStream(clips, inputStream, outputStream, _headerInfo);
             }
@@ -285,19 +285,19 @@ namespace SharpHDiffPatch.Core.Patch
             HDiffPatch.Event.PushLog("[PatchDir::InitializeDirPatcher] Reading PatchDir header...", Verbosity.Verbose);
             DirectoryReferencePair returnValue = new();
 
-            HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> OldPath: {(int)_referenceInfo.inputSumSize}", Verbosity.Verbose);
-            reader.GetPathsFromStream(out returnValue.OldUtf8PathList, (int)_referenceInfo.inputSumSize, (int)_referenceInfo.inputDirCount);
+            HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> OldPath: {(int)_referenceInfo.InputSumSize}", Verbosity.Verbose);
+            reader.GetPathsFromStream(out returnValue.OldUtf8PathList, (int)_referenceInfo.InputSumSize, (int)_referenceInfo.InputDirCount);
 
-            HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> NewPath: {(int)_referenceInfo.outputSumSize}", Verbosity.Verbose);
-            reader.GetPathsFromStream(out returnValue.NewUtf8PathList, (int)_referenceInfo.outputSumSize, (int)_referenceInfo.outputDirCount);
+            HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Reading path string buffers -> NewPath: {(int)_referenceInfo.OutputSumSize}", Verbosity.Verbose);
+            reader.GetPathsFromStream(out returnValue.NewUtf8PathList, (int)_referenceInfo.OutputSumSize, (int)_referenceInfo.OutputDirCount);
 
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Path string counts -> OldPath: {returnValue.OldUtf8PathList.Length} paths & NewPath: {returnValue.NewUtf8PathList.Length} paths", Verbosity.Verbose);
-            reader.GetLongsFromStream(out returnValue.OldRefList, _referenceInfo.inputRefFileCount, _referenceInfo.inputDirCount);
-            reader.GetLongsFromStream(out returnValue.NewRefList, _referenceInfo.outputRefFileCount, _referenceInfo.outputDirCount);
-            reader.GetLongsFromStream(out returnValue.NewRefSizeList, _referenceInfo.outputRefFileCount);
-            reader.GetPairIndexReferenceFromStream(out returnValue.DataSamePairList, _referenceInfo.sameFilePairCount, _referenceInfo.outputDirCount, _referenceInfo.inputDirCount);
-            reader.GetLongsFromStream(out returnValue.NewExecuteList, _referenceInfo.newExecuteCount, _referenceInfo.outputDirCount);
-            HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Path refs found! OldRef: {_referenceInfo.inputRefFileCount} paths, NewRef: {_referenceInfo.outputRefFileCount} paths, IdenticalRef: {_referenceInfo.sameFilePairCount} paths", Verbosity.Verbose);
+            reader.GetLongsFromStream(out returnValue.OldRefList, _referenceInfo.InputRefFileCount, _referenceInfo.InputDirCount);
+            reader.GetLongsFromStream(out returnValue.NewRefList, _referenceInfo.OutputRefFileCount, _referenceInfo.OutputDirCount);
+            reader.GetLongsFromStream(out returnValue.NewRefSizeList, _referenceInfo.OutputRefFileCount);
+            reader.GetPairIndexReferenceFromStream(out returnValue.DataSamePairList, _referenceInfo.SameFilePairCount, _referenceInfo.OutputDirCount, _referenceInfo.InputDirCount);
+            reader.GetLongsFromStream(out returnValue.NewExecuteList, _referenceInfo.NewExecuteCount, _referenceInfo.OutputDirCount);
+            HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Path refs found! OldRef: {_referenceInfo.InputRefFileCount} paths, NewRef: {_referenceInfo.OutputRefFileCount} paths, IdenticalRef: {_referenceInfo.SameFilePairCount} paths", Verbosity.Verbose);
 
             return returnValue;
         }

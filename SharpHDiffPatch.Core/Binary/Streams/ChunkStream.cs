@@ -2,176 +2,175 @@
 using System.Buffers;
 using System.IO;
 
-namespace SharpHDiffPatch.Core.Binary.Streams
+namespace SharpHDiffPatch.Core.Binary.Streams;
+
+public sealed class ChunkStream : Stream
 {
-    public sealed class ChunkStream : Stream
+    private readonly Stream _stream;
+    private          long   Start       { get; }
+    private          long   End         { get; }
+    private          long   Size        => End - Start;
+    private          long   CurPos      { get; set; }
+    private          long   Remain      => Size - CurPos;
+    private          bool   IsDisposing { get; }
+
+    public ChunkStream(Stream stream, long start, long end, bool isDisposing = false)
     {
-        private long Start { get; }
-        private long End { get; }
-        private long Size => End - Start;
-        private long CurPos { get; set; }
-        private long Remain => Size - CurPos;
-        private readonly Stream _stream;
-        private bool IsDisposing { get; }
+        _stream = stream;
 
-        public ChunkStream(Stream stream, long start, long end, bool isDisposing = false)
+        if (_stream.Length == 0)
         {
-            _stream = stream;
-
-            if (_stream.Length == 0)
-            {
-                throw new Exception("The stream must not have 0 bytes!");
-            }
-
-            if (_stream.Length < start || end > _stream.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(stream), "Offset is out of stream size range!");
-            }
-
-            _stream.Position = start;
-            Start = start;
-            End = end;
-            CurPos = 0;
-            IsDisposing = isDisposing;
+            throw new Exception("The stream must not have 0 bytes!");
         }
 
-        ~ChunkStream() => Dispose(IsDisposing);
+        if (_stream.Length < start || end > _stream.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stream), "Offset is out of stream size range!");
+        }
+
+        _stream.Position = start;
+        Start            = start;
+        End              = end;
+        CurPos           = 0;
+        IsDisposing      = isDisposing;
+    }
+
+    ~ChunkStream() => Dispose(IsDisposing);
 
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-        public override int Read(Span<byte> buffer)
-        {
-            if (Remain == 0) return 0;
+    public override int Read(Span<byte> buffer)
+    {
+        if (Remain == 0) return 0;
 
-            int toSlice = (int)(buffer.Length > Remain ? Remain : buffer.Length);
-            _stream.Position = Start + CurPos;
-            int read = _stream.Read(buffer[..toSlice]);
-            CurPos += read;
+        int toSlice = (int)(buffer.Length > Remain ? Remain : buffer.Length);
+        _stream.Position = Start + CurPos;
+        int read = _stream.Read(buffer[..toSlice]);
+        CurPos += read;
 
-            return read;
-        }
+        return read;
+    }
 
-        public override void Write(ReadOnlySpan<byte> buffer)
-        {
-            if (Remain == 0) return;
+    public override void Write(ReadOnlySpan<byte> buffer)
+    {
+        if (Remain == 0) return;
 
-            int toSlice = (int)(buffer.Length > Remain ? Remain : buffer.Length);
-            CurPos += toSlice;
+        int toSlice = (int)(buffer.Length > Remain ? Remain : buffer.Length);
+        CurPos += toSlice;
 
-            _stream.Write(buffer[..toSlice]);
-        }
+        _stream.Write(buffer[..toSlice]);
+    }
 #endif
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            if (Remain == 0) return 0;
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        if (Remain == 0) return 0;
 
-            int toRead = (int)(Remain < count ? Remain : count);
-            _stream.Position = Start + CurPos;
-            int read = _stream.Read(buffer, offset, toRead);
-            CurPos += read;
-            return read;
-        }
+        int toRead = (int)(Remain < count ? Remain : count);
+        _stream.Position = Start + CurPos;
+        int read = _stream.Read(buffer, offset, toRead);
+        CurPos += read;
+        return read;
+    }
 
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            int toRead = (int)(Remain < count ? Remain : count);
-            int toOffset = offset > Remain ? 0 : offset;
-            _stream.Position += toOffset;
-            CurPos += toOffset + toRead;
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        int toRead   = (int)(Remain < count ? Remain : count);
+        int toOffset = offset > Remain ? 0 : offset;
+        _stream.Position += toOffset;
+        CurPos           += toOffset + toRead;
 
-            _stream.Write(buffer, offset, toRead);
-        }
+        _stream.Write(buffer, offset, toRead);
+    }
 
 #if !(NETSTANDARD2_0 || NET461_OR_GREATER)
-        public override void CopyTo(Stream destination, int bufferSize)
-        {
-            if (bufferSize <= 0) bufferSize = 4 << 10;
+    public override void CopyTo(Stream destination, int bufferSize)
+    {
+        if (bufferSize <= 0) bufferSize = 4 << 10;
 
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
-            try
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+        try
+        {
+            int read;
+            while ((read = Read(buffer.AsSpan(0, bufferSize))) > 0)
             {
-                int read;
-                while ((read = Read(buffer.AsSpan(0, bufferSize))) > 0)
-                {
-                    destination.Write(buffer.AsSpan(0, read));
-                }
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
+                destination.Write(buffer.AsSpan(0, read));
             }
         }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
 #endif
 
-        public override bool CanRead => _stream.CanRead;
+    public override bool CanRead => _stream.CanRead;
 
-        public override bool CanSeek => _stream.CanSeek;
+    public override bool CanSeek => _stream.CanSeek;
 
-        public override bool CanWrite => _stream.CanWrite;
+    public override bool CanWrite => _stream.CanWrite;
 
-        public override void Flush()
+    public override void Flush()
+    {
+        _stream.Flush();
+    }
+
+    public override long Length => Size;
+
+    public override long Position
+    {
+        get => CurPos;
+        set
         {
-            _stream.Flush();
-        }
-
-        public override long Length => Size;
-
-        public override long Position
-        {
-            get => CurPos;
-            set
+            if (value > Size)
             {
-                if (value > Size)
+                throw new IndexOutOfRangeException();
+            }
+
+            CurPos = value;
+            _stream.Position = CurPos + Start;
+        }
+    }
+
+    public override long Seek(long offset, SeekOrigin origin)
+    {
+        switch (origin)
+        {
+            case SeekOrigin.Begin:
                 {
-                    throw new IndexOutOfRangeException();
+                    if (offset > Size)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(offset));
+                    }
+                    return _stream.Seek(offset + Start, SeekOrigin.Begin) - Start;
                 }
-
-                CurPos = value;
-                _stream.Position = CurPos + Start;
-            }
-        }
-
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            switch (origin)
-            {
-                case SeekOrigin.Begin:
+            case SeekOrigin.Current:
+                {
+                    long pos = _stream.Position - Start;
+                    if (pos + offset > Size)
                     {
-                        if (offset > Size)
-                        {
-                            throw new ArgumentOutOfRangeException(nameof(offset));
-                        }
-                        return _stream.Seek(offset + Start, SeekOrigin.Begin) - Start;
+                        throw new ArgumentOutOfRangeException(nameof(offset));
                     }
-                case SeekOrigin.Current:
-                    {
-                        long pos = _stream.Position - Start;
-                        if (pos + offset > Size)
-                        {
-                            throw new ArgumentOutOfRangeException(nameof(offset));
-                        }
-                        return _stream.Seek(offset, SeekOrigin.Current) - Start;
-                    }
-                case SeekOrigin.End:
-                default:
-                    {
-                        _stream.Position = End;
-                        _stream.Position -= offset;
+                    return _stream.Seek(offset, SeekOrigin.Current) - Start;
+                }
+            case SeekOrigin.End:
+            default:
+                {
+                    _stream.Position = End;
+                    _stream.Position -= offset;
 
-                        return Position;
-                    }
-            }
+                    return Position;
+                }
         }
+    }
 
-        public override void SetLength(long value)
-        {
-            throw new NotSupportedException();
-        }
+    public override void SetLength(long value)
+    {
+        throw new NotSupportedException();
+    }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing) base.Dispose(true);
-            if (IsDisposing) _stream.Dispose();
-        }
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) base.Dispose(true);
+        if (IsDisposing) _stream.Dispose();
     }
 }

@@ -186,23 +186,17 @@ internal class Decoder : IDisposable
     private const int KPosAlignModelsOffset = KPosSlotModelsOffset + KPosSlotModelsCount;
     private const int KModelsCount          = KPosAlignModelsOffset + (1 << Base.KNumAlignBits);
 
-    private BitDecoder[] _models;
+    private          BitDecoder[]   _models         = ArrayPool<BitDecoder>.Shared.Rent(KModelsCount);
     private readonly LenDecoder     _lenDecoder     = new();
     private readonly LenDecoder     _repLenDecoder  = new();
     private readonly LiteralDecoder _literalDecoder = new();
 
-    private int _dictionarySize;
+    private int _dictionarySize = -1;
 
     private uint _posStateMask;
 
     private Base.State _state;
     private uint       _rep0, _rep1, _rep2, _rep3;
-
-    public Decoder()
-    {
-        _dictionarySize = -1;
-        _models = ArrayPool<BitDecoder>.Shared.Rent(KModelsCount);
-    }
 
     private void CreateDictionary()
     {
@@ -378,7 +372,7 @@ internal class Decoder : IDisposable
                         {
                             _rep0 += BitTreeDecoder.ReverseDecode(
                                 _models,
-                                (uint)KPosDecodersOffset + _rep0 - posSlot - 1,
+                                KPosDecodersOffset + _rep0 - posSlot - 1,
                                 rangeDecoder,
                                 numDirectBits
                             );

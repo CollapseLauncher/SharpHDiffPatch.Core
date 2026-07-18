@@ -50,7 +50,7 @@ namespace SharpHDiffPatch.Core.Patch
 
         void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo);
 
-        Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
+        Stream GetBufferStreamFromOffset(HDiffCompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed);
     }
 
@@ -115,7 +115,7 @@ namespace SharpHDiffPatch.Core.Patch
             SizePatched = sizeToPatch;
         }
 
-        public Stream GetBufferStreamFromOffset(CompressionMode compMode, Stream sourceStream,
+        public Stream GetBufferStreamFromOffset(HDiffCompressionMode compMode, Stream sourceStream,
             long start, long length, long compLength, out long outLength, bool isBuffered, bool isFastBufferUsed)
         {
             sourceStream.Position = start;
@@ -159,7 +159,7 @@ namespace SharpHDiffPatch.Core.Patch
             }
         }
 
-        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, headerInfo.chunkInfo.coverCount, headerInfo.chunkInfo.cover_buf_size, headerInfo.newDataSize);
+        public void UncoverBufferClipsStream(Stream[] clips, Stream inputStream, Stream outputStream, HeaderInfo headerInfo) => WriteCoverStreamToOutput(clips, inputStream, outputStream, headerInfo.ChunkInfo.CoverCount, headerInfo.ChunkInfo.CoverBufSize, headerInfo.NewDataSize);
 
         internal static IEnumerable<CoverHeader> EnumerateCoverHeaders(Stream coverReader, long coverSize, long coverCount)
         {
@@ -448,7 +448,7 @@ namespace SharpHDiffPatch.Core.Patch
 
             if (len >= Vector128<byte>.Count)
             {
-                AddVectorArm64_128:
+            AddVectorArm64_128:
                 len -= Vector128<byte>.Count;
                 Vector128<byte> resultVector = AdvSimd.Add(*(Vector128<byte>*)(rlePtr + len), *(Vector128<byte>*)(oldPtr + len));
                 AdvSimd.Store(rlePtr + len, resultVector);
@@ -465,7 +465,7 @@ namespace SharpHDiffPatch.Core.Patch
 
             if (len >= Vector64<byte>.Count)
             {
-                AddVectorArm64_64:
+            AddVectorArm64_64:
                 len -= Vector64<byte>.Count;
                 Vector64<byte> resultVector = AdvSimd.Add(*(Vector64<byte>*)(rlePtr + len), *(Vector64<byte>*)(oldPtr + len));
                 AdvSimd.Store(rlePtr + len, resultVector);
@@ -481,7 +481,7 @@ namespace SharpHDiffPatch.Core.Patch
 
             if (len >= Vector128<byte>.Count)
             {
-                AddVectorSse2:
+            AddVectorSse2:
                 len -= Vector128<byte>.Count;
                 Vector128<byte> resultVector = Sse2.Add(*(Vector128<byte>*)(rlePtr + len), *(Vector128<byte>*)(oldPtr + len));
                 Sse2.Store(rlePtr + len, resultVector);
@@ -495,7 +495,7 @@ namespace SharpHDiffPatch.Core.Patch
         {
             if (len >= 4)
             {
-                AddRemainsFourStep:
+            AddRemainsFourStep:
                 len -= 4;
                 *(rlePtr + len) += *(oldPtr + len);
                 *(rlePtr + 1 + len) += *(oldPtr + 1 + len);
@@ -504,7 +504,7 @@ namespace SharpHDiffPatch.Core.Patch
                 if (len >= 4) goto AddRemainsFourStep;
             }
 
-            AddRemainsVectorRLE:
+        AddRemainsVectorRLE:
             if (len == 0) goto WriteAllVectorRLE;
             *(rlePtr + --len) += *(oldPtr + len);
             goto AddRemainsVectorRLE;
