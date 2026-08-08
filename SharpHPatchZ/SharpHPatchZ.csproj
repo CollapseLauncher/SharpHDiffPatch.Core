@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <AssemblyName>SharpHDiffPatch.New</AssemblyName>
-        <AssemblyTitle>SharpHDiffPatch - A port of HPatchZ for HDiff file patching implementation written in C#</AssemblyTitle>
-        <Description>SharpHDiffPatch is a patching library for HDiffPatch format written in C#, purposedly as a port of HPatchZ implementation. Supporting file and directory patching with BZip2, Deflate, Zstd, LZMA2 (not LZMA) and No compression diff format.</Description>
+        <AssemblyName>SharpHPatch</AssemblyName>
+        <AssemblyTitle>SharpHPatch (formerly: SharpHDiffPatch) - Apply binary patches for HDiffPatch format.</AssemblyTitle>
+        <Description>SharpHPatch is a port of HPatchZ implementation from HDiffPatch project (by housisong), written in C#. Provides as nearly as fast as the native implementation, supporting multi-threading and several compressed formats.</Description>
         <PackageProjectUrl>https://github.com/CollapseLauncher/SharpHDiffPatch.Core</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Copyright>Copyright (c) 2025 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>
@@ -19,7 +19,6 @@
         <Configurations>Debug;Release</Configurations>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <PackageTags>hdiff</PackageTags>
-        <!--<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
         <Platforms>AnyCPU;x64;x86;ARM64</Platforms>
         <Nullable>enable</Nullable>
         <LangVersion>14</LangVersion>

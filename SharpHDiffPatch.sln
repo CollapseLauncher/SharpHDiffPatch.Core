@@ -7,7 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpHDiffPatch.Core", "Sha
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SharpHDiffPatch", "SharpHDiffPatch\SharpHDiffPatch.csproj", "{506DDD1C-DD74-4FCE-A0C9-D90E904CF708}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpHDiffPatch.New", "SharpHDiffPatch.New\SharpHDiffPatch.New.csproj", "{7CE06EE4-B691-464B-9AB1-9882CF83E48E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpHPatchZ", "SharpHPatchZ\SharpHPatchZ.csproj", "{7CE06EE4-B691-464B-9AB1-9882CF83E48E}"
+EndProject
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
