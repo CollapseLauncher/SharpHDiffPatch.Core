@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using SharpHDiffPatch.New.Header.Metadata;
+using SharpHPatchZ.Header.Metadata;
 
-namespace SharpHDiffPatch.New.Extension;
+namespace SharpHPatchZ.Extension;
 
 internal static class MetadataExtension
 {

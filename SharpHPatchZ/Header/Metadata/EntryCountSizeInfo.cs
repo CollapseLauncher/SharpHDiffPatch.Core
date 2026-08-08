@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace SharpHDiffPatch.New.Header.Metadata;
+namespace SharpHPatchZ.Header.Metadata;
 
 [StructLayout(LayoutKind.Sequential)]
 public struct EntryCountSizeInfo

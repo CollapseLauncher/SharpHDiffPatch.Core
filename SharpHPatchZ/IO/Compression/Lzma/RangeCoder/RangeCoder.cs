@@ -1,8 +1,9 @@
 using System;
 using System.Buffers;
+using System.IO;
 using System.Runtime.CompilerServices;
 
-namespace SharpHDiffPatch.New.IO.Compression.Lzma.RangeCoder;
+namespace SharpHPatchZ.IO.Compression.Lzma.RangeCoder;
 
 internal class RangeDecoder : IDisposable
 {
@@ -11,8 +12,8 @@ internal class RangeDecoder : IDisposable
     public        uint Range;
     public        uint Code;
 
-    public System.IO.Stream Stream;
-    public long             Total;
+    public Stream Stream;
+    public long   Total;
 
     private byte[] _inputBuffer = [];
     private int    _inputOffset;
@@ -20,7 +21,7 @@ internal class RangeDecoder : IDisposable
     private long   _inputLimit;
     private bool   _useInputBuffer;
 
-    public void Init(System.IO.Stream stream, long inputLimit = -1)
+    public void Init(Stream stream, long inputLimit = -1)
     {
         Stream          = stream;
         _inputOffset    = 0;

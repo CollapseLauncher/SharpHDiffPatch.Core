@@ -1,6 +1,6 @@
 using System;
 
-namespace SharpHDiffPatch.New.IO.Compression.BZip2;
+namespace SharpHPatchZ.IO.Compression.BZip2;
 
 /// <summary>
 /// Defines internal values for both compression and decompression

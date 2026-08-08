@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 #endif
 
-namespace SharpHDiffPatch.New.Extension;
+namespace SharpHPatchZ.Extension;
 
 file static class Const
 {

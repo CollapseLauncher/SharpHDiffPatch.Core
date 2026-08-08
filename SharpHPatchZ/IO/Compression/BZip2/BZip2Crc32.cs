@@ -10,7 +10,7 @@ using System.Runtime.Intrinsics.X86;
 // ReSharper disable InconsistentNaming
 #endif
 
-namespace SharpHDiffPatch.New.IO.Compression.BZip2;
+namespace SharpHPatchZ.IO.Compression.BZip2;
 
 file static class BZip2Crc32Premul
 {

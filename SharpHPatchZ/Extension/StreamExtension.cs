@@ -1,14 +1,13 @@
-﻿using SharpHDiffPatch.New.Header.Metadata;
-using SharpHDiffPatch.New.IO.Reader;
-using System;
+﻿using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpHPatchZ.Header.Metadata;
+using SharpHPatchZ.IO.Reader;
 
-namespace SharpHDiffPatch.New.Extension;
+namespace SharpHPatchZ.Extension;
 
 internal static class StreamExtension
 {

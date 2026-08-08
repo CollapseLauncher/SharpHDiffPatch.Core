@@ -1,10 +1,9 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using SharpHDiffPatch.New.Header.Metadata;
 
 #pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type
 
-namespace SharpHDiffPatch.New.Extension;
+namespace SharpHPatchZ.Extension;
 
 internal static unsafe class MemoryAlloc
 {

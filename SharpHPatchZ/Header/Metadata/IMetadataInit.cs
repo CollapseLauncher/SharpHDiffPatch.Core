@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SharpHDiffPatch.New.Header.Metadata;
+namespace SharpHPatchZ.Header.Metadata;
 
 public interface IMetadataInit : IDisposable
 {

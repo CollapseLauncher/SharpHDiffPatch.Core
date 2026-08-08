@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <AssemblyName>SharpHPatch</AssemblyName>
-        <AssemblyTitle>SharpHPatch (formerly: SharpHDiffPatch) - Apply binary patches for HDiffPatch format.</AssemblyTitle>
-        <Description>SharpHPatch is a port of HPatchZ implementation from HDiffPatch project (by housisong), written in C#. Provides as nearly as fast as the native implementation, supporting multi-threading and several compressed formats.</Description>
+        <AssemblyName>SharpHPatchZ</AssemblyName>
+        <AssemblyTitle>SharpHPatchZ (formerly: SharpHDiffPatch) - Apply binary patches for HDiffPatch format.</AssemblyTitle>
+        <Description>SharpHPatchZ is a port of HPatchZ implementation from HDiffPatch project (by housisong), written in C#. Provides as nearly as fast as the native implementation, supporting multi-threading and several compressed formats.</Description>
         <PackageProjectUrl>https://github.com/CollapseLauncher/SharpHDiffPatch.Core</PackageProjectUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Copyright>Copyright (c) 2025 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>

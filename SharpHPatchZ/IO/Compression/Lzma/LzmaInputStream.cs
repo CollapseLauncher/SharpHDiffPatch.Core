@@ -1,16 +1,16 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
-using SharpHDiffPatch.New.IO.Compression.Lzma.LZ;
-using SharpHDiffPatch.New.IO.Compression.Lzma.RangeCoder;
+using SharpHPatchZ.IO.Compression.Lzma.LZ;
+using SharpHPatchZ.IO.Compression.Lzma.RangeCoder;
 
-namespace SharpHDiffPatch.New.IO.Compression.Lzma;
+namespace SharpHPatchZ.IO.Compression.Lzma;
 
 public sealed class LzmaInputStream : Stream
 {
     private readonly Stream _inputStream;
-    private readonly long             _inputSize;
-    private readonly long             _outputSize;
+    private readonly long   _inputSize;
+    private readonly long   _outputSize;
 
     private readonly int          _dictionarySize;
     private readonly OutWindow    _outWindow    = new();
@@ -42,13 +42,13 @@ public sealed class LzmaInputStream : Stream
         : this(properties, inputStream, inputSize, outputSize, null, properties.Length < 5, leaveOpen) { }
 
     public LzmaInputStream(
-        byte[]           properties,
-        Stream inputStream,
-        long             inputSize,
-        long             outputSize,
-        Stream presetDictionary,
-        bool             isLzma2,
-        bool             leaveOpen = false)
+        byte[]  properties,
+        Stream  inputStream,
+        long    inputSize,
+        long    outputSize,
+        Stream? presetDictionary,
+        bool    isLzma2,
+        bool    leaveOpen = false)
     {
         _inputStream = inputStream;
         _inputSize   = inputSize;

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using SharpHDiffPatch.New.Extension;
+using SharpHPatchZ.Extension;
 
-namespace SharpHDiffPatch.New.Header.Metadata;
+namespace SharpHPatchZ.Header.Metadata;
 
 public unsafe struct ChecksumDataInfo : IMetadataInit
 {

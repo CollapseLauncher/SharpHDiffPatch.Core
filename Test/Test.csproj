@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>14</LangVersion>
+    <Platforms>AnyCPU;x64;ARM64;x86</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpHDiffPatch.Core\SharpHDiffPatch.Core.csproj" />
+    <ProjectReference Include="..\SharpHPatchZ\SharpHPatchZ.csproj" />
+  </ItemGroup>
+
+</Project>

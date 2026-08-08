@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace SharpHDiffPatch.New.IO.Compression.Lzma.RangeCoder;
+namespace SharpHPatchZ.IO.Compression.Lzma.RangeCoder;
 
 internal struct BitDecoder
 {

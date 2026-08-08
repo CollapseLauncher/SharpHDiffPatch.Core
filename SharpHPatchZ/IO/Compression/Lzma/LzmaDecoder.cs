@@ -1,10 +1,10 @@
 using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
-using SharpHDiffPatch.New.IO.Compression.Lzma.LZ;
-using SharpHDiffPatch.New.IO.Compression.Lzma.RangeCoder;
+using SharpHPatchZ.IO.Compression.Lzma.LZ;
+using SharpHPatchZ.IO.Compression.Lzma.RangeCoder;
 
-namespace SharpHDiffPatch.New.IO.Compression.Lzma;
+namespace SharpHPatchZ.IO.Compression.Lzma;
 
 internal class Decoder : IDisposable
 {

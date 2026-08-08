@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
-using SharpHDiffPatch.New.Extension;
+using SharpHPatchZ.Extension;
 
-namespace SharpHDiffPatch.New.Header.Metadata;
+namespace SharpHPatchZ.Header.Metadata;
 
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct HeaderDirectoryPatchMetadata : IMetadataInit

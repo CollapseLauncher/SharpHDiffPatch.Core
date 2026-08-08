@@ -1,18 +1,19 @@
 using System;
 using System.Buffers;
+using System.IO;
 using System.Runtime.CompilerServices;
 
-namespace SharpHDiffPatch.New.IO.Compression.Lzma.LZ;
+namespace SharpHPatchZ.IO.Compression.Lzma.LZ;
 
 internal class OutWindow : IDisposable
 {
-    private byte[]           _buffer = [];
-    private int              _windowSize;
-    private int              _pos;
-    private int              _streamPos;
-    private int              _pendingLen;
-    private int              _pendingDist;
-    private System.IO.Stream _stream;
+    private byte[]  _buffer = [];
+    private int     _windowSize;
+    private int     _pos;
+    private int     _streamPos;
+    private int     _pendingLen;
+    private int     _pendingDist;
+    private Stream? _stream;
 
     public long Total;
     public long Limit;
@@ -36,13 +37,13 @@ internal class OutWindow : IDisposable
 
     public void Reset() => Create(_windowSize);
 
-    public void Init(System.IO.Stream stream)
+    public void Init(Stream stream)
     {
         ReleaseStream();
         _stream = stream;
     }
 
-    public void Train(System.IO.Stream stream)
+    public void Train(Stream stream)
     {
         long len  = stream.Length;
         int  size = len < _windowSize ? (int)len : _windowSize;
@@ -179,7 +180,7 @@ internal class OutWindow : IDisposable
         return _buffer[pos];
     }
 
-    public int CopyStream(System.IO.Stream stream, int len)
+    public int CopyStream(Stream stream, int len)
     {
         int size = len;
         while (size > 0 && _pos < _windowSize && Total < Limit)

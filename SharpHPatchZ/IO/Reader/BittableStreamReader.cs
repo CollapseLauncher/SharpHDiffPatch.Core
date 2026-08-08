@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SharpHDiffPatch.New.IO.Reader;
+namespace SharpHPatchZ.IO.Reader;
 
 internal sealed class BittableStreamReader
     : IDisposable

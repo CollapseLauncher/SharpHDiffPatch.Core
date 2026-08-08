@@ -12,9 +12,9 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using SharpHDiffPatch.New.Header;
-using SharpHDiffPatch.New.IO.Compression.BZip2;
-using SharpHDiffPatch.New.IO.Compression.Lzma;
+using SharpHPatchZ.Header;
+using SharpHPatchZ.IO.Compression.BZip2;
+using SharpHPatchZ.IO.Compression.Lzma;
 #if NETSTANDARD2_0_OR_GREATER || NET6_0_OR_GREATER
 using ZstdManagedDecompressor = ZstdSharp.Decompressor;
 using ZstdManagedDecompressorParameter = ZstdSharp.Unsafe.ZSTD_dParameter;
@@ -27,7 +27,7 @@ using ZstdNativeDecompressorParameter = ZstdNet.ZSTD_dParameter;
 using ZstdNativeStream = ZstdNet.DecompressionStream;
 #endif
 
-namespace SharpHDiffPatch.New.IO.Compression;
+namespace SharpHPatchZ.IO.Compression;
 
 internal static class DecompressStreamFactory
 {

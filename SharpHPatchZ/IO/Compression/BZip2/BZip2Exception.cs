@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace SharpHDiffPatch.New.IO.Compression.BZip2;
+namespace SharpHPatchZ.IO.Compression.BZip2;
 
 /// <summary>
 /// BZip2Exception represents exceptions specific to BZip2 classes and code.

@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 
 // ReSharper disable CommentTypo
 
-namespace SharpHDiffPatch.New.IO.Compression.BZip2;
+namespace SharpHPatchZ.IO.Compression.BZip2;
 
 /// <summary>
 /// An input stream that decompresses files in the BZip2 format.
@@ -18,8 +18,8 @@ public sealed class BZip2InputStream : Stream
     private const int AlphaTableStride     = BZip2Constants.MaximumAlphaSize;
     private const int CodeTableStride      = BZip2Constants.MaximumCodeLength;
 
-    private readonly bool             _decompressConcatenated;
-    private readonly bool             _leaveOpen;
+    private readonly bool   _decompressConcatenated;
+    private readonly bool   _leaveOpen;
     private readonly Stream _baseStream;
 
     // Buffer compressed input. The original implementation called Stream.ReadByte()
@@ -49,10 +49,10 @@ public sealed class BZip2InputStream : Stream
     private byte[]   _ll8 = [];
     private ushort[] _perm;
 
-    private readonly int[]    _unZfTab;
-    private readonly int[]    _limit     = new int[BZip2Constants.GroupCount * CodeTableStride];
-    private readonly int[]    _baseArray = new int[BZip2Constants.GroupCount * CodeTableStride];
-    private readonly byte[]   _minLens   = new byte[BZip2Constants.GroupCount];
+    private readonly int[]  _unZfTab;
+    private readonly int[]  _limit     = new int[BZip2Constants.GroupCount * CodeTableStride];
+    private readonly int[]  _baseArray = new int[BZip2Constants.GroupCount * CodeTableStride];
+    private readonly byte[] _minLens   = new byte[BZip2Constants.GroupCount];
 
     private bool _streamEnd;
     private bool _blockEndPending;

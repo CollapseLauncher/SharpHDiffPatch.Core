@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Threading.Tasks;
-using SharpHDiffPatch.New.IO.Reader;
 
-namespace SharpHDiffPatch.New.Extension;
+namespace SharpHPatchZ.Extension;
 
 internal static class StringExtension
 {

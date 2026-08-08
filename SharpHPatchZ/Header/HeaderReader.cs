@@ -1,4 +1,7 @@
-﻿using SharpHDiffPatch.New.Extension;
+﻿using SharpHPatchZ.Extension;
+using SharpHPatchZ.Header.Metadata;
+using SharpHPatchZ.IO.Compression;
+using SharpHPatchZ.IO.Reader;
 using System;
 using System.Buffers;
 using System.IO;
@@ -6,11 +9,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpHDiffPatch.New.IO.Compression;
-using SharpHDiffPatch.New.IO.Reader;
-using SharpHDiffPatch.New.Header.Metadata;
 
-namespace SharpHDiffPatch.New.Header;
+namespace SharpHPatchZ.Header;
 
 public class HeaderReader
 {

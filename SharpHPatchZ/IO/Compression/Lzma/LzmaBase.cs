@@ -1,4 +1,4 @@
-namespace SharpHDiffPatch.New.IO.Compression.Lzma;
+namespace SharpHPatchZ.IO.Compression.Lzma;
 
 internal abstract class Base
 {

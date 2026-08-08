@@ -1,4 +1,4 @@
-﻿namespace SharpHDiffPatch.New.Header;
+﻿namespace SharpHPatchZ.Header;
 
 public enum HDiffMagic
 {

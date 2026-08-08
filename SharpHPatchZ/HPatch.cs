@@ -1,10 +1,10 @@
 ﻿using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using SharpHDiffPatch.New.Header;
-using SharpHDiffPatch.New.IO.Reader;
+using SharpHPatchZ.Header;
+using SharpHPatchZ.IO.Reader;
 
-namespace SharpHDiffPatch.New;
+namespace SharpHPatchZ;
 
 public delegate (Stream Stream, bool LeaveOpen) CreateStream(long position);
 

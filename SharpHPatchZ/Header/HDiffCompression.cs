@@ -1,7 +1,7 @@
 ﻿// ReSharper disable UnusedMember.Global
 // ReSharper disable IdentifierTypo
 // ReSharper disable InconsistentNaming
-namespace SharpHDiffPatch.New.Header;
+namespace SharpHPatchZ.Header;
 
 public enum HDiffCompression
 {

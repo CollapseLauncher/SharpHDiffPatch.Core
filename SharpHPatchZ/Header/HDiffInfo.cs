@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using SharpHDiffPatch.New.Extension;
-using SharpHDiffPatch.New.Header.Metadata;
+using SharpHPatchZ.Extension;
+using SharpHPatchZ.Header.Metadata;
 
-namespace SharpHDiffPatch.New.Header;
+namespace SharpHPatchZ.Header;
 
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct HDiffInfo : IDisposable

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SharpHDiffPatch.New.Header.Metadata;
+namespace SharpHPatchZ.Header.Metadata;
 
 [Flags]
 public enum MetadataTypeConst : short
