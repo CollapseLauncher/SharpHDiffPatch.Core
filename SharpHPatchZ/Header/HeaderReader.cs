@@ -1,37 +1,19 @@
-﻿using SharpHPatchZ.Extension;
-using SharpHPatchZ.Header.Metadata;
-using SharpHPatchZ.IO.Compression;
-using SharpHPatchZ.IO.Reader;
-using System;
+﻿using System;
 using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpHPatchZ.Extension;
+using SharpHPatchZ.Header.Metadata;
+using SharpHPatchZ.IO.Compression;
+using SharpHPatchZ.IO.Reader;
 
 namespace SharpHPatchZ.Header;
 
 public class HeaderReader
 {
     private delegate ref PatchMetadata PatchMetadataAllocator(ref HDiffInfo info);
-
-#if NET8_0_OR_GREATER
-    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvStdcall)], EntryPoint = "Extent_HeaderReader_ReadHeaderSignature")]
-    public static unsafe int ReadHeaderSignature_Extent(void* wSignP, int wSignLen, HDiffInfo* signP)
-    {
-        try
-        {
-            ReadOnlySpan<char> signature = new(wSignP, wSignLen);
-            ReadHeaderSignature(signature, ref signP[0]);
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            return ExceptionHelper.TryGetReturnCodeFromError(ex);
-        }
-    }
-#endif
 
     public static void ReadHeaderSignature(ReadOnlySpan<char> signature, ref HDiffInfo info)
     {
@@ -41,7 +23,7 @@ public class HeaderReader
                                  out info.ChecksumType);
     }
 
-    private static void ReadBasicHeaderSignature(
+    internal static void ReadBasicHeaderSignature(
         ReadOnlySpan<char>   signature,
         out HDiffMagic       magicType,
         out HDiffCompression compressionType,
@@ -72,7 +54,7 @@ public class HeaderReader
 
         if (!Enum.TryParse(magicSpan, true, out magicType))
         {
-            ExceptionHelper.ThrowHdiffHeaderMagicNotSupported(magicSpan);
+            ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
         }
 
         // Parse HDIFF19 (Directory Patch) enums
@@ -81,13 +63,13 @@ public class HeaderReader
             if (compressionTypeSpan.Length != 0 &&
                 !Enum.TryParse(compressionTypeSpan, true, out compressionType))
             {
-                ExceptionHelper.ThrowHdiffHeaderCompressionNotSupported(compressionTypeSpan);
+                ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
             }
 
             if (checksumTypeSpan.Length != 0 &&
                 !Enum.TryParse(checksumTypeSpan, true, out checksumType))
             {
-                ExceptionHelper.ThrowHdiffHeaderChecksumNotSupported(checksumTypeSpan);
+                ExceptionHelper.ThrowHDiffHeaderChecksumNotSupported(checksumTypeSpan);
             }
 
             return;
@@ -99,13 +81,13 @@ public class HeaderReader
             if (compressionTypeSpan.Length != 0 &&
                 !Enum.TryParse(compressionTypeSpan, true, out compressionType))
             {
-                ExceptionHelper.ThrowHdiffHeaderCompressionNotSupported(compressionTypeSpan);
+                ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
             }
 
             return;
         }
 
-        ExceptionHelper.ThrowHdiffHeaderMagicNotSupported(magicSpan);
+        ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
     }
 
     internal static void ReadHDiffHeaderMetadata(

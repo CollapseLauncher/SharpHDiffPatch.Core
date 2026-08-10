@@ -1,6 +1,8 @@
 ﻿using System;
+using System.IO;
 #if NET8_0_OR_GREATER
 using System.Collections.Generic;
+// ReSharper disable InconsistentNaming
 #endif
 
 namespace SharpHPatchZ.Extension;
@@ -13,26 +15,46 @@ file static class Const
         { HDiffHeaderSignatureEmptyOrUnreadable, 0b_00000000_00000000_00000000_00000010 },
         { HDiffHeaderMagicNotSupported,          0b_00000000_00000000_00000000_00000100 },
         { HDiffHeaderCompressionNotSupported,    0b_00000000_00000000_00000000_00001000 },
-        { HDiffHeaderChecksumNotSupported,       0b_00000000_00000000_00000000_00010000 }
-    };
+        { HDiffHeaderChecksumNotSupported,       0b_00000000_00000000_00000000_00010000 },
+        { HDiffHeaderEndOfFileOrData,            0b_00000000_00000000_00000000_00100000 },
+        { HDiffPathIsEmptyOrInvalid,             0b_00000000_00000000_00000000_01000000 },
+        { HDiffFILEDescriptorNull,               0b_00000000_00000000_00000000_10000000 },
+        { HDiffIOException,                      0b_00000000_00000000_00000001_00000000 },
+        { HDiffInfoIsNull,                       0b_00000000_00000000_00000010_00000000 }
+};
 #endif
 
     public const string HDiffHeaderSignatureEmptyOrUnreadable = "HDIFF_HeaderSignatureEmptyOrUnreadable";
     public const string HDiffHeaderMagicNotSupported          = "HDIFF_HeaderMagicNotSupported";
     public const string HDiffHeaderCompressionNotSupported    = "HDIFF_HeaderCompressionNotSupported";
     public const string HDiffHeaderChecksumNotSupported       = "HDIFF_HeaderChecksumNotSupported";
+    public const string HDiffHeaderEndOfFileOrData            = "HDIFF_EndOfFileOrData";
+    public const string HDiffPathIsEmptyOrInvalid             = "HDIFF_PathIsEmptyOrInvalid";
+    public const string HDiffFILEDescriptorNull               = "HDIFF_FILEDescriptorNull";
+    public const string HDiffIOException                      = "HDIFF_IOException";
+    public const string HDiffInfoIsNull                       = "HDIFF_InfoIsNull";
 }
 
 public static class ExceptionHelper
 {
     public static void ThrowHDiffHeaderSignatureEmptyOrUnreadable()
         => throw new InvalidOperationException($"[{Const.HDiffHeaderSignatureEmptyOrUnreadable}] Header signature is empty or unreadable!");
-    public static void ThrowHdiffHeaderMagicNotSupported(ReadOnlySpan<char> magic)
+    public static void ThrowHDiffHeaderMagicNotSupported(ReadOnlySpan<char> magic)
         => throw new NotSupportedException($"[{Const.HDiffHeaderMagicNotSupported}] Header magic: {magic.ToString()} is not supported!");
-    public static void ThrowHdiffHeaderCompressionNotSupported(ReadOnlySpan<char> enumString)
+    public static void ThrowHDiffHeaderCompressionNotSupported(ReadOnlySpan<char> enumString)
         => throw new NotSupportedException($"[{Const.HDiffHeaderCompressionNotSupported}] HDIFF compression: {enumString.ToString()} is not supported!");
-    public static void ThrowHdiffHeaderChecksumNotSupported(ReadOnlySpan<char> enumString)
+    public static void ThrowHDiffHeaderChecksumNotSupported(ReadOnlySpan<char> enumString)
         => throw new NotSupportedException($"[{Const.HDiffHeaderChecksumNotSupported}] HDIFF checksum: {enumString.ToString()} is not supported!");
+    public static void ThrowHDiffEndOfFileOrData(Exception innerException)
+        => throw new EndOfStreamException($"[{Const.HDiffHeaderEndOfFileOrData}] HDiff Data has reached End-of-File or Data", innerException);
+    public static void ThrowHDiffPathIsEmptyOrInvalid()
+        => throw new InvalidOperationException($"[{Const.HDiffPathIsEmptyOrInvalid}] File or Directory path is empty or invalid");
+    public static void ThrowHDiffFILEDescriptorNull()
+        => throw new NullReferenceException($"[{Const.HDiffFILEDescriptorNull}] FILE descriptor cannot be null!");
+    public static void ThrowHDiffIOException(Exception ex)
+        => throw new IOException($"[{Const.HDiffIOException}] An IO Error has occurred with message: {ex.Message}", ex);
+    public static void ThrowHDiffInfoIsNull()
+        => throw new NullReferenceException($"[{Const.HDiffInfoIsNull}] HDiffInfo pointer is null!");
 
 #if NET8_0_OR_GREATER
     public static int TryGetReturnCodeFromError(Exception ex)

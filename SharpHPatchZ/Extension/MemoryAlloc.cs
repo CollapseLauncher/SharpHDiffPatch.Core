@@ -48,6 +48,22 @@ internal static unsafe class MemoryAlloc
         where T : unmanaged
         => (nint)toCopy.CopyToUnmanagedUnsafe();
 
+    public static void CopyTo<T>(this ref T from, ref T to)
+        where T : unmanaged
+        => to = from;
+
+    public static void CopyTo<T>(this ref T from, void* to)
+        where T : unmanaged
+        => Unsafe.AsRef<T>(to) = from;
+
+    public static void CopyTo<T>(void* from, void* to)
+        where T : unmanaged
+        => Unsafe.AsRef<T>(to) = Unsafe.AsRef<T>(from);
+
+    public static void CopyTo<T>(void* from, ref T to)
+        where T : unmanaged
+        => to = Unsafe.AsRef<T>(from);
+
     public static void Free<T>(T* ptr)
         where T : unmanaged
     {
