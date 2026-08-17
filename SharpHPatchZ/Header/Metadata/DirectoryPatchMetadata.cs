@@ -4,9 +4,9 @@ using SharpHPatchZ.Extension;
 namespace SharpHPatchZ.Header.Metadata;
 
 [StructLayout(LayoutKind.Sequential)]
-public unsafe struct HeaderDirectoryPatchMetadata : IMetadataInit
+public unsafe struct DirectoryPatchMetadata : IMetadataInit
 {
-    public HeaderDirectoryPatchMetadata()
+    public DirectoryPatchMetadata()
     {
         Init();
     }

@@ -29,6 +29,17 @@ using ZstdNativeStream = ZstdNet.DecompressionStream;
 
 namespace SharpHPatchZ.IO.Compression;
 
+internal interface IDecompressor
+{
+    Stream CreateDecompressionStream(Stream sourceStream, bool leaveOpen);
+}
+
+internal readonly struct HDiffDecompressor(HDiffCompression type) : IDecompressor
+{
+    public Stream CreateDecompressionStream(Stream sourceStream, bool leaveOpen)
+        => DecompressStreamFactory.CreateStream(type, sourceStream, leaveOpen);
+}
+
 internal static class DecompressStreamFactory
 {
     private delegate        Stream              ZstdStreamFallback(Stream stream, bool leaveOpen);

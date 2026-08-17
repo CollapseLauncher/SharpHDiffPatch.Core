@@ -29,7 +29,7 @@ internal static class MetadataExtension
                     Unsafe.As<T, ChecksumDataInfo>(ref metadata).Dispose();
                     break;
                 case MetadataTypeConst.HeaderDirectoryPatchMetadataType:
-                    Unsafe.As<T, HeaderDirectoryPatchMetadata>(ref metadata).Dispose();
+                    Unsafe.As<T, DirectoryPatchMetadata>(ref metadata).Dispose();
                     break;
                 case MetadataTypeConst.PatchMetadataType:
                     Unsafe.As<T, PatchMetadata>(ref metadata).Dispose();

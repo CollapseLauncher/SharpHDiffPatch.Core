@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpHPatchZ.IO.Compression;
 
 namespace SharpHPatchZ.IO.Reader;
 
@@ -19,17 +20,45 @@ internal sealed class BittableStreamReader
     private int _offset;
     private int _bufferedLength;
 
-    private readonly byte[] _backedBuffer;
-    public readonly  Stream BackedStream;
+    private byte[] _backedBuffer;
+    public  Stream BackedStream { get; private set; }
 
-    private readonly bool _leaveOpen;
-    private          bool _isDisposed;
+    private bool _leaveOpen;
+    private bool _isDisposed;
+
+    private long _consumedByteCount;
+
+    private bool _hasUnderlyingStreamTransition;
+    private long _underlyingStreamTransitionLogicalEnd;
+    private long _underlyingStreamTransitionStart;
+    private long _underlyingStreamTransitionEnd;
 
     public int  TagBitCount;
     public byte Tag;
     public byte PreviousByte;
 
-    public long Offset => _offset;
+    public long Offset => _consumedByteCount + _offset;
+
+    public long OffsetUnderlyingStream
+    {
+        get
+        {
+            long logicalOffset = Offset;
+            if (!_hasUnderlyingStreamTransition)
+            {
+                return logicalOffset;
+            }
+
+            // Compressed and decompressed bytes have no one-to-one mapping. Until
+            // the decoded segment is fully consumed, its source position remains at
+            // the compressed segment start. At the boundary it advances by the
+            // declared compressed length, then raw bytes continue one-to-one.
+            return logicalOffset < _underlyingStreamTransitionLogicalEnd
+                ? _underlyingStreamTransitionStart
+                : checked(_underlyingStreamTransitionEnd +
+                    logicalOffset - _underlyingStreamTransitionLogicalEnd);
+        }
+    }
 
     public BittableStreamReader(Stream stream, int bufferSize = -1, bool leaveOpen = false)
     {
@@ -55,6 +84,77 @@ internal sealed class BittableStreamReader
         BackedStream  = stream;
         _backedBuffer = ArrayPool<byte>.Shared.Rent(bufferSize);
         _leaveOpen    = leaveOpen;
+    }
+
+    public BittableStreamReader ContinueWithDecompressor(
+        IDecompressor decompressor,
+        long          compressedLength,
+        long          decompressedLength)
+    {
+        if (decompressor is null)
+        {
+            throw new ArgumentNullException(nameof(decompressor));
+        }
+
+        if (compressedLength < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(compressedLength));
+        }
+
+        if (decompressedLength < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(decompressedLength));
+        }
+
+        ThrowIfDisposed();
+        ResetTag();
+
+        long transitionLogicalEnd      = checked(Offset + decompressedLength);
+        long transitionUnderlyingStart = OffsetUnderlyingStream;
+        long transitionUnderlyingEnd   = checked(transitionUnderlyingStart + compressedLength);
+
+        byte[] replacementBuffer = ArrayPool<byte>.Shared.Rent(_backedBuffer.Length);
+        BufferedRemainderStream? remainderStream = null;
+        try
+        {
+            remainderStream = new BufferedRemainderStream(BackedStream,
+                                                          _backedBuffer,
+                                                          _offset,
+                                                          _bufferedLength - _offset,
+                                                          _leaveOpen);
+
+            BoundedReadStream compressedStream = new(remainderStream, compressedLength);
+            Stream decompressedStream = decompressor.CreateDecompressionStream(compressedStream, leaveOpen: true);
+            Stream transitionStream = new DecompressionTransitionStream(
+                decompressedStream,
+                compressedStream,
+                remainderStream,
+                decompressedLength);
+
+            _consumedByteCount += _offset;
+            _backedBuffer      =  replacementBuffer;
+            BackedStream       =  transitionStream;
+            _offset            =  0;
+            _bufferedLength    =  0;
+            _leaveOpen         =  false;
+
+            _hasUnderlyingStreamTransition        = true;
+            _underlyingStreamTransitionLogicalEnd = transitionLogicalEnd;
+            _underlyingStreamTransitionStart      = transitionUnderlyingStart;
+            _underlyingStreamTransitionEnd        = transitionUnderlyingEnd;
+            return this;
+        }
+        catch
+        {
+            ArrayPool<byte>.Shared.Return(replacementBuffer);
+
+            // Decoder construction may consume input, so the original reader can no
+            // longer be restored safely after a failure. Transfer cleanup to the
+            // remainder stream and leave this instance disposed.
+            _isDisposed = true;
+            remainderStream?.Dispose();
+            throw;
+        }
     }
 
     public byte ReadByte()
@@ -98,7 +198,7 @@ internal sealed class BittableStreamReader
             new ReadOnlySpan<byte>(_backedBuffer, _offset, copyLength).CopyTo(buffer);
 
             _offset += copyLength;
-            buffer   = buffer[copyLength..];
+            buffer  =  buffer[copyLength..];
         }
     }
 
@@ -133,7 +233,7 @@ internal sealed class BittableStreamReader
             new ReadOnlyMemory<byte>(_backedBuffer, _offset, copyLength).CopyTo(buffer);
 
             _offset += copyLength;
-            buffer   = buffer[copyLength..];
+            buffer  =  buffer[copyLength..];
         }
     }
 
@@ -149,7 +249,7 @@ internal sealed class BittableStreamReader
         ResetTag();
 
         byte[] stringBuffer = ArrayPool<byte>.Shared.Rent(Math.Max(1, Math.Min(maxByteCount, 256)));
-        int    stringLength = 0;
+        int stringLength = 0;
         try
         {
             while (true)
@@ -191,7 +291,7 @@ internal sealed class BittableStreamReader
         => ReadStringToNullAsync(DefaultBufferSize, token);
 
     public async ValueTask<string> ReadStringToNullAsync(
-        int               maxByteCount,
+        int maxByteCount,
         CancellationToken token = default)
     {
         if (maxByteCount < 0)
@@ -202,7 +302,7 @@ internal sealed class BittableStreamReader
         ResetTag();
 
         byte[] stringBuffer = ArrayPool<byte>.Shared.Rent(Math.Max(1, Math.Min(maxByteCount, 256)));
-        int    stringLength = 0;
+        int stringLength = 0;
         try
         {
             while (true)
@@ -260,7 +360,7 @@ internal sealed class BittableStreamReader
 
     public async ValueTask<int> ReadInt7BitAsync(
         int               tagBit,
-        CancellationToken token  = default)
+        CancellationToken token = default)
     {
         byte code = await ReadFirstCodeAsync(tagBit, token);
         return await ReadInt7BitCoreAsync(code, tagBit, token);
@@ -506,8 +606,9 @@ internal sealed class BittableStreamReader
             Buffer.BlockCopy(_backedBuffer, _offset, _backedBuffer, 0, available);
         }
 
-        _offset         = 0;
-        _bufferedLength = available;
+        _consumedByteCount += _offset;
+        _offset            =  0;
+        _bufferedLength    =  available;
         while (_bufferedLength < minimumByteCount)
         {
             int read = BackedStream.Read(_backedBuffer,
@@ -544,14 +645,15 @@ internal sealed class BittableStreamReader
             Buffer.BlockCopy(_backedBuffer, _offset, _backedBuffer, 0, available);
         }
 
-        _offset         = 0;
-        _bufferedLength = available;
+        _consumedByteCount += _offset;
+        _offset            =  0;
+        _bufferedLength    =  available;
 
         while (_bufferedLength < minimumByteCount)
         {
 #if NET6_0_OR_GREATER
             int read = await BackedStream.ReadAsync(_backedBuffer.AsMemory(_bufferedLength, _backedBuffer.Length - _bufferedLength),
-                                                     token).ConfigureAwait(false);
+                                                    token).ConfigureAwait(false);
 #else
             int read = await BackedStream.ReadAsync(_backedBuffer,
                                                     _bufferedLength,

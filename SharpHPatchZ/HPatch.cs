@@ -22,7 +22,7 @@ public static partial class HPatch
             string    signature = reader.ReadStringToNull();
             HDiffInfo info      = default;
             HeaderReader.ReadHeaderSignature(signature, ref info);
-            HeaderReader.ReadHDiffHeaderMetadata(ref info, reader, createPatchStream);
+            HeaderReader.ReadHDiffHeaderMetadata(ref info, reader);
 
             return info;
         }
@@ -43,8 +43,17 @@ public static partial class HPatch
         string    signature = await reader.ReadStringToNullAsync(token: token);
         HDiffInfo info      = default;
         HeaderReader.ReadHeaderSignature(signature, ref info);
-        info = await HeaderReader.ReadHDiffHeaderMetadataAsync(info, reader, createPatchStreamAsync, token);
+        info = await HeaderReader.ReadHDiffHeaderMetadataAsync(info, reader, token);
 
         return info;
+    }
+
+    public static void Patch(HDiffInfo    info,
+                             CreateStream createPatchStream,
+                             string       inputPath,
+                             string       outputPath,
+                             PatchOptions options = default)
+    {
+
     }
 }

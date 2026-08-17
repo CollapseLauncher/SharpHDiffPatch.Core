@@ -92,14 +92,13 @@ public class HeaderReader
 
     internal static void ReadHDiffHeaderMetadata(
         ref HDiffInfo        info,
-        BittableStreamReader streamReader,
-        CreateStream         additionalStreamCreate)
+        BittableStreamReader streamReader)
     {
         PatchMetadataAllocator patchMetadataAllocator = DefaultPatchMetadataAllocator;
         switch (info.MagicType)
         {
             case HDiffMagic.HDiff19:
-                ReadHDiff19HeaderInfoCore(ref info, streamReader, additionalStreamCreate);
+                ReadHDiff19HeaderInfoCore(ref info, streamReader);
                 patchMetadataAllocator = HDiff19PatchMetadataAllocator;
                 // Continue reading HDiff13 data section.
                 goto case HDiffMagic.HDiff13;
@@ -112,7 +111,6 @@ public class HeaderReader
     internal static async Task<HDiffInfo> ReadHDiffHeaderMetadataAsync(
         HDiffInfo            info,
         BittableStreamReader streamReader,
-        CreateStreamAsync    additionalStreamCreate,
         CancellationToken    token)
     {
         PatchMetadataAllocator patchMetadataAllocator = DefaultPatchMetadataAllocator;
@@ -121,7 +119,6 @@ public class HeaderReader
             case HDiffMagic.HDiff19:
                 info = await ReadHDiff19HeaderInfoAsyncCore(info,
                                                             streamReader,
-                                                            additionalStreamCreate,
                                                             token);
 
                 patchMetadataAllocator = HDiff19PatchMetadataAllocator;
@@ -146,15 +143,14 @@ public class HeaderReader
         PatchMetadata* patchMetadata = MemoryAlloc.Alloc<PatchMetadata>();
         patchMetadata->Init();
 
-        ref HeaderDirectoryPatchMetadata dirPatchMetadata = ref info.MetadataAs<HeaderDirectoryPatchMetadata>();
+        ref DirectoryPatchMetadata dirPatchMetadata = ref info.MetadataAs<DirectoryPatchMetadata>();
         dirPatchMetadata.PatchMetadataP = patchMetadata;
         return ref Unsafe.AsRef<PatchMetadata>(patchMetadata);
     }
 
     private static unsafe void ReadHDiff19HeaderInfoCore(
         ref HDiffInfo        info,
-        BittableStreamReader streamReader,
-        CreateStream         additionalStreamCreate)
+        BittableStreamReader streamReader)
     {
         byte isInputDir  = streamReader.ReadByte();
         byte isOutputDir = streamReader.ReadByte();
@@ -185,28 +181,33 @@ public class HeaderReader
         Span<byte> checksumData    = stackalloc byte[checksumDataLen];
 
         streamReader.ReadBytes(checksumData);
-        long headDataOffset = streamReader.Offset;
 
-        // Try seek primary reader. Read the HDiff13 signature and sanity.
-        long toSkipHeadDataSize = headDataCompressedSize > 0 ? headDataCompressedSize : headDataSize;
-        streamReader.AdvanceSeekTo((int)toSkipHeadDataSize);
+        if (headDataCompressedSize > 0)
+        {
+            streamReader.ContinueWithDecompressor(new HDiffDecompressor(info.CompressionType),
+                                                  headDataCompressedSize,
+                                                  headDataSize);
+        }
+
+        long headDataStartOffset = streamReader.Offset;
+
+        UnmanagedArray<Utf16UnmanagedString>* inputPathEntryArray        = streamReader.CreateUnmanagedStringList(inputPathEntryCount, (int)inputPathEntryBufferSize);
+        UnmanagedArray<Utf16UnmanagedString>* outputPathEntryArray       = streamReader.CreateUnmanagedStringList(outputPathEntryCount, (int)outputPathEntryBufferSize);
+        int*                                  inputFilesIndexArray       = streamReader.CreateUnmanagedInt64As32List(inputRefFileCount);
+        int*                                  outputFilesIndexArray      = streamReader.CreateUnmanagedInt64As32List(outputRefFileCount);
+        long*                                 outputFilesSizesArray      = streamReader.CreateUnmanagedInt64List(outputRefFileCount);
+        FileIndexPair*                        sameFilePathIndexPairArray = streamReader.CreateUnmanagedIndexPairList(sameFilePathEntryCount);
+        int*                                  newExecuteListArray        = streamReader.CreateUnmanagedInt64As32List(newExecuteCount);
+
+        if (streamReader.Offset - headDataStartOffset != headDataSize)
+        {
+            throw new InvalidDataException("The directory head data length does not match its declared length.");
+        }
+
         string sanityDiffPatchSignature = streamReader.ReadStringToNull();
         ReadBasicHeaderSignature(sanityDiffPatchSignature, out _, out _, out _);
 
-        // Read HeadData.
-        (Stream additionalStream, bool leaveOpenAdditionalStream) = additionalStreamCreate(headDataOffset);
-        using Stream additionalStreamDecompressed = DecompressStreamFactory.CreateStream(info.CompressionType, additionalStream, leaveOpenAdditionalStream);
-        using BittableStreamReader anotherStreamReader = new(additionalStreamDecompressed, leaveOpen: leaveOpenAdditionalStream);
-
-        UnmanagedArray<Utf16UnmanagedString>* inputPathEntryArray        = anotherStreamReader.CreateUnmanagedStringList(inputPathEntryCount, (int)inputPathEntryBufferSize);
-        UnmanagedArray<Utf16UnmanagedString>* outputPathEntryArray       = anotherStreamReader.CreateUnmanagedStringList(outputPathEntryCount, (int)outputPathEntryBufferSize);
-        int*                                  inputFilesIndexArray       = anotherStreamReader.CreateUnmanagedInt64As32List(inputRefFileCount);
-        int*                                  outputFilesIndexArray      = anotherStreamReader.CreateUnmanagedInt64As32List(outputRefFileCount);
-        long*                                 outputFilesSizesArray      = anotherStreamReader.CreateUnmanagedInt64List(outputRefFileCount);
-        FileIndexPair*                        sameFilePathIndexPairArray = anotherStreamReader.CreateUnmanagedIndexPairList(sameFilePathEntryCount);
-        int*                                  newExecuteListArray        = anotherStreamReader.CreateUnmanagedInt64As32List(newExecuteCount);
-
-        ref HeaderDirectoryPatchMetadata dirTypeMetadata = ref info.AllocMetadata<HeaderDirectoryPatchMetadata>();
+        ref DirectoryPatchMetadata dirTypeMetadata = ref info.AllocMetadata<DirectoryPatchMetadata>();
         dirTypeMetadata.IsInputDir  = isInputDir;
         dirTypeMetadata.IsOutputDir = isOutputDir;
 
@@ -248,7 +249,6 @@ public class HeaderReader
     private static async Task<HDiffInfo> ReadHDiff19HeaderInfoAsyncCore(
         HDiffInfo            info,
         BittableStreamReader streamReader,
-        CreateStreamAsync    additionalStreamCreate,
         CancellationToken    token)
     {
         byte isInputDir  = await streamReader.ReadByteAsync(token);
@@ -280,32 +280,35 @@ public class HeaderReader
         byte[] checksumData    = ArrayPool<byte>.Shared.Rent(checksumDataLen);
         await streamReader.ReadBytesAsync(checksumData.AsMemory(0, checksumDataLen), token);
 
-        long headDataOffset = streamReader.Offset;
+        if (headDataCompressedSize > 0)
+        {
+            streamReader.ContinueWithDecompressor(new HDiffDecompressor(info.CompressionType),
+                                                  headDataCompressedSize,
+                                                  headDataSize);
+        }
 
-        // Try seek primary reader. Read the HDiff13 signature and sanity.
-        long toSkipHeadDataSize = headDataCompressedSize > 0 ? headDataCompressedSize : headDataSize;
-        await streamReader.AdvanceSeekToAsync((int)toSkipHeadDataSize, token);
+        long headDataStartOffset = streamReader.Offset;
+
+        nint inputPathEntryArray        = await streamReader.CreateUnmanagedStringListAsync(inputPathEntryCount, (int)inputPathEntryBufferSize, token);
+        nint outputPathEntryArray       = await streamReader.CreateUnmanagedStringListAsync(outputPathEntryCount, (int)outputPathEntryBufferSize, token);
+        nint inputFilesIndexArray       = await streamReader.CreateUnmanagedInt64As32ListAsync(inputRefFileCount, token);
+        nint outputFilesIndexArray      = await streamReader.CreateUnmanagedInt64As32ListAsync(outputRefFileCount, token);
+        nint outputFilesSizesArray      = await streamReader.CreateUnmanagedInt64ListAsync(outputRefFileCount, token);
+        nint sameFilePathIndexPairArray = await streamReader.CreateUnmanagedIndexPairListAsync(sameFilePathEntryCount, token);
+        nint newExecuteListArray        = await streamReader.CreateUnmanagedInt64As32ListAsync(newExecuteCount, token);
+
+        if (streamReader.Offset - headDataStartOffset != headDataSize)
+        {
+            throw new InvalidDataException("The directory head data length does not match its declared length.");
+        }
+
         string sanityDiffPatchSignature = await streamReader.ReadStringToNullAsync(token);
         ReadBasicHeaderSignature(sanityDiffPatchSignature, out _, out _, out _);
 
-        // Read HeadData.
-        (Stream additionalStream, bool leaveOpenAdditionalStream) = await additionalStreamCreate(headDataOffset, token);
-        using Stream additionalStreamDecompressed =
-            DecompressStreamFactory.CreateStream(info.CompressionType, additionalStream, leaveOpenAdditionalStream);
-        using BittableStreamReader anotherStreamReader = new(additionalStreamDecompressed, leaveOpen: leaveOpenAdditionalStream);
-
-        nint inputPathEntryArray        = await anotherStreamReader.CreateUnmanagedStringListAsync(inputPathEntryCount, (int)inputPathEntryBufferSize, token);
-        nint outputPathEntryArray       = await anotherStreamReader.CreateUnmanagedStringListAsync(outputPathEntryCount, (int)outputPathEntryBufferSize, token);
-        nint inputFilesIndexArray       = await anotherStreamReader.CreateUnmanagedInt64As32ListAsync(inputRefFileCount, token);
-        nint outputFilesIndexArray      = await anotherStreamReader.CreateUnmanagedInt64As32ListAsync(outputRefFileCount, token);
-        nint outputFilesSizesArray      = await anotherStreamReader.CreateUnmanagedInt64ListAsync(outputRefFileCount, token);
-        nint sameFilePathIndexPairArray = await anotherStreamReader.CreateUnmanagedIndexPairListAsync(sameFilePathEntryCount, token);
-        nint newExecuteListArray        = await anotherStreamReader.CreateUnmanagedInt64As32ListAsync(newExecuteCount, token);
-
         try
         {
-            ref HeaderDirectoryPatchMetadata dirTypeMetadata = ref info.AllocMetadata<HeaderDirectoryPatchMetadata>();
-            dirTypeMetadata.IsInputDir = isInputDir;
+            ref DirectoryPatchMetadata dirTypeMetadata = ref info.AllocMetadata<DirectoryPatchMetadata>();
+            dirTypeMetadata.IsInputDir  = isInputDir;
             dirTypeMetadata.IsOutputDir = isOutputDir;
 
             unsafe
@@ -384,8 +387,9 @@ public class HeaderReader
         patchMetadata.RleControlDataSizeP->CompressedSize = rleControlDataSizeC;
         patchMetadata.RleCodeDataSizeP->Size              = rleCodeDataSize;
         patchMetadata.RleCodeDataSizeP->CompressedSize    = rleCodeDataSizeC;
-        patchMetadata.NewDiffDataSizeP->CompressedSize    = newDiffSize;
+        patchMetadata.NewDiffDataSizeP->Size              = newDiffSize;
         patchMetadata.NewDiffDataSizeP->CompressedSize    = newDiffSizeC;
+        patchMetadata.DiffDataOffset                      = streamReader.OffsetUnderlyingStream;
     }
 
     private static async Task<HDiffInfo> ReadHDiff13HeaderInfoAsyncCore(
@@ -422,8 +426,9 @@ public class HeaderReader
             patchMetadata.RleControlDataSizeP->CompressedSize = rleControlDataSizeC;
             patchMetadata.RleCodeDataSizeP->Size              = rleCodeDataSize;
             patchMetadata.RleCodeDataSizeP->CompressedSize    = rleCodeDataSizeC;
-            patchMetadata.NewDiffDataSizeP->CompressedSize    = newDiffSize;
+            patchMetadata.NewDiffDataSizeP->Size              = newDiffSize;
             patchMetadata.NewDiffDataSizeP->CompressedSize    = newDiffSizeC;
+            patchMetadata.DiffDataOffset                      = streamReader.OffsetUnderlyingStream;
 
             return info;
         }
