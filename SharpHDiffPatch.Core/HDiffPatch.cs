@@ -10,6 +10,7 @@ namespace SharpHDiffPatch.Core;
 
 public enum BufferMode { None, Partial, Full }
 public enum Verbosity { Quiet, Info, Verbose, Debug }
+public enum DirectoryPatchFormat { Standard, Kuro }
 
 public enum ChecksumMode
 {
@@ -121,6 +122,7 @@ public sealed class HDiffPatch
     public static   EventListener Event      = new();
 
     public static Verbosity LogVerbosity { get; set; } = Verbosity.Quiet;
+    public DirectoryPatchFormat DirPatchFormat { get; set; } = DirectoryPatchFormat.Standard;
 
 #region Header Initialization
     public void Initialize(string diff)
@@ -152,7 +154,7 @@ public sealed class HDiffPatch
         IPatch patcher;
         if (IsPatchDir && _headerInfo is { IsInputDir: true, IsOutputDir: true })
         {
-            patcher = new PatchDir(_headerInfo, ReferenceInfo, _headerInfo.PatchPath, token);
+            patcher = new PatchDir(_headerInfo, ReferenceInfo, _headerInfo.PatchPath, DirPatchFormat, token);
         }
         else
         {

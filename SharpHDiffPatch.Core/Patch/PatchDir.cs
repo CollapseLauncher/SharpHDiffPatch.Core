@@ -23,7 +23,9 @@ namespace SharpHDiffPatch.Core.Patch
         internal string[] NewUtf8PathList;
         internal long[] OldRefList;
         internal long[] NewRefList;
+        internal long[] OldRefSizeList;
         internal long[] NewRefSizeList;
+        internal long[] NewRefHashList;
         internal PairIndexReference[] DataSamePairList;
         internal long[] NewExecuteList;
     }
@@ -32,6 +34,7 @@ namespace SharpHDiffPatch.Core.Patch
     {
         private HeaderInfo _headerInfo;
         private readonly DataReferenceInfo _referenceInfo;
+        private readonly DirectoryPatchFormat _directoryPatchFormat;
         private readonly Func<Stream> _spawnPatchStream;
         private string _basePathInput;
         private string _basePathOutput;
@@ -44,7 +47,8 @@ namespace SharpHDiffPatch.Core.Patch
         private int _padding;
         private readonly CancellationToken _token;
 
-        public PatchDir(HeaderInfo headerInfo, DataReferenceInfo referenceInfo, string patchPath, CancellationToken token
+        public PatchDir(HeaderInfo headerInfo, DataReferenceInfo referenceInfo, string patchPath,
+            DirectoryPatchFormat directoryPatchFormat, CancellationToken token
 #if USEEXPERIMENTALMULTITHREAD
             , bool useMultiThread
 #endif
@@ -53,6 +57,7 @@ namespace SharpHDiffPatch.Core.Patch
             _token = token;
             _headerInfo = headerInfo;
             _referenceInfo = referenceInfo;
+            _directoryPatchFormat = directoryPatchFormat;
 #if USEEXPERIMENTALMULTITHREAD
             useMultiThread = useMultiThread;
 #endif
@@ -93,6 +98,7 @@ namespace SharpHDiffPatch.Core.Patch
 
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Total new size: {totalSizePatched} bytes ({newPatchSize} (new data) + {samePathSize} (same data))", Verbosity.Verbose);
 
+                ValidateOldReferenceSizes(dirData);
                 FileStream[]                        mergedOldStream = GetRefOldStreams(dirData);
                 CombinedStreamSegment<FileStream>[] mergedNewStream = GetRefNewStreams(dirData);
                 HDiffPatch.Event.PushLog($"[PatchDir::Patch] Initialized {mergedOldStream.Length} old files and {mergedNewStream.Length} new files into combined stream", Verbosity.Verbose);
@@ -168,6 +174,25 @@ namespace SharpHDiffPatch.Core.Patch
         }
 
         private static long GetNewPatchedFileSize(DirectoryReferencePair dirData) => dirData.NewRefSizeList.Sum();
+
+        private void ValidateOldReferenceSizes(DirectoryReferencePair dirData)
+        {
+            if (_directoryPatchFormat != DirectoryPatchFormat.Kuro)
+                return;
+
+            for (int i = 0; i < dirData.OldRefList.Length; i++)
+            {
+                ref string oldPath = ref PatchCore.NewPathByIndex(dirData.OldUtf8PathList, dirData.OldRefList[i]);
+                string fullPath = Path.Combine(_basePathInput, oldPath);
+                if (!File.Exists(fullPath))
+                    throw new FileNotFoundException("A Kuro directory patch source file was not found.", fullPath);
+
+                long actualSize = new FileInfo(fullPath).Length;
+                long expectedSize = dirData.OldRefSizeList[i];
+                if (actualSize != expectedSize)
+                    throw new InvalidDataException($"[PatchDir::ValidateOldReferenceSizes] Source file size mismatch for {fullPath}: expected {expectedSize} bytes, got {actualSize} bytes.");
+            }
+        }
 
         private IPatchCore CreatePatchCore(Action<long> writeBytesDelegate, long totalSizePatched)
         {
@@ -294,9 +319,27 @@ namespace SharpHDiffPatch.Core.Patch
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Path string counts -> OldPath: {returnValue.OldUtf8PathList.Length} paths & NewPath: {returnValue.NewUtf8PathList.Length} paths", Verbosity.Verbose);
             reader.GetLongsFromStream(out returnValue.OldRefList, _referenceInfo.InputRefFileCount, _referenceInfo.InputDirCount);
             reader.GetLongsFromStream(out returnValue.NewRefList, _referenceInfo.OutputRefFileCount, _referenceInfo.OutputDirCount);
+            if (_directoryPatchFormat == DirectoryPatchFormat.Kuro)
+                reader.GetLongsFromStream(out returnValue.OldRefSizeList, _referenceInfo.InputRefFileCount);
             reader.GetLongsFromStream(out returnValue.NewRefSizeList, _referenceInfo.OutputRefFileCount);
+            if (_directoryPatchFormat == DirectoryPatchFormat.Kuro)
+                reader.GetLongsFromStream(out returnValue.NewRefHashList, _referenceInfo.OutputRefFileCount);
             reader.GetPairIndexReferenceFromStream(out returnValue.DataSamePairList, _referenceInfo.SameFilePairCount, _referenceInfo.OutputDirCount, _referenceInfo.InputDirCount);
             reader.GetLongsFromStream(out returnValue.NewExecuteList, _referenceInfo.NewExecuteCount, _referenceInfo.OutputDirCount);
+
+            if (_directoryPatchFormat == DirectoryPatchFormat.Kuro)
+            {
+                long oldRefSize = returnValue.OldRefSizeList.Sum();
+                if (oldRefSize != _referenceInfo.InputRefFileSize)
+                    throw new InvalidDataException($"[PatchDir::InitializeDirPatcher] Kuro old reference size mismatch: expected {_referenceInfo.InputRefFileSize} bytes, parsed {oldRefSize} bytes.");
+
+                long newRefSize = returnValue.NewRefSizeList.Sum();
+                if (newRefSize != _referenceInfo.OutputRefFileSize)
+                    throw new InvalidDataException($"[PatchDir::InitializeDirPatcher] Kuro new reference size mismatch: expected {_referenceInfo.OutputRefFileSize} bytes, parsed {newRefSize} bytes.");
+
+                if (reader.CanSeek && reader.Length - reader.Position != _referenceInfo.PrivateReservedDataSize)
+                    throw new InvalidDataException($"[PatchDir::InitializeDirPatcher] Directory header has {reader.Length - reader.Position} unparsed bytes; expected {_referenceInfo.PrivateReservedDataSize} private reserved bytes.");
+            }
             HDiffPatch.Event.PushLog($"[PatchDir::InitializeDirPatcher] Path refs found! OldRef: {_referenceInfo.InputRefFileCount} paths, NewRef: {_referenceInfo.OutputRefFileCount} paths, IdenticalRef: {_referenceInfo.SameFilePairCount} paths", Verbosity.Verbose);
 
             return returnValue;
