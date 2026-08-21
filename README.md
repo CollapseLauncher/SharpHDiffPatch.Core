@@ -78,6 +78,21 @@ private void EventListener_PatchEvent(object? sender, PatchEvent e)
 }
 ```
 
+## Patching Kuro directory diffs
+
+Some Kuro Games directory diffs use an extended directory header containing old-reference sizes and new-reference hashes. Select the Kuro format after initializing the diff and before calling `Patch`:
+
+```CSharp
+using SharpHDiffPatch.Core;
+
+HDiffPatch patcher = new HDiffPatch();
+patcher.Initialize(diffPath);
+patcher.DirPatchFormat = DirectoryPatchFormat.Kuro;
+patcher.Patch(inputPath, outputPath, true, default, false, true);
+```
+
+`DirectoryPatchFormat.Standard` remains the default. Use `Kuro` only for directory diffs produced with Kuro's extended header; the patcher also validates that each old reference file has the size recorded in that header.
+
 ## Get the New file size from diff file.
 ```CSharp
 using SharpHDiffPatch.Core;
