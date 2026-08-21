@@ -6,6 +6,20 @@ namespace SharpHPatchZ.Extension;
 
 internal static class MetadataExtension
 {
+    public static unsafe bool TryGetMetadataType(void* metadataP, out MetadataTypeConst metadataType)
+    {
+        if (metadataP == null)
+        {
+            metadataType = default;
+            return false;
+        }
+
+        ref MetadataTypeConst metadataTypeCopy = ref Unsafe.AsRef<MetadataTypeConst>(metadataP);
+        metadataType = metadataTypeCopy;
+
+        return IsTypeDefined(metadataType);
+    }
+
     extension<T>(ref T metadata) where T : unmanaged
     {
         public bool TryGetMetadataType(out MetadataTypeConst metadataType)
@@ -28,7 +42,7 @@ internal static class MetadataExtension
                 case MetadataTypeConst.ChecksumDataInfoType:
                     Unsafe.As<T, ChecksumDataInfo>(ref metadata).Dispose();
                     break;
-                case MetadataTypeConst.HeaderDirectoryPatchMetadataType:
+                case MetadataTypeConst.DirectoryPatchMetadataType:
                     Unsafe.As<T, DirectoryPatchMetadata>(ref metadata).Dispose();
                     break;
                 case MetadataTypeConst.PatchMetadataType:

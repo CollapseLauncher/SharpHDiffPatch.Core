@@ -20,7 +20,8 @@ file static class Const
         { HDiffPathIsEmptyOrInvalid,             0b_00000000_00000000_00000000_01000000 },
         { HDiffFILEDescriptorNull,               0b_00000000_00000000_00000000_10000000 },
         { HDiffIOException,                      0b_00000000_00000000_00000001_00000000 },
-        { HDiffInfoIsNull,                       0b_00000000_00000000_00000010_00000000 }
+        { HDiffInfoIsNull,                       0b_00000000_00000000_00000010_00000000 },
+        { HDiffInfoPatchMetadataNotAllocated,    0b_00000000_00000000_00000100_00000000 }
 };
 #endif
 
@@ -33,6 +34,7 @@ file static class Const
     public const string HDiffFILEDescriptorNull               = "HDIFF_FILEDescriptorNull";
     public const string HDiffIOException                      = "HDIFF_IOException";
     public const string HDiffInfoIsNull                       = "HDIFF_InfoIsNull";
+    public const string HDiffInfoPatchMetadataNotAllocated    = "HDIFF_InfoPatchMetadataNotAllocated";
 }
 
 public static class ExceptionHelper
@@ -55,6 +57,8 @@ public static class ExceptionHelper
         => throw new IOException($"[{Const.HDiffIOException}] An IO Error has occurred with message: {ex.Message}", ex);
     public static void ThrowHDiffInfoIsNull()
         => throw new NullReferenceException($"[{Const.HDiffInfoIsNull}] HDiffInfo pointer is null!");
+    public static void ThrowHDiffInfoPatchMetadataNotAllocated()
+        => throw new NullReferenceException($"[{Const.HDiffInfoPatchMetadataNotAllocated}] HDiffInfo patch metadata is not allocated!");
 
 #if NET8_0_OR_GREATER
     public static int TryGetReturnCodeFromError(Exception ex)

@@ -57,37 +57,41 @@ public class HeaderReader
             ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
         }
 
-        // Parse HDIFF19 (Directory Patch) enums
-        if (magicType == HDiffMagic.HDiff19)
+        switch (magicType)
         {
-            if (compressionTypeSpan.Length != 0 &&
-                !Enum.TryParse(compressionTypeSpan, true, out compressionType))
+            // Parse HDIFF19 (Directory Patch) enums
+            case HDiffMagic.HDiff19:
             {
-                ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
-            }
+                if (compressionTypeSpan.Length != 0 &&
+                    !Enum.TryParse(compressionTypeSpan, true, out compressionType))
+                {
+                    ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
+                }
 
-            if (checksumTypeSpan.Length != 0 &&
-                !Enum.TryParse(checksumTypeSpan, true, out checksumType))
+                if (checksumTypeSpan.Length != 0 &&
+                    !Enum.TryParse(checksumTypeSpan, true, out checksumType))
+                {
+                    ExceptionHelper.ThrowHDiffHeaderChecksumNotSupported(checksumTypeSpan);
+                }
+
+                return;
+            }
+            // Parse HDIFF13 (Single Patch) enums
+            case HDiffMagic.HDiff13:
             {
-                ExceptionHelper.ThrowHDiffHeaderChecksumNotSupported(checksumTypeSpan);
-            }
+                if (compressionTypeSpan.Length != 0 &&
+                    !Enum.TryParse(compressionTypeSpan, true, out compressionType))
+                {
+                    ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
+                }
 
-            return;
+                return;
+            }
+            case HDiffMagic.Unknown:
+            default:
+                ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
+                break;
         }
-
-        // Parse HDIFF13 (Single Patch) enums
-        if (magicType == HDiffMagic.HDiff13)
-        {
-            if (compressionTypeSpan.Length != 0 &&
-                !Enum.TryParse(compressionTypeSpan, true, out compressionType))
-            {
-                ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
-            }
-
-            return;
-        }
-
-        ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
     }
 
     internal static void ReadHDiffHeaderMetadata(

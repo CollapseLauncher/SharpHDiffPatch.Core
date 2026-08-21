@@ -14,17 +14,17 @@ internal static unsafe partial class PInvoke
 
         if (OperatingSystem.IsWindows())
         {
-            int fd = Windows._fileno(file);
+            int fd = Windows.GetFileDescriptor(file);
             if (fd < 0)
                 throw new IOException("_fileno() failed.");
 
-            handle = Windows._get_osfhandle(fd);
+            handle = Windows.GetOSFileHandle(fd);
             if (handle == -1)
                 throw new IOException("_get_osfhandle() failed.");
         }
         else
         {
-            int fd = Unix.fileno(file);
+            int fd = Unix.GetFileDescriptor(file);
             if (fd < 0)
                 throw new IOException("fileno() failed.");
 

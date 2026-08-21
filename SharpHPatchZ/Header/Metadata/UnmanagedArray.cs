@@ -110,7 +110,6 @@ public unsafe struct UnmanagedArray<T> : IMetadataInit
         return array;
     }
     
-
     public static implicit operator Span<T>(UnmanagedArray<T> unmanagedSpan) => unmanagedSpan.GetSpan();
 
     public ref T this[int index]

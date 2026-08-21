@@ -20,7 +20,7 @@ public unsafe struct DirectoryPatchMetadata : IMetadataInit
 
         IsInitialized              = true;
         IsDisposed                 = false;
-        MetadataType               = MetadataTypeConst.HeaderDirectoryPatchMetadataType;
+        MetadataType               = MetadataTypeConst.DirectoryPatchMetadataType;
         InputPathCountSizeInfoP    = MemoryAlloc.Alloc<EntryCountSizeInfo>(1, true);
         OutputPathCountSizeInfoP   = MemoryAlloc.Alloc<EntryCountSizeInfo>(1, true);
         SameFilePathCountSizeInfoP = MemoryAlloc.Alloc<EntryCountSizeInfo>(1, true);

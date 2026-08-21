@@ -17,7 +17,7 @@ public class Program
     {
         HDiffPatch hPatchOld = new();
         hPatchOld.Initialize(CreateStream);
-        // hPatchOld.Patch(TestPathInput, TestPathOutput, true);
+        hPatchOld.Patch(TestPathInput, TestPathOutput, true);
 
         using (HDiffInfo info1 = await HPatch.CreateInstanceAsync(CreateStreamAsync))
         {

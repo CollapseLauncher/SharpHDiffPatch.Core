@@ -3,16 +3,10 @@
 namespace SharpHPatchZ;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct PatchOptions
+public struct PatchOptions()
 {
-    public uint ParallelThreads;
-    public bool IgnoreErrors;
-    public bool UseSIMD;
-
-    public PatchOptions()
-    {
-        ParallelThreads = 0;
-        IgnoreErrors    = false;
-        UseSIMD         = true;
-    }
+    public uint ParallelThreads  = 0;
+    public bool IgnoreErrors     = false;
+    public bool UseSIMD          = true;
+    public int  ReaderBufferSize = -1;
 }
