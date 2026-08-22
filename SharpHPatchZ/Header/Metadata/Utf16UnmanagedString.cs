@@ -26,7 +26,7 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
 
     public void Dispose()
     {
-        if (IsDisposed || !IsInitialized || Native is { Chars: null, Length: 0 })
+        if (IsDisposed || !IsInitialized || Native is { Chars: 0, Length: 0 })
         {
             return;
         }
@@ -36,7 +36,7 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         NativeStringW old = Native;
         Native = NativeStringW.Empty;
 
-        MemoryAlloc.Free(old.Chars);
+        MemoryAlloc.Free((char*)old.Chars);
     }
 
     public MetadataTypeConst MetadataType { get; private set; }
@@ -87,13 +87,13 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
     {
         public static NativeStringW Empty => default;
 
-        public readonly char* Chars  = chars;
-        public readonly int   Length = length;
+        public readonly nint Chars  = (nint)chars;
+        public readonly int  Length = length;
 
         public static implicit operator ReadOnlySpan<char>(NativeStringW unmanaged)
-            => new(unmanaged.Chars, unmanaged.Length);
+            => new((char*)unmanaged.Chars, unmanaged.Length);
 
-        public override string ToString() => new(Chars, 0, Length);
+        public override string ToString() => new((char*)Chars, 0, Length);
 
         public static implicit operator string(NativeStringW unmanaged)
             => unmanaged.Length == 0
