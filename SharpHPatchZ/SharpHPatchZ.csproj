@@ -39,7 +39,6 @@
         <PackageReference Include="Microsoft.Bcl.Memory" Version="*" />
         <PackageReference Include="System.Buffers" Version="*" />
         <PackageReference Include="System.Memory" Version="*" />
-        <PackageReference Include="ZstdSharp.Port" Version="*" />
     </ItemGroup>
 
     <ItemGroup>
