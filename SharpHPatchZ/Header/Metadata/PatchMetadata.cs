@@ -65,9 +65,9 @@ public unsafe struct PatchMetadata : IMetadataInit
 
     public long DiffNewSize;
     public long DiffOldSize;
-
-    public long CoverDataCount;
     public long DiffDataOffset;
+
+    public int CoverDataCount;
 
     public ChunkSizeInfo* CoverDataSizeP;
     public ChunkSizeInfo* RleControlDataSizeP;

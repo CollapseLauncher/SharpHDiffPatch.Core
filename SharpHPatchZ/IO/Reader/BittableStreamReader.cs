@@ -14,6 +14,10 @@ internal sealed class BittableStreamReader
     , IAsyncDisposable
 #endif
 {
+    public const int KSignTagBit  = 1;
+    public const int KByteRleType = 2;
+
+
     private const int DefaultBufferSize  = 64 << 10;
     private const int MaxPackedUIntBytes = 11;
 
@@ -124,7 +128,11 @@ internal sealed class BittableStreamReader
                                                           _leaveOpen);
 
             BoundedReadStream compressedStream = new(remainderStream, compressedLength);
-            Stream decompressedStream = decompressor.CreateDecompressionStream(compressedStream, leaveOpen: true);
+            Stream decompressedStream = decompressor.CreateDecompressionStream(
+                compressedStream,
+                compressedLength,
+                decompressedLength,
+                leaveOpen: true);
             Stream transitionStream = new DecompressionTransitionStream(
                 decompressedStream,
                 compressedStream,

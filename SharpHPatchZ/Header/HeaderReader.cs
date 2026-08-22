@@ -367,7 +367,7 @@ public class HeaderReader
         long newSize = streamReader.ReadLong7Bit();
         long oldSize = streamReader.ReadLong7Bit();
 
-        long coverDataCount = streamReader.ReadLong7Bit();
+        int coverDataCount = (int)streamReader.ReadLong7Bit();
 
         long coverDataSize       = streamReader.ReadLong7Bit();
         long coverDataSizeC      = streamReader.ReadLong7Bit();
@@ -404,7 +404,7 @@ public class HeaderReader
         long newSize = await streamReader.ReadLong7BitAsync(token);
         long oldSize = await streamReader.ReadLong7BitAsync(token);
 
-        long coverDataCount = await streamReader.ReadLong7BitAsync(token);
+        int coverDataCount = (int)await streamReader.ReadLong7BitAsync(token);
 
         long coverDataSize       = await streamReader.ReadLong7BitAsync(token);
         long coverDataSizeC      = await streamReader.ReadLong7BitAsync(token);

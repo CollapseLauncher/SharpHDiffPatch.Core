@@ -1,6 +1,7 @@
 ﻿using System.Buffers;
 using System.IO;
 using System.Threading;
+using SharpHPatchZ.Extension;
 
 namespace SharpHPatchZ.Patch;
 
@@ -24,7 +25,7 @@ internal sealed partial class HDiff13DerivedPatcher
             int bufferSize                  = options.CopyBufferSize;
             if (bufferSize <= 0) bufferSize = 16 << 10;
 
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+            byte[] buffer = BigArrayPool<byte>.Shared.Rent(bufferSize);
             try
             {
                 int count = InputPaths.Length;
@@ -52,7 +53,7 @@ internal sealed partial class HDiff13DerivedPatcher
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                BigArrayPool<byte>.Shared.Return(buffer);
             }
         }
     }
