@@ -24,9 +24,10 @@ internal static partial class PatcherFactory
                                  out long rleCtrlDataOffset,
                                  out long rleCodeDataOffset,
                                  out long newDataOffset);
-
+            PatchMetadata patchMetadata = info.GetPatchMetadata();
             DiffReadersContext context = CreateReaderContext(info.CompressionType,
                                                              options,
+                                                             patchMetadata,
                                                              createPatchStream(coverDataOffset),
                                                              createPatchStream(rleCtrlDataOffset),
                                                              createPatchStream(rleCodeDataOffset),
@@ -53,9 +54,10 @@ internal static partial class PatcherFactory
                                  out long rleCtrlDataOffset,
                                  out long rleCodeDataOffset,
                                  out long newDataOffset);
-
+            PatchMetadata patchMetadata = info.GetPatchMetadata();
             DiffReadersContext context = CreateReaderContext(info.CompressionType,
                                                              options,
+                                                             patchMetadata,
                                                              await createPatchStreamAsync(coverDataOffset,   token),
                                                              await createPatchStreamAsync(rleCtrlDataOffset, token),
                                                              await createPatchStreamAsync(rleCodeDataOffset, token),
@@ -70,19 +72,20 @@ internal static partial class PatcherFactory
                                              progressCallback);
         }
 
-        private static DiffReadersContext CreateReaderContext(HDiffCompression         compType,
-                                                              PatchOptions             options,
-                                                              ValueTuple<Stream, bool> coverCtx,
-                                                              ValueTuple<Stream, bool> rleCtrlCtx,
-                                                              ValueTuple<Stream, bool> rleCodeCtx,
-                                                              ValueTuple<Stream, bool> newDataCtx)
+        private static unsafe DiffReadersContext CreateReaderContext(HDiffCompression         compType,
+                                                                     PatchOptions             options,
+                                                                     PatchMetadata            patchMetadata,
+                                                                     ValueTuple<Stream, bool> coverCtx,
+                                                                     ValueTuple<Stream, bool> rleCtrlCtx,
+                                                                     ValueTuple<Stream, bool> rleCodeCtx,
+                                                                     ValueTuple<Stream, bool> newDataCtx)
         {
             int bufferSize = options.ReaderBufferSize;
 
-            Stream decCoverStream      = DecompressStreamFactory.Create(compType, coverCtx.Item1,   coverCtx.Item2);
-            Stream decRleControlStream = DecompressStreamFactory.Create(compType, rleCtrlCtx.Item1, rleCtrlCtx.Item2);
-            Stream decRleCodeStream    = DecompressStreamFactory.Create(compType, rleCodeCtx.Item1, rleCodeCtx.Item2);
-            Stream decNewDataStream    = DecompressStreamFactory.Create(compType, newDataCtx.Item1, newDataCtx.Item2);
+            Stream decCoverStream = CreateDecompressionStream(compType, *patchMetadata.CoverDataSizeP, coverCtx);
+            Stream decRleControlStream = CreateDecompressionStream(compType, *patchMetadata.RleControlDataSizeP, rleCtrlCtx);
+            Stream decRleCodeStream = CreateDecompressionStream(compType, *patchMetadata.RleCodeDataSizeP, rleCodeCtx);
+            Stream decNewDataStream = CreateDecompressionStream(compType, *patchMetadata.NewDiffDataSizeP, newDataCtx);
 
             BittableStreamReader coverReader   = new(decCoverStream, bufferSize, coverCtx.Item2);
             BittableStreamReader rleCtrlReader = new(decRleControlStream, bufferSize, rleCtrlCtx.Item2);
@@ -91,6 +94,17 @@ internal static partial class PatcherFactory
 
             return new DiffReadersContext(coverReader, rleCtrlReader, rleCodeReader, newDataReader);
         }
+
+        private static Stream CreateDecompressionStream(
+            HDiffCompression         compType,
+            ChunkSizeInfo            size,
+            ValueTuple<Stream, bool> streamContext)
+            => DecompressStreamFactory.Create(
+                compType,
+                streamContext.Item1,
+                streamContext.Item2,
+                size.CompressedSize,
+                size.Size);
 
         private static unsafe void GetPatchContextInfos(ref HDiffInfo info,
                                                         out long      coverDataOffset,

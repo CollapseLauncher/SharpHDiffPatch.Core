@@ -35,13 +35,20 @@ file static class Const
         { HDiffPatchInputSizeMismatched,               0x55 },
         { HDiffPatchPathNotADirectory,                 0x56 },
         { HDiffPatchPathNotAFile,                      0x57 },
-        { HDiffPatchInputFilesMismatched,              0x58 }
+        { HDiffPatchInputFilesMismatched,              0x58 },
+
+        // Decompression Initialization
+        { HDiffCompLZMAPropertyMissing,                0xA0 },
+        { HDiffCompLZMA2DictionaryInvalid,             0xA1 },
+        { HDiffCompLZMA2NoCompressedPayload,           0xA2 },
+        { HDiffCompLZMADictionaryInvalidLength,        0xA3 },
+        { HDiffCompLZMASizeTooSmallForDictionaryRead,  0xA4 }
     };
 
-    public const string HDiffHeaderMagicNotSupported                = "HDIFF_HeaderMagicNotSupported";
-    public const string HDiffHeaderCompressionNotSupported          = "HDIFF_HeaderCompressionNotSupported";
-    public const string HDiffHeaderChecksumNotSupported             = "HDIFF_HeaderChecksumNotSupported";
-    public const string HDiffPatchFactoryNotSupported               = "HDIFF_PatchFactoryNotSupported";
+    public const string HDiffHeaderMagicNotSupported       = "HDIFF_HeaderMagicNotSupported";
+    public const string HDiffHeaderCompressionNotSupported = "HDIFF_HeaderCompressionNotSupported";
+    public const string HDiffHeaderChecksumNotSupported    = "HDIFF_HeaderChecksumNotSupported";
+    public const string HDiffPatchFactoryNotSupported      = "HDIFF_PatchFactoryNotSupported";
 
     public const string HDiffInfoNotAllocated                       = "HDIFF_InfoNotAllocated";
     public const string HDiffInfoDirectoryPatchMetadataNotAllocated = "HDIFF_InfoDirectoryPatchMetadataNotAllocated";
@@ -49,15 +56,21 @@ file static class Const
     public const string HDiffFILEDescriptorNull                     = "HDIFF_FILEDescriptorNull";
     public const string HDiffArgumentNull                           = "HDIFF_ArgumentNull";
 
-    public const string HDiffHeaderSignatureEmptyOrUnreadable       = "HDIFF_HeaderSignatureEmptyOrUnreadable";
-    public const string HDiffHeaderEndOfFileOrData                  = "HDIFF_EndOfFileOrData";
-    public const string HDiffPathIsEmptyOrInvalid                   = "HDIFF_PathIsEmptyOrInvalid";
-    public const string HDiffIOException                            = "HDIFF_IOException";
-    public const string HDiffPatchInputPathNotExist                 = "HDIFF_PatchInputPathNotExist";
-    public const string HDiffPatchInputSizeMismatched               = "HDIFF_PatchInputSizeMismatched";
-    public const string HDiffPatchPathNotADirectory                 = "HDIFF_PatchPathNotADirectory";
-    public const string HDiffPatchPathNotAFile                      = "HDIFF_PatchPathNotAFile";
-    public const string HDiffPatchInputFilesMismatched              = "HDIFF_PatchInputFilesMismatched";
+    public const string HDiffHeaderSignatureEmptyOrUnreadable = "HDIFF_HeaderSignatureEmptyOrUnreadable";
+    public const string HDiffHeaderEndOfFileOrData            = "HDIFF_EndOfFileOrData";
+    public const string HDiffPathIsEmptyOrInvalid             = "HDIFF_PathIsEmptyOrInvalid";
+    public const string HDiffIOException                      = "HDIFF_IOException";
+    public const string HDiffPatchInputPathNotExist           = "HDIFF_PatchInputPathNotExist";
+    public const string HDiffPatchInputSizeMismatched         = "HDIFF_PatchInputSizeMismatched";
+    public const string HDiffPatchPathNotADirectory           = "HDIFF_PatchPathNotADirectory";
+    public const string HDiffPatchPathNotAFile                = "HDIFF_PatchPathNotAFile";
+    public const string HDiffPatchInputFilesMismatched        = "HDIFF_PatchInputFilesMismatched";
+
+    public const string HDiffCompLZMAPropertyMissing              = "HDIFF_CompLZMAPropertyMissing";
+    public const string HDiffCompLZMA2DictionaryInvalid           = "HDIFF_CompLZMA2DictionaryInvalid";
+    public const string HDiffCompLZMA2NoCompressedPayload         = "HDIFF_CompLZMA2NoCompressedPayload";
+    public const string HDiffCompLZMADictionaryInvalidLength      = "HDIFF_CompLZMADictionaryInvalidLength";
+    public const string HDiffCompLZMASizeTooSmallForDictionaryRead = "HDIFF_CompLZMASizeToSmallForDictionaryRead";
 }
 
 public static class ExceptionHelper
@@ -102,6 +115,17 @@ public static class ExceptionHelper
         => new($"[{Const.HDiffPatchPathNotAFile}] Path is not a file!: {path}");
     public static InvalidOperationException ThrowHDiffPatchInputFilesMismatched(long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchInputFilesMismatched}] Input file size mismatched! Expecting: {expectingSize} bytes but got: {expectingSize} bytes instead.");
+
+    public static InvalidDataException ThrowHDiffCompLZMAPropertyMissing()
+        => new($"[{Const.HDiffCompLZMAPropertyMissing}] The LZMA stream is missing its properties.");
+    public static InvalidDataException ThrowHDiffCompLZMA2DictionaryInvalid(int property)
+        => new($"[{Const.HDiffCompLZMA2DictionaryInvalid}] The LZMA2 dictionary property must be at most 40, but was {property}.");
+    public static InvalidDataException ThrowHDiffCompLZMA2NoCompressedPayload()
+        => new($"[{Const.HDiffCompLZMA2NoCompressedPayload}] The LZMA2 stream has no compressed payload.");
+    public static InvalidDataException ThrowHDiffCompLZMADictionaryInvalidLength(int lzmaPropertySize, int property)
+        => new($"[{Const.HDiffCompLZMADictionaryInvalidLength}] The LZMA property length must be {lzmaPropertySize}, but was {property}.");
+    public static InvalidDataException ThrowHDiffCompLZMASizeTooSmallForDictionaryRead()
+        => new($"[{Const.HDiffCompLZMASizeTooSmallForDictionaryRead}] The LZMA compressed size is too small to contain its headers and payload.");
 
 
     public static int TryGetReturnCodeFromError(Exception? ex)

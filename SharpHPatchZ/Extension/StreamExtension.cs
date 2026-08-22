@@ -22,6 +22,18 @@ internal static class StreamExtension
         }
 #endif
 
+        public void ReadExactly(
+            byte[]            buffer,
+            int               offset,
+            int               count)
+        {
+#if !NET6_0_OR_GREATER
+            _ = stream.ReadAtLeast(buffer, offset, count, count, true);
+#else
+            _ = stream.ReadAtLeast(buffer.AsSpan(offset, count), count, true);
+#endif
+        }
+
         public async ValueTask ReadExactlyAsync(
             byte[]            buffer,
             int               offset,
@@ -37,6 +49,30 @@ internal static class StreamExtension
         }
 
 #if !NET6_0_OR_GREATER
+        public int ReadAtLeast(
+            byte[]            buffer,
+            int               offset,
+            int               count,
+            int               minimumBytes,
+            bool              throwOnEndOfStream = false)
+        {
+            Debug.Assert(minimumBytes <= buffer.Length);
+
+            int totalRead = offset;
+            while (totalRead < minimumBytes)
+            {
+                int read = stream.Read(buffer, totalRead, count - totalRead);
+                if (read == 0)
+                {
+                    return throwOnEndOfStream ? throw new EndOfStreamException() : totalRead;
+                }
+
+                totalRead += read;
+            }
+
+            return totalRead;
+        }
+
         public async ValueTask<int> ReadAtLeastAsync(
             byte[]            buffer,
             int               offset,
@@ -62,6 +98,28 @@ internal static class StreamExtension
             return totalRead;
         }
 #else
+        public int ReadAtLeast(
+            Span<byte> buffer,
+            int        minimumBytes,
+            bool       throwOnEndOfStream = false)
+        {
+            Debug.Assert(minimumBytes <= buffer.Length);
+
+            int totalRead = 0;
+            while (totalRead < minimumBytes)
+            {
+                int read = stream.Read(buffer[totalRead..]);
+                if (read == 0)
+                {
+                    return throwOnEndOfStream ? throw new EndOfStreamException() : totalRead;
+                }
+
+                totalRead += read;
+            }
+
+            return totalRead;
+        }
+
         public async ValueTask<int> ReadAtLeastAsync(
             Memory<byte>      buffer,
             int               minimumBytes,

@@ -15,7 +15,7 @@ public sealed class LzmaInputStream : Stream
     private readonly int          _dictionarySize;
     private readonly OutWindow    _outWindow    = new();
     private readonly RangeDecoder _rangeDecoder = new();
-    private          Decoder      _decoder;
+    private          Decoder?     _decoder;
 
     private long _position;
     private bool _endReached;
@@ -113,7 +113,7 @@ public sealed class LzmaInputStream : Stream
 
         if (disposing && !_leaveOpen)
         {
-            _inputStream?.Dispose();
+            _inputStream.Dispose();
         }
         base.Dispose(disposing);
     }
@@ -131,6 +131,11 @@ public sealed class LzmaInputStream : Stream
         if (_endReached)
         {
             return 0;
+        }
+
+        if (_decoder == null)
+        {
+            throw new NullReferenceException("Decoder is null");
         }
 
         int total = 0;

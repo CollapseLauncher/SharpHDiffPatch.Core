@@ -8,7 +8,7 @@ Supporting file and directory patching with these compression formats:
 - BZip2
 - Deflate
 - Zstd
-- LZMA2 (not LZMA)
+- LZMA and LZMA2
 - No Compression.
 
 Unfortunately, the **``HDIFFSF20``** (Single Compressed) format is still unsupported. But we are planning to add it in the future.

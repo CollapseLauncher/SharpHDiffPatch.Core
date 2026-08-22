@@ -11,7 +11,7 @@ using ZstdNet;
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Runtime.InteropServices;
+using SharpHPatchZ.Extension;
 using SharpHPatchZ.Header;
 using SharpHPatchZ.IO.Compression.BZip2;
 using SharpHPatchZ.IO.Compression.Lzma;
@@ -31,13 +31,21 @@ namespace SharpHPatchZ.IO.Compression;
 
 internal interface IDecompressor
 {
-    Stream CreateDecompressionStream(Stream sourceStream, bool leaveOpen);
+    Stream CreateDecompressionStream(
+        Stream sourceStream,
+        long   compressedSize,
+        long   decompressedSize,
+        bool   leaveOpen);
 }
 
 internal readonly struct HDiffDecompressor(HDiffCompression type) : IDecompressor
 {
-    public Stream CreateDecompressionStream(Stream sourceStream, bool leaveOpen)
-        => DecompressStreamFactory.Create(type, sourceStream, leaveOpen);
+    public Stream CreateDecompressionStream(
+        Stream sourceStream,
+        long   compressedSize,
+        long   decompressedSize,
+        bool   leaveOpen)
+        => DecompressStreamFactory.Create(type, sourceStream, leaveOpen, compressedSize, decompressedSize);
 }
 
 internal static class DecompressStreamFactory
@@ -48,17 +56,29 @@ internal static class DecompressStreamFactory
 
     internal static Stream Create(HDiffCompression type,
                                   Stream           sourceStream,
-                                  bool             leaveOpen)
-        => type switch
+                                  bool             leaveOpen,
+                                  long             compressedSize   = -1,
+                                  long             decompressedSize = -1)
+    {
+        if (compressedSize < -1)
+            throw new ArgumentOutOfRangeException(nameof(compressedSize));
+
+        if (decompressedSize < -1)
+            throw new ArgumentOutOfRangeException(nameof(decompressedSize));
+
+        if (type == HDiffCompression.Uncompressed || compressedSize == 0)
+            return sourceStream;
+
+        return type switch
         {
-            HDiffCompression.Uncompressed => sourceStream,
             HDiffCompression.Zstd => CreateZstdStream(sourceStream, leaveOpen),
             HDiffCompression.Zlib => new DeflateStream(sourceStream, CompressionMode.Decompress, leaveOpen),
             HDiffCompression.BZ2 => new BZip2InputStream(sourceStream, false, leaveOpen),
             HDiffCompression.PBZ2 => new BZip2InputStream(sourceStream, true, leaveOpen),
-            HDiffCompression.Lzma or HDiffCompression.Lzma2 => CreateLzmaStream(sourceStream, leaveOpen),
-            _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
+            HDiffCompression.Lzma or HDiffCompression.Lzma2 => CreateLzmaStream(type, sourceStream, compressedSize, decompressedSize, leaveOpen),
+            _ => throw ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(type.ToString())
         };
+    }
 
     private static Stream CreateZstdStream(Stream rawStream, bool leaveOpen)
     {
@@ -96,15 +116,39 @@ internal static class DecompressStreamFactory
         return new ZstdManagedStream(rawStream, decompressor, 16 << 10, leaveOpen: leaveOpen);
     }
 
-    private static Stream CreateLzmaStream(Stream rawStream, bool leaveOpen)
+    private static Stream CreateLzmaStream(
+        HDiffCompression type,
+        Stream           rawStream,
+        long             compressedSize,
+        long             decompressedSize,
+        bool             leaveOpen)
     {
-        int propLen = rawStream.ReadByte();
-        if (propLen != 5) return new LzmaInputStream([(byte)propLen], rawStream, leaveOpen); // Get LZMA2 if propLen != 5
+        int property = rawStream.ReadByte();
+        if (property < 0)
+            throw ExceptionHelper.ThrowHDiffCompLZMAPropertyMissing();
 
-        // Get LZMA if propLen == 5
-        byte[] props = new byte[propLen];
-        _ = rawStream.Read(props, 0, propLen);
-        int dicSize = MemoryMarshal.Read<int>(props.AsSpan(1));
-        return new LzmaInputStream(props, rawStream, -1, -1, rawStream, false, leaveOpen);
+        long payloadSize = compressedSize >= 0 ? compressedSize - 1 : -1;
+        if (type == HDiffCompression.Lzma2)
+        {
+            if (property > 40)
+                throw ExceptionHelper.ThrowHDiffCompLZMA2DictionaryInvalid(property);
+            return payloadSize == 0
+                ? throw ExceptionHelper.ThrowHDiffCompLZMA2NoCompressedPayload()
+                : new LzmaInputStream([(byte)property], rawStream, payloadSize, decompressedSize, leaveOpen);
+        }
+
+        const int lzmaPropertySize = 5;
+        if (property != lzmaPropertySize)
+            throw ExceptionHelper.ThrowHDiffCompLZMADictionaryInvalidLength(lzmaPropertySize, property);
+
+        const int rangeDecoderHeaderSize = 5;
+        if (compressedSize is >= 0 and < 1 + lzmaPropertySize + rangeDecoderHeaderSize)
+            throw ExceptionHelper.ThrowHDiffCompLZMASizeTooSmallForDictionaryRead();
+
+        byte[] properties = new byte[lzmaPropertySize];
+        rawStream.ReadExactly(properties, 0, properties.Length);
+        payloadSize = compressedSize >= 0 ? compressedSize - 1 - properties.Length : -1;
+
+        return new LzmaInputStream(properties, rawStream, payloadSize, decompressedSize, leaveOpen);
     }
 }
