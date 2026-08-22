@@ -39,7 +39,7 @@ public class HeaderReader
         if (signature.IsEmpty ||
             signatureSplits == 0)
         {
-            ExceptionHelper.ThrowHDiffHeaderSignatureEmptyOrUnreadable();
+            throw ExceptionHelper.ThrowHDiffHeaderSignatureEmptyOrUnreadable();
         }
 
 #if !NET6_0_OR_GREATER
@@ -54,7 +54,7 @@ public class HeaderReader
 
         if (!Enum.TryParse(magicSpan, true, out magicType))
         {
-            ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
+            throw ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
         }
 
         switch (magicType)
@@ -65,13 +65,13 @@ public class HeaderReader
                 if (compressionTypeSpan.Length != 0 &&
                     !Enum.TryParse(compressionTypeSpan, true, out compressionType))
                 {
-                    ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
+                    throw ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
                 }
 
                 if (checksumTypeSpan.Length != 0 &&
                     !Enum.TryParse(checksumTypeSpan, true, out checksumType))
                 {
-                    ExceptionHelper.ThrowHDiffHeaderChecksumNotSupported(checksumTypeSpan);
+                    throw ExceptionHelper.ThrowHDiffHeaderChecksumNotSupported(checksumTypeSpan);
                 }
 
                 return;
@@ -82,15 +82,14 @@ public class HeaderReader
                 if (compressionTypeSpan.Length != 0 &&
                     !Enum.TryParse(compressionTypeSpan, true, out compressionType))
                 {
-                    ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
+                    throw ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(compressionTypeSpan);
                 }
 
                 return;
             }
             case HDiffMagic.Unknown:
             default:
-                ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
-                break;
+                throw ExceptionHelper.ThrowHDiffHeaderMagicNotSupported(magicSpan);
         }
     }
 
@@ -197,11 +196,11 @@ public class HeaderReader
 
         UnmanagedArray<Utf16UnmanagedString>* inputPathEntryArray        = streamReader.CreateUnmanagedStringList(inputPathEntryCount, (int)inputPathEntryBufferSize);
         UnmanagedArray<Utf16UnmanagedString>* outputPathEntryArray       = streamReader.CreateUnmanagedStringList(outputPathEntryCount, (int)outputPathEntryBufferSize);
-        int*                                  inputFilesIndexArray       = streamReader.CreateUnmanagedInt64As32List(inputRefFileCount);
-        int*                                  outputFilesIndexArray      = streamReader.CreateUnmanagedInt64As32List(outputRefFileCount);
-        long*                                 outputFilesSizesArray      = streamReader.CreateUnmanagedInt64List(outputRefFileCount);
+        UnmanagedArray<int>*                  inputFilesIndexArray       = streamReader.CreateUnmanagedInt64As32List(inputRefFileCount);
+        UnmanagedArray<int>*                  outputFilesIndexArray      = streamReader.CreateUnmanagedInt64As32List(outputRefFileCount);
+        UnmanagedArray<long>*                 outputFilesSizesArray      = streamReader.CreateUnmanagedInt64List(outputRefFileCount);
         FileIndexPair*                        sameFilePathIndexPairArray = streamReader.CreateUnmanagedIndexPairList(sameFilePathEntryCount);
-        int*                                  newExecuteListArray        = streamReader.CreateUnmanagedInt64As32List(newExecuteCount);
+        UnmanagedArray<int>*                  newExecuteListArray        = streamReader.CreateUnmanagedInt64As32List(newExecuteCount);
 
         if (streamReader.Offset - headDataStartOffset != headDataSize)
         {
@@ -332,13 +331,13 @@ public class HeaderReader
                 sameFilePathCountSizeInfoP->Size  = sameFilePathEntryTotalSize;
 
                 dirTypeMetadata.SameFilePathIndexPairP = (FileIndexPair*)sameFilePathIndexPairArray;
-                dirTypeMetadata.NewExecuteListP        = (int*)newExecuteListArray;
+                dirTypeMetadata.NewExecuteListP        = (UnmanagedArray<int>*)newExecuteListArray;
 
                 dirTypeMetadata.InputPathListP       = (UnmanagedArray<Utf16UnmanagedString>*)inputPathEntryArray;
                 dirTypeMetadata.OutputPathListP      = (UnmanagedArray<Utf16UnmanagedString>*)outputPathEntryArray;
-                dirTypeMetadata.InputFileIndexListP  = (int*)inputFilesIndexArray;
-                dirTypeMetadata.OutputFileIndexListP = (int*)outputFilesIndexArray;
-                dirTypeMetadata.OutputFileSizeListP  = (long*)outputFilesSizesArray;
+                dirTypeMetadata.InputFileIndexListP  = (UnmanagedArray<int>*)inputFilesIndexArray;
+                dirTypeMetadata.OutputFileIndexListP = (UnmanagedArray<int>*)outputFilesIndexArray;
+                dirTypeMetadata.OutputFileSizeListP  = (UnmanagedArray<long>*)outputFilesSizesArray;
 
                 externSizeInfo->NewExecuteCount         = newExecuteCount;
                 externSizeInfo->PrivateReservedDataSize = privateReservedDataSize;

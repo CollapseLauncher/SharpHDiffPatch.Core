@@ -37,7 +37,7 @@ internal interface IDecompressor
 internal readonly struct HDiffDecompressor(HDiffCompression type) : IDecompressor
 {
     public Stream CreateDecompressionStream(Stream sourceStream, bool leaveOpen)
-        => DecompressStreamFactory.CreateStream(type, sourceStream, leaveOpen);
+        => DecompressStreamFactory.Create(type, sourceStream, leaveOpen);
 }
 
 internal static class DecompressStreamFactory
@@ -46,12 +46,10 @@ internal static class DecompressStreamFactory
     private static          ZstdStreamFallback? _createZstdStreamFallback;
     private static readonly int                 ZstdWindowLogMax = Environment.Is64BitProcess ? 31 : 30;
 
-    internal static Stream CreateStream(
-        HDiffCompression type,
-        Stream           sourceStream,
-        bool             leaveOpen)
-    {
-        return type switch
+    internal static Stream Create(HDiffCompression type,
+                                  Stream           sourceStream,
+                                  bool             leaveOpen)
+        => type switch
         {
             HDiffCompression.Uncompressed => sourceStream,
             HDiffCompression.Zstd => CreateZstdStream(sourceStream, leaveOpen),
@@ -61,7 +59,6 @@ internal static class DecompressStreamFactory
             HDiffCompression.Lzma or HDiffCompression.Lzma2 => CreateLzmaStream(sourceStream, leaveOpen),
             _ => throw new NotSupportedException($"[PatchCore::GetDecompressStreamPlugin] Compression Type: {type} is not supported")
         };
-    }
 
     private static Stream CreateZstdStream(Stream rawStream, bool leaveOpen)
     {

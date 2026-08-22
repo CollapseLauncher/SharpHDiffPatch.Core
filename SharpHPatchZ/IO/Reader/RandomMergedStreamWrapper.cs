@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace SharpHPatchZ.IO.Reader;
 
-internal sealed class RandomMergedStreamReader : IDisposable
+internal sealed class RandomMergedStreamWrapper : IDisposable
 {
     private readonly ConcurrentDictionary<int, Lazy<FileStream>> _fileStreams = [];
     private readonly ReaderWriterLockSlim                        _lifetimeLock = new();
@@ -16,7 +16,7 @@ internal sealed class RandomMergedStreamReader : IDisposable
 
     public long Length => _fileStreamEnds[^1];
 
-    public RandomMergedStreamReader(string[] fileStreams, long[] fileStreamEnds)
+    public RandomMergedStreamWrapper(string[] fileStreams, long[] fileStreamEnds)
     {
         if (fileStreams is null)
         {
@@ -211,7 +211,7 @@ internal sealed class RandomMergedStreamReader : IDisposable
     {
         if (Volatile.Read(ref _disposed) != 0)
         {
-            throw new ObjectDisposedException(nameof(RandomMergedStreamReader));
+            throw new ObjectDisposedException(nameof(RandomMergedStreamWrapper));
         }
     }
 }

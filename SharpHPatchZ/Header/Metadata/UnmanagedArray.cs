@@ -78,15 +78,7 @@ public unsafe struct UnmanagedArray<T> : IMetadataInit
     public int TypeSize;
     public T*  Data;
 
-    public Span<T> GetSpan()
-    {
-        if (sizeof(T) != TypeSize)
-        {
-            throw new ArrayTypeMismatchException("Type mismatched!");
-        }
-
-        return Data == null ? Span<T>.Empty : new Span<T>(Data, Length);
-    }
+    public Span<T> GetSpan() => Data == null ? Span<T>.Empty : new Span<T>(Data, Length);
 
     public static UnmanagedArray<T>* CreateAllocUnsafe(int count, bool initialize = false)
     {

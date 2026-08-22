@@ -75,6 +75,13 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
     public static implicit operator ReadOnlySpan<char>(Utf16UnmanagedString unmanaged)
         => unmanaged.Native;
 
+    public static implicit operator string(Utf16UnmanagedString unmanaged)
+        => unmanaged.Native.Length == 0
+            ? ""
+            : unmanaged.Native.ToString();
+
+    public override string ToString() => Native.ToString();
+
     [StructLayout(LayoutKind.Sequential)]
     public readonly struct NativeStringW(char* chars, int length)
     {
@@ -87,5 +94,10 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
             => new(unmanaged.Chars, unmanaged.Length);
 
         public override string ToString() => new(Chars, 0, Length);
+
+        public static implicit operator string(NativeStringW unmanaged)
+            => unmanaged.Length == 0
+                ? ""
+                : unmanaged.ToString();
     }
 }

@@ -85,9 +85,9 @@ public unsafe struct DirectoryPatchMetadata : IMetadataInit
 
     public UnmanagedArray<Utf16UnmanagedString>* InputPathListP;
     public UnmanagedArray<Utf16UnmanagedString>* OutputPathListP;
-    public int*                                  InputFileIndexListP;
-    public int*                                  OutputFileIndexListP;
-    public long*                                 OutputFileSizeListP;
+    public UnmanagedArray<int>*                  InputFileIndexListP;
+    public UnmanagedArray<int>*                  OutputFileIndexListP;
+    public UnmanagedArray<long>*                 OutputFileSizeListP;
 
     // Seems unused.
     // TODO: See original code to see what it is.
@@ -96,8 +96,8 @@ public unsafe struct DirectoryPatchMetadata : IMetadataInit
     // File Reference Chunk Info, including:
     // - Filename string chunks
     // - Checksum chunks
-    public ChunkSizeInfo*    HeadDataSizeP;
-    public PatchMetadata*    PatchMetadataP;
-    public ChecksumDataInfo* ChecksumDataInfoP;
-    public int*              NewExecuteListP;
+    public ChunkSizeInfo*       HeadDataSizeP;
+    public PatchMetadata*       PatchMetadataP;
+    public ChecksumDataInfo*    ChecksumDataInfoP;
+    public UnmanagedArray<int>* NewExecuteListP;
 }

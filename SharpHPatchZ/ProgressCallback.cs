@@ -8,18 +8,24 @@ namespace SharpHPatchZ;
 public delegate void ProcessedBytesManagedCallback(long totalProcessed, long totalSize, int written);
 
 [StructLayout(LayoutKind.Sequential)]
-public readonly struct ProgressCallback
+public readonly
+#if NET6_0_OR_GREATER
+    unsafe
+#endif
+    struct ProgressCallback
 {
 #if NET6_0_OR_GREATER
-    public readonly unsafe delegate* unmanaged[Cdecl]<long, long, int, void> ProcessedBytesCallback;
+    public readonly delegate* unmanaged[Cdecl]<long, long, int, void> ProcessedBytesCallback;
 #else
     public readonly ProcessedBytesManagedCallback ProcessedBytesCallback;
 #endif
 
+    internal bool IsAllocated => ProcessedBytesCallback != null;
+
     public ProgressCallback() : this(null) { }
 
 #if NET6_0_OR_GREATER
-    public unsafe ProgressCallback(ProcessedBytesManagedCallback? callback)
+    public ProgressCallback(ProcessedBytesManagedCallback? callback)
     {
         if (callback != null)
         {

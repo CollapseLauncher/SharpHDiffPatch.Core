@@ -154,9 +154,9 @@ internal static class StreamExtension
 
                 unsafe
                 {
-                    long* alloc = MemoryAlloc.Alloc<long>(count);
-                    array.AsSpan(0, count).CopyTo(new Span<long>(alloc, count));
-                    return (nint)alloc;
+                    UnmanagedArray<long>* allocArray = UnmanagedArray<long>.CreateAllocUnsafe(count);
+                    array.AsSpan(0, count).CopyTo(allocArray->GetSpan());
+                    return (nint)allocArray;
                 }
             }
             finally
@@ -165,20 +165,23 @@ internal static class StreamExtension
             }
         }
 
-        public unsafe long* CreateUnmanagedInt64List(int count)
+        public unsafe UnmanagedArray<long>* CreateUnmanagedInt64List(int count)
         {
             if (count == 0)
             {
                 return null;
             }
 
-            long* alloc = MemoryAlloc.Alloc<long>(count);
+            UnmanagedArray<long>* allocArray = UnmanagedArray<long>.CreateAllocUnsafe(count);
+            Span<long>            allocSpan  = allocArray->GetSpan();
+
+            long backNumber = -1;
             for (int i = 0; i < count; i++)
             {
-                alloc[i] = reader.ReadLong7Bit();
+                allocSpan[i] = backNumber += 1 + reader.ReadLong7Bit();
             }
 
-            return alloc;
+            return allocArray;
         }
 
         public async ValueTask<nint> CreateUnmanagedInt64As32ListAsync(int count, CancellationToken token)
@@ -199,9 +202,9 @@ internal static class StreamExtension
 
                 unsafe
                 {
-                    int* alloc = MemoryAlloc.Alloc<int>(count);
-                    array.AsSpan(0, count).CopyTo(new Span<int>(alloc, count));
-                    return (nint)alloc;
+                    UnmanagedArray<int>* allocArray = UnmanagedArray<int>.CreateAllocUnsafe(count);
+                    array.AsSpan(0, count).CopyTo(allocArray->GetSpan());
+                    return (nint)allocArray;
                 }
             }
             finally
@@ -210,20 +213,23 @@ internal static class StreamExtension
             }
         }
 
-        public unsafe int* CreateUnmanagedInt64As32List(int count)
+        public unsafe UnmanagedArray<int>* CreateUnmanagedInt64As32List(int count)
         {
             if (count == 0)
             {
                 return null;
             }
 
-            int* alloc = MemoryAlloc.Alloc<int>(count);
+            UnmanagedArray<int>* allocArray = UnmanagedArray<int>.CreateAllocUnsafe(count);
+            Span<int>            allocSpan  = allocArray->GetSpan();
+
+            long backNumber = -1;
             for (int i = 0; i < count; i++)
             {
-                alloc[i] = (int)reader.ReadLong7Bit();
+                allocSpan[i] = (int)(backNumber += 1 + reader.ReadLong7Bit());
             }
 
-            return alloc;
+            return allocArray;
         }
 
         public async ValueTask<nint> CreateUnmanagedIndexPairListAsync(int count, CancellationToken token)

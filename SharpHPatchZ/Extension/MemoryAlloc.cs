@@ -1,8 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-#pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type
-
 namespace SharpHPatchZ.Extension;
 
 internal static unsafe class MemoryAlloc
@@ -35,26 +33,20 @@ internal static unsafe class MemoryAlloc
 #endif
     }
 
-    public static T* CopyToUnmanagedUnsafe<T>(this ref T toCopy)
-        where T : unmanaged
+    extension<T>(ref T toCopy) where T : unmanaged
     {
-        T*    allocP   = Alloc<T>();
-        ref T allocRef = ref allocP[0];
-        allocRef = toCopy;
-        return allocP;
+        public T* CopyToUnmanagedUnsafe()
+        {
+            T*    allocP   = Alloc<T>();
+            ref T allocRef = ref allocP[0];
+            allocRef = toCopy;
+            return allocP;
+        }
+
+        public nint CopyToUnmanaged() => (nint)toCopy.CopyToUnmanagedUnsafe();
+        public void CopyTo(ref T to)  => to = toCopy;
+        public void CopyTo(void* to)  => Unsafe.AsRef<T>(to) = toCopy;
     }
-
-    public static nint CopyToUnmanaged<T>(this ref T toCopy)
-        where T : unmanaged
-        => (nint)toCopy.CopyToUnmanagedUnsafe();
-
-    public static void CopyTo<T>(this ref T from, ref T to)
-        where T : unmanaged
-        => to = from;
-
-    public static void CopyTo<T>(this ref T from, void* to)
-        where T : unmanaged
-        => Unsafe.AsRef<T>(to) = from;
 
     public static void CopyTo<T>(void* from, void* to)
         where T : unmanaged

@@ -1,4 +1,5 @@
-﻿using SharpHDiffPatch.Core;
+﻿using System;
+using SharpHDiffPatch.Core;
 using SharpHPatchZ;
 using SharpHPatchZ.Header;
 using System.IO;
@@ -17,15 +18,26 @@ public class Program
     {
         HDiffPatch hPatchOld = new();
         hPatchOld.Initialize(CreateStream);
-        hPatchOld.Patch(TestPathInput, TestPathOutput, true);
+        // hPatchOld.Patch(TestPathInput, TestPathOutput, true);
+
+        ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(WriteProgress);
 
         using (HDiffInfo info1 = await HPatch.CreateInstanceAsync(CreateStreamAsync))
         {
+            PatchResult result = await HPatch.PatchAsync(info1, CreateStreamAsync, TestPathInput, TestPathOutput, progressCallback: progressCallback);
         }
+        Console.WriteLine();
 
         using (HDiffInfo info2 = HPatch.CreateInstance(CreateStream))
         {
+            PatchResult result = HPatch.Patch(info2, CreateStream, TestPathInput, TestPathOutput, progressCallback: progressCallback);
         }
+        Console.WriteLine();
+    }
+
+    public static void WriteProgress(long totalProcessed, long totalSize, int written)
+    {
+        Console.Write($"{totalProcessed} / {totalSize} {(int)(totalProcessed / (double)totalSize * 100)}%\r");
     }
 
     public static Stream CreateStream()

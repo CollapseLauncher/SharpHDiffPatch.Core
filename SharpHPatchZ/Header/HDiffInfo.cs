@@ -39,7 +39,7 @@ public unsafe struct HDiffInfo : IDisposable
             ref DirectoryPatchMetadata dirPatchMetadata = ref MetadataAs<DirectoryPatchMetadata>();
             if (Unsafe.IsNullRef(ref dirPatchMetadata) || dirPatchMetadata.PatchMetadataP == null)
             {
-                ExceptionHelper.ThrowHDiffInfoPatchMetadataNotAllocated();
+                throw ExceptionHelper.ThrowHDiffInfoPatchMetadataNotAllocated();
             }
 
             patchMetadataP = dirPatchMetadata.PatchMetadataP;
@@ -51,7 +51,7 @@ public unsafe struct HDiffInfo : IDisposable
 
         if (patchMetadataP == null)
         {
-            ExceptionHelper.ThrowHDiffInfoPatchMetadataNotAllocated();
+            throw ExceptionHelper.ThrowHDiffInfoPatchMetadataNotAllocated();
         }
 
         return ref Unsafe.AsRef<PatchMetadata>(patchMetadataP);
