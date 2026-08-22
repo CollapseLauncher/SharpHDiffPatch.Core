@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -11,7 +10,7 @@ using SharpHPatchZ.IO.Reader;
 
 namespace SharpHPatchZ.Patch;
 
-internal sealed class HDiff13DerivedPatcher(
+internal sealed partial class HDiff13DerivedPatcher(
     BittableStreamReader coverReader,
     BittableStreamReader rleCtrlReader,
     BittableStreamReader rleCodeReader,
@@ -86,11 +85,6 @@ internal sealed class HDiff13DerivedPatcher(
         => Task.Factory.StartNew(_ => StartPatch(inputPath, outputPath, token),
                                  token,
                                  TaskCreationOptions.LongRunning);
-
-    private unsafe void StartCorePatcher(CancellationToken token)
-    {
-
-    }
 
     private unsafe void InitializeInputOutputStream(string inputPath, string outputPath)
     {
@@ -178,13 +172,8 @@ internal sealed class HDiff13DerivedPatcher(
 
         InputStream  = new RandomMergedStreamWrapper(refInputFiles,  refInputFilesSize);
         OutputStream = new RandomMergedStreamWrapper(refOutputFiles, refOutputFilesSize);
-        _copySimilarFilesContext = new CopySimilarFilesContext
-        {
-            InputDir    = inputDir.FullName,
-            OutputDir   = outputDir.FullName,
-            InputPaths  = similarInputFiles,
-            OutputPaths = similarOutputFiles
-        };
+        _copySimilarFilesContext = new CopySimilarFilesContext(inputDir.FullName, similarInputFiles,
+                                                               outputDir.FullName, similarOutputFiles);
     }
 
     private static unsafe Utf16UnmanagedString[] CopyToManagedStringList(UnmanagedArray<Utf16UnmanagedString>* unmanagedArray)
@@ -231,51 +220,4 @@ internal sealed class HDiff13DerivedPatcher(
                             _rleCodeReader.DisposeAsync().AsTask(),
                             _newDataReader.DisposeAsync().AsTask()));
 #endif
-
-    private class CopySimilarFilesContext
-    {
-        public required string InputDir  { get; init; }
-        public required string OutputDir { get; init; }
-
-        public required string[] InputPaths  { get; init; }
-        public required string[] OutputPaths { get; init; }
-
-        public void RunCopy(PatcherBase       patcher,
-                            PatchOptions      options,
-                            CancellationToken token)
-        {
-            int bufferSize                  = options.CopyBufferSize;
-            if (bufferSize <= 0) bufferSize = 16 << 10;
-
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
-            try
-            {
-                int count = InputPaths.Length;
-                token.ThrowIfCancellationRequested();
-
-                for (int i = 0; i < count; i++)
-                {
-                    string inputPath  = Path.Combine(InputDir,  InputPaths[i]);
-                    string outputPath = Path.Combine(OutputDir, OutputPaths[i]);
-
-                    if (Path.GetDirectoryName(outputPath) is { } outputDir)
-                        Directory.CreateDirectory(outputDir);
-
-                    using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
-                    using FileStream outputStream = File.Create(outputPath, bufferSize);
-                    int              read;
-                    while ((read = inputStream.Read(buffer, 0, bufferSize)) > 0)
-                    {
-                        token.ThrowIfCancellationRequested();
-                        outputStream.Write(buffer, 0, read);
-                        patcher.AdvanceProgress(read);
-                    }
-                }
-            }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
-        }
-    }
 }
