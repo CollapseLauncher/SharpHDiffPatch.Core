@@ -23,7 +23,7 @@ public class Program
         // hPatchOld.Patch(TestPathInput, TestPathOutput, true);
 
         ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(WriteProgress);
-        PatchOptions     options          = PatchOptions.Default;
+        PatchOptions     options          = PatchOptions.BigBuffer;
 
         Stopwatch sw = Stopwatch.StartNew();
         using (HDiffInfo info1 = await HPatch.CreateInstanceAsync(CreateStreamAsync))
