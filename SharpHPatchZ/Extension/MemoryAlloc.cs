@@ -14,7 +14,7 @@ internal static unsafe class MemoryAlloc
             return (T*)Alloc(elementCount, initializeAlloc);
         }
 
-        return (T*)Alloc(elementCount * sizeof(T), initializeAlloc);
+        return (T*)Alloc(checked((long)elementCount * sizeof(T)), initializeAlloc);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -76,6 +76,16 @@ internal static unsafe class MemoryAlloc
 
         ref byte asRef = ref Unsafe.AsRef<byte>(ptr);
         asRef.TryDisposeIfMetadataType();
+
+        FreeRaw(ptr);
+    }
+
+    public static void FreeRaw(void* ptr)
+    {
+        if (ptr == null)
+        {
+            return;
+        }
 
 #if NET6_0_OR_GREATER
         NativeMemory.Free(ptr);

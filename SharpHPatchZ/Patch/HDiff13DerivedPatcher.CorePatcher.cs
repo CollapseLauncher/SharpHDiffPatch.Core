@@ -24,44 +24,36 @@ internal sealed partial class HDiff13DerivedPatcher
 
     private unsafe void StartCorePatcher(CancellationToken token)
     {
-        ReadOnlySpan<RleCoverInfo> rleCoverSpan = RleCoverInfo.Read(_coverReader,
-                                                                    Info,
-                                                                    out RleCoverInfo[] rleCoverBackedBuffer,
-                                                                    token);
-        try
+        using NativeMemoryBuffer<RleCoverInfo> rleCoverBuffer = RleCoverInfo.Read(_coverReader,
+                                                                                  Info,
+                                                                                  token);
+        ReadOnlySpan<RleCoverInfo> rleCoverSpan = rleCoverBuffer.Span;
+        if (InputStream is null || OutputStream is null)
         {
-            if (InputStream is null || OutputStream is null)
-            {
-                throw new InvalidOperationException("The patch input and output streams have not been initialized.");
-            }
-
-            PatchMetadata patchMetadata = Info.GetPatchMetadata();
-            ValidateReaderOffset(_coverReader,
-                                 patchMetadata.CoverDataSizeP->Size,
-                                 "cover");
-
-            int bufferSize = Options.PatchWorkerBufferSize > 0
-                ? Options.PatchWorkerBufferSize
-                : DefaultPatchBufferSize;
-            int workerCount = GetWorkerCount(Options.ParallelThreads);
-
-            if (workerCount == 1)
-            {
-                RunSequential(rleCoverSpan, patchMetadata, bufferSize, token);
-            }
-            else
-            {
-                RunParallel(rleCoverBackedBuffer,
-                            rleCoverSpan.Length,
-                            patchMetadata,
-                            bufferSize,
-                            workerCount,
-                            token);
-            }
+            throw new InvalidOperationException("The patch input and output streams have not been initialized.");
         }
-        finally
+
+        PatchMetadata patchMetadata = Info.GetPatchMetadata();
+        ValidateReaderOffset(_coverReader,
+                             patchMetadata.CoverDataSizeP->Size,
+                             "cover");
+
+        int bufferSize = Options.PatchWorkerBufferSize > 0
+            ? Options.PatchWorkerBufferSize
+            : DefaultPatchBufferSize;
+        int workerCount = GetWorkerCount(Options.ParallelThreads);
+
+        if (workerCount == 1)
         {
-            BigArrayPool<RleCoverInfo>.Shared.Return(rleCoverBackedBuffer);
+            RunSequential(rleCoverSpan, patchMetadata, bufferSize, token);
+        }
+        else
+        {
+            RunParallel(rleCoverBuffer,
+                        patchMetadata,
+                        bufferSize,
+                        workerCount,
+                        token);
         }
     }
 
@@ -85,28 +77,20 @@ internal sealed partial class HDiff13DerivedPatcher
                                int                        bufferSize,
                                CancellationToken          token)
     {
-        byte[] oldBuffer = BigArrayPool<byte>.Shared.Rent(bufferSize);
-        try
-        {
-            ProduceWork(covers,
-                        patchMetadata.DiffNewSize,
-                        bufferSize,
-                        item => ProcessWorkItem(item, oldBuffer, token),
-                        token);
-            ValidateDataReaders(patchMetadata);
-        }
-        finally
-        {
-            BigArrayPool<byte>.Shared.Return(oldBuffer);
-        }
+        using NativeMemoryBuffer<byte> oldBuffer = new(bufferSize);
+        ProduceWork(covers,
+                    patchMetadata.DiffNewSize,
+                    bufferSize,
+                    item => ProcessWorkItem(item, oldBuffer, token),
+                    token);
+        ValidateDataReaders(patchMetadata);
     }
 
-    private void RunParallel(RleCoverInfo[]    covers,
-                             int               coverCount,
-                             PatchMetadata     patchMetadata,
-                             int               bufferSize,
-                             int               workerCount,
-                             CancellationToken token)
+    private void RunParallel(NativeMemoryBuffer<RleCoverInfo> covers,
+                             PatchMetadata                    patchMetadata,
+                             int                              bufferSize,
+                             int                              workerCount,
+                             CancellationToken                token)
     {
         int queueCapacity = workerCount > int.MaxValue / 2
             ? int.MaxValue
@@ -125,7 +109,7 @@ internal sealed partial class HDiff13DerivedPatcher
             {
                 try
                 {
-                    ProduceWork(covers.AsSpan(0, coverCount),
+                    ProduceWork(covers.Span,
                                 patchMetadata.DiffNewSize,
                                 bufferSize,
                                 item => AddWorkItem(workQueue, item, linkedCancellation.Token),
@@ -155,7 +139,7 @@ internal sealed partial class HDiff13DerivedPatcher
                     CancellationToken      = linkedCancellation.Token,
                     MaxDegreeOfParallelism = workerCount
                 },
-                () => BigArrayPool<byte>.Shared.Rent(bufferSize),
+                () => new NativeMemoryBuffer<byte>(bufferSize),
                 (item, _, oldBuffer) =>
                 {
                     try
@@ -174,7 +158,7 @@ internal sealed partial class HDiff13DerivedPatcher
 
                     return oldBuffer;
                 },
-                oldBuffer => BigArrayPool<byte>.Shared.Return(oldBuffer));
+                oldBuffer => oldBuffer.Dispose());
         }
         catch (Exception exception)
         {
@@ -187,7 +171,7 @@ internal sealed partial class HDiff13DerivedPatcher
 
             while (workQueue.TryTake(out PatchWorkItem abandonedItem))
             {
-                BigArrayPool<byte>.Shared.Return(abandonedItem.Buffer);
+                abandonedItem.Buffer.Dispose();
             }
         }
 
@@ -214,7 +198,7 @@ internal sealed partial class HDiff13DerivedPatcher
         }
         catch
         {
-            BigArrayPool<byte>.Shared.Return(item.Buffer);
+            item.Buffer.Dispose();
             throw;
         }
     }
@@ -226,54 +210,47 @@ internal sealed partial class HDiff13DerivedPatcher
                              CancellationToken          token)
     {
         RleDecoder rleDecoder = new(_rleCtrlReader, _rleCodeReader);
-        byte[] skipBuffer = BigArrayPool<byte>.Shared.Rent(Math.Min(bufferSize, 64 << 10));
+        using NativeMemoryBuffer<byte> skipBuffer = new(Math.Min(bufferSize, 64 << 10));
         using PatchWorkBuilder workBuilder = new(bufferSize, emit);
-        try
+        long newPosition = 0;
+        for (int coverIndex = 0; coverIndex < covers.Length; coverIndex++)
         {
-            long newPosition = 0;
-            for (int coverIndex = 0; coverIndex < covers.Length; coverIndex++)
-            {
-                token.ThrowIfCancellationRequested();
-                ref readonly RleCoverInfo cover = ref covers[coverIndex];
-                ValidateCover(cover, newPosition, newDataSize, InputStream!.Length);
+            token.ThrowIfCancellationRequested();
+            ref readonly RleCoverInfo cover = ref covers[coverIndex];
+            ValidateCover(cover, newPosition, newDataSize, InputStream!.Length);
 
-                ProduceNewData(cover.CopyLength,
-                               ref newPosition,
-                               rleDecoder,
-                               skipBuffer,
-                               workBuilder,
-                               token);
-                ProduceCover(cover,
-                             ref newPosition,
-                             rleDecoder,
-                             workBuilder,
-                             token);
-            }
-
-            ProduceNewData(newDataSize - newPosition,
+            ProduceNewData(cover.CopyLength,
                            ref newPosition,
                            rleDecoder,
-                           skipBuffer,
+                           skipBuffer.Span,
                            workBuilder,
                            token);
-
-            if (newPosition != newDataSize || rleDecoder.HasPendingData)
-            {
-                throw new InvalidDataException("The decoded patch data does not match the declared output size.");
-            }
-
-            workBuilder.Flush();
+            ProduceCover(cover,
+                         ref newPosition,
+                         rleDecoder,
+                         workBuilder,
+                         token);
         }
-        finally
+
+        ProduceNewData(newDataSize - newPosition,
+                       ref newPosition,
+                       rleDecoder,
+                       skipBuffer.Span,
+                       workBuilder,
+                       token);
+
+        if (newPosition != newDataSize || rleDecoder.HasPendingData)
         {
-            BigArrayPool<byte>.Shared.Return(skipBuffer);
+            throw new InvalidDataException("The decoded patch data does not match the declared output size.");
         }
+
+        workBuilder.Flush();
     }
 
     private void ProduceNewData(long              length,
                                 ref long          newPosition,
                                 RleDecoder        rleDecoder,
-                                byte[]            skipBuffer,
+                                Span<byte>        skipBuffer,
                                 PatchWorkBuilder  workBuilder,
                                 CancellationToken token)
     {
@@ -314,9 +291,9 @@ internal sealed partial class HDiff13DerivedPatcher
         }
     }
 
-    private void ProcessWorkItem(PatchWorkItem     item,
-                                 byte[]            oldBuffer,
-                                 CancellationToken token)
+    private void ProcessWorkItem(PatchWorkItem           item,
+                                 NativeMemoryBuffer<byte> oldBuffer,
+                                 CancellationToken       token)
     {
         try
         {
@@ -327,7 +304,7 @@ internal sealed partial class HDiff13DerivedPatcher
                 {
                     token.ThrowIfCancellationRequested();
                     CoverSegment segment = coverSegments[segmentIndex];
-                    Span<byte> oldData = oldBuffer.AsSpan(0, segment.Length);
+                    Span<byte> oldData = oldBuffer.Span[..segment.Length];
                     int read = InputStream!.Read(oldData, segment.OldPosition);
                     if (read != segment.Length)
                     {
@@ -335,43 +312,42 @@ internal sealed partial class HDiff13DerivedPatcher
                     }
 
 #if NET6_0_OR_GREATER
-                    AddRle(oldBuffer,
-                           item.Buffer,
-                           segment.BufferOffset,
-                           segment.Length,
-                           Options.UseSIMD);
+                    Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset,
+                                                               segment.Length);
+                    AddRle(oldData, rleData, Options.UseSIMD);
 #else
-                    AddRle(oldBuffer,
-                           item.Buffer,
-                           segment.BufferOffset,
-                           segment.Length);
+                    Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset,
+                                                               segment.Length);
+                    AddRle(oldData, rleData);
 #endif
-                    oldData.CopyTo(item.Buffer.AsSpan(segment.BufferOffset, segment.Length));
+                    oldData.CopyTo(rleData);
                 }
             }
 
-            OutputStream!.Write(item.Buffer.AsSpan(0, item.Length), item.OutputPosition);
+            OutputStream!.Write(item.Buffer.Span[..item.Length], item.OutputPosition);
             AdvanceProgress(item.Length);
         }
         finally
         {
-            BigArrayPool<byte>.Shared.Return(item.Buffer);
+            item.Buffer.Dispose();
         }
     }
 
 #if NET6_0_OR_GREATER
-    private static void AddRle(byte[] destination,
-                               byte[] rle,
-                               int    rleOffset,
-                               int    length,
-                               bool   useSimd)
+    private static void AddRle(Span<byte>         destination,
+                               ReadOnlySpan<byte> rle,
+                               bool               useSimd)
 #else
-    private static void AddRle(byte[] destination,
-                               byte[] rle,
-                               int    rleOffset,
-                               int    length)
+    private static void AddRle(Span<byte>         destination,
+                               ReadOnlySpan<byte> rle)
 #endif
     {
+        if (destination.Length != rle.Length)
+        {
+            throw new ArgumentException("The old-data and RLE buffers must have the same length.");
+        }
+
+        int length = destination.Length;
         int index = 0;
 #if NET6_0_OR_GREATER
         if (useSimd && Avx2.IsSupported)
@@ -381,7 +357,7 @@ internal sealed partial class HDiff13DerivedPatcher
             if (vectorEnd != 0)
             {
                 ref byte destinationRef = ref destination[0];
-                ref byte rleRef         = ref rle[rleOffset];
+                ref byte rleRef         = ref Unsafe.AsRef(in rle[0]);
                 for (; index < vectorEnd; index += vectorLength)
                 {
                     var oldVector = Unsafe.ReadUnaligned<Vector256<byte>>(ref Unsafe.Add(ref destinationRef, index));
@@ -398,7 +374,7 @@ internal sealed partial class HDiff13DerivedPatcher
             if (vectorEnd != 0)
             {
                 ref byte destinationRef = ref destination[0];
-                ref byte rleRef         = ref rle[rleOffset];
+                ref byte rleRef         = ref Unsafe.AsRef(in rle[0]);
                 for (; index < vectorEnd; index += vectorLength)
                 {
                     var oldVector = Unsafe.ReadUnaligned<Vector128<byte>>(ref Unsafe.Add(ref destinationRef, index));
@@ -414,15 +390,15 @@ internal sealed partial class HDiff13DerivedPatcher
             int vectorEnd    = length - length % vectorLength;
             for (; index < vectorEnd; index += vectorLength)
             {
-                Vector<byte> oldVector = new(destination, index);
-                Vector<byte> rleVector = new(rle, rleOffset + index);
-                (oldVector + rleVector).CopyTo(destination, index);
+                Vector<byte> oldVector = new(destination.Slice(index, vectorLength));
+                Vector<byte> rleVector = new(rle.Slice(index, vectorLength));
+                (oldVector + rleVector).CopyTo(destination.Slice(index, vectorLength));
             }
         }
 #endif
         for (; index < length; index++)
         {
-            destination[index] = unchecked((byte)(destination[index] + rle[rleOffset + index]));
+            destination[index] = unchecked((byte)(destination[index] + rle[index]));
         }
     }
 
@@ -461,15 +437,15 @@ internal sealed partial class HDiff13DerivedPatcher
         }
     }
 
-    private readonly struct PatchWorkItem(byte[]              buffer,
-                                          int                 length,
-                                          long                outputPosition,
-                                          List<CoverSegment>? coverSegments)
+    private readonly struct PatchWorkItem(NativeMemoryBuffer<byte> buffer,
+                                          int                      length,
+                                          long                     outputPosition,
+                                          List<CoverSegment>?      coverSegments)
     {
-        public byte[]              Buffer         { get; } = buffer;
-        public int                 Length         { get; } = length;
-        public long                OutputPosition { get; } = outputPosition;
-        public List<CoverSegment>? CoverSegments  { get; } = coverSegments;
+        public NativeMemoryBuffer<byte> Buffer         { get; } = buffer;
+        public int                      Length         { get; } = length;
+        public long                     OutputPosition { get; } = outputPosition;
+        public List<CoverSegment>?      CoverSegments  { get; } = coverSegments;
     }
 
     private readonly struct CoverSegment(int bufferOffset,
@@ -487,10 +463,10 @@ internal sealed partial class HDiff13DerivedPatcher
         private readonly int                   _bufferSize = bufferSize;
         private readonly Action<PatchWorkItem> _emit       = emit;
 
-        private byte[]?             _buffer;
-        private int                 _length;
-        private long                _outputPosition;
-        private List<CoverSegment>? _coverSegments;
+        private NativeMemoryBuffer<byte>? _buffer;
+        private int                       _length;
+        private long                      _outputPosition;
+        private List<CoverSegment>?       _coverSegments;
 
         public Span<byte> GetWritableSpan(long outputPosition,
                                           long requestedLength,
@@ -503,7 +479,7 @@ internal sealed partial class HDiff13DerivedPatcher
 
             if (_buffer is null)
             {
-                _buffer         = BigArrayPool<byte>.Shared.Rent(_bufferSize);
+                _buffer         = new NativeMemoryBuffer<byte>(_bufferSize);
                 _outputPosition = outputPosition;
             }
             else if (outputPosition != _outputPosition + _length)
@@ -512,7 +488,7 @@ internal sealed partial class HDiff13DerivedPatcher
             }
 
             writableLength = (int)Math.Min(requestedLength, _bufferSize - _length);
-            return _buffer.AsSpan(_length, writableLength);
+            return _buffer.Span.Slice(_length, writableLength);
         }
 
         public void CommitNewData(int length)
@@ -562,7 +538,7 @@ internal sealed partial class HDiff13DerivedPatcher
         {
             if (_buffer is not null)
             {
-                BigArrayPool<byte>.Shared.Return(_buffer);
+                _buffer.Dispose();
                 _buffer = null;
             }
         }
@@ -612,7 +588,7 @@ internal sealed partial class HDiff13DerivedPatcher
             }
         }
 
-        public void Skip(long length, byte[] scratchBuffer, CancellationToken token)
+        public void Skip(long length, Span<byte> scratchBuffer, CancellationToken token)
         {
             while (length > 0)
             {
@@ -626,7 +602,7 @@ internal sealed partial class HDiff13DerivedPatcher
                     while (rawRemaining > 0)
                     {
                         int readLength = (int)Math.Min(rawRemaining, scratchBuffer.Length);
-                        _codeReader.ReadBytes(scratchBuffer.AsSpan(0, readLength));
+                        _codeReader.ReadBytes(scratchBuffer[..readLength]);
                         rawRemaining -= readLength;
                     }
                 }

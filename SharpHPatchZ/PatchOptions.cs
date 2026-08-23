@@ -1,11 +1,18 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 
 namespace SharpHPatchZ;
 
 [StructLayout(LayoutKind.Sequential)]
 public struct PatchOptions()
 {
-    public static readonly PatchOptions Default = new();
+    public static readonly PatchOptions Default = new()
+    {
+        ParallelThreads = (uint)Environment.ProcessorCount,
+#if NET6_0_OR_GREATER
+        UseSIMD = true
+#endif
+    };
 
     public static readonly PatchOptions BigBuffer = Default with
     {
@@ -23,7 +30,7 @@ public struct PatchOptions()
 
     public static readonly PatchOptions OptimizeForHDD = Default with
     {
-        ParallelThreads = 2,
+        ParallelThreads = 1,
         CopyBufferSize = BigBuffer.CopyBufferSize
     };
 

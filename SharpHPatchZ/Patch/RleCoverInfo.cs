@@ -29,46 +29,54 @@ internal struct RleCoverInfo
         CopyLength        = copyLength;
     }
 
-    internal static Span<RleCoverInfo> Read(BittableStreamReader reader,
-                                            HDiffInfo            info,
-                                            out RleCoverInfo[]   backedBuffer,
-                                            CancellationToken    token)
+    internal static NativeMemoryBuffer<RleCoverInfo> Read(BittableStreamReader reader,
+                                                          HDiffInfo            info,
+                                                          CancellationToken    token)
     {
         ref PatchMetadata patchMetadata = ref info.GetPatchMetadata();
 
         int rleCoverCount = patchMetadata.CoverDataCount;
-        backedBuffer = BigArrayPool<RleCoverInfo>.Shared.Rent(rleCoverCount);
+        NativeMemoryBuffer<RleCoverInfo> backedBuffer = new(rleCoverCount);
 
-        long lastOldPosBack = 0;
-        long lastNewPosBack = 0;
-
-        for (int i = 0; i < rleCoverCount; i++)
+        try
         {
-            token.ThrowIfCancellationRequested();
+            Span<RleCoverInfo> covers = backedBuffer.Span;
+            long lastOldPosBack = 0;
+            long lastNewPosBack = 0;
 
-            long oldPosBack = lastOldPosBack;
-            long newPosBack = lastNewPosBack;
+            for (int i = 0; i < rleCoverCount; i++)
+            {
+                token.ThrowIfCancellationRequested();
 
-            long incOldPos = reader.ReadLong7Bit(BittableStreamReader.KSignTagBit);
+                long oldPosBack = lastOldPosBack;
+                long newPosBack = lastNewPosBack;
 
-            byte incOldPosSign = (byte)(reader.PreviousByte >> (8 - BittableStreamReader.KSignTagBit));
-            long oldPos        = incOldPosSign == 0 ? oldPosBack + incOldPos : oldPosBack - incOldPos;
+                long incOldPos = reader.ReadLong7Bit(BittableStreamReader.KSignTagBit);
 
-            long copyLength  = reader.ReadLong7Bit();
-            long coverLength = reader.ReadLong7Bit();
+                byte incOldPosSign = (byte)(reader.PreviousByte >> (8 - BittableStreamReader.KSignTagBit));
+                long oldPos        = incOldPosSign == 0 ? oldPosBack + incOldPos : oldPosBack - incOldPos;
 
-            oldPosBack =  oldPos;
-            newPosBack += copyLength;
-            oldPosBack += coverLength;
+                long copyLength  = reader.ReadLong7Bit();
+                long coverLength = reader.ReadLong7Bit();
 
-            backedBuffer[i] =  new RleCoverInfo(oldPos, newPosBack, coverLength, copyLength);
-            newPosBack     += coverLength;
+                oldPosBack =  oldPos;
+                newPosBack += copyLength;
+                oldPosBack += coverLength;
 
-            lastOldPosBack = oldPosBack;
-            lastNewPosBack = newPosBack;
+                covers[i]  = new RleCoverInfo(oldPos, newPosBack, coverLength, copyLength);
+                newPosBack += coverLength;
+
+                lastOldPosBack = oldPosBack;
+                lastNewPosBack = newPosBack;
+            }
+
+            return backedBuffer;
         }
-
-        return backedBuffer.AsSpan(0, rleCoverCount);
+        catch
+        {
+            backedBuffer.Dispose();
+            throw;
+        }
     }
 
     public override string ToString() => $"RleLength: {RleLength} | CopyLength: {CopyLength} | OldPos: {OldStreamPosition} | NewPos: {NewStreamPosition}";
