@@ -133,11 +133,6 @@ public sealed class LzmaInputStream : Stream
             return 0;
         }
 
-        if (_decoder == null)
-        {
-            throw new NullReferenceException("Decoder is null");
-        }
-
         int total = 0;
         while (total < count)
         {
@@ -168,7 +163,7 @@ public sealed class LzmaInputStream : Stream
             {
                 _inputPosition += _outWindow.CopyStream(_inputStream, toProcess);
             }
-            else if (_decoder.Code(_dictionarySize, _outWindow, _rangeDecoder) && _outputSize < 0)
+            else if (_decoder != null && _decoder.Code(_dictionarySize, _outWindow, _rangeDecoder) && _outputSize < 0)
             {
                 _availableBytes = _outWindow.AvailableBytes;
             }
@@ -186,7 +181,7 @@ public sealed class LzmaInputStream : Stream
             {
                 // Stream might have End Of Stream marker
                 _outWindow.SetLimit(toProcess + 1);
-                if (!_decoder.Code(_dictionarySize, _outWindow, _rangeDecoder))
+                if (_decoder != null && !_decoder.Code(_dictionarySize, _outWindow, _rangeDecoder))
                 {
                     _rangeDecoder.ReleaseStream();
                     throw new LzmaDataErrorException();
