@@ -4,7 +4,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using SharpHPatchZ.Header;
-
+// ReSharper disable StringLiteralTypo
+// ReSharper disable IdentifierTypo
 // ReSharper disable InconsistentNaming
 
 namespace SharpHPatchZ.Extension;
