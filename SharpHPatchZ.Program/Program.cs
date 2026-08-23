@@ -32,8 +32,10 @@ namespace SharpHPatchZ.Program
             Argument<string>   inputPathArg, patchPathArg, outputPathArg;
             Option<BufferSize> bufferModeOpt;
             Option<int>        threadsOpt;
+            Option<bool>       isKuroTypeOpt;
 
             string inputPath, patchPath, outputPath;
+            bool   isKuroType;
             int    threads;
 
             Command.AddArgument(inputPathArg = new Argument<string>("Input File", "Input path of the old file/folder to patch"));
@@ -42,23 +44,30 @@ namespace SharpHPatchZ.Program
             Command.AddOption(bufferModeOpt = new Option<BufferSize>(["-b", "--buffer-mode"], () => BufferSize.BigBuffer,
                                                                      """
                                                                      Determines the buffering mode for reading the clips of the patch files.
-                                                                     [BigBuffer (Default)]
+                                                                     [BigBuffer]
                                                                      Buffer Size = Up to 16 MB per chunks
                                                                      
                                                                      [MediumBuffer]
                                                                      Buffer Size = Up to 1 MB per chunks
                                                                      
                                                                      [SmallBuffer]
-                                                                     Buffer Size = Up to 1 MB per chunks
+                                                                     Buffer Size = Up to 128 KB per chunks
+                                                                     
+                                                                     [OptimizedForHDD]
+                                                                     Thread = 1, Buffer Size = Up to 16 MB per chunks
+                                                                     (Note: -p/--parallel-threads values will be ignored)
                                                                      """));
             Command.AddOption(threadsOpt = new Option<int>(["-p", "--parallel-threads"], () => Environment.ProcessorCount,
                                                            "Determines how much parallel threads to be run."));
+            Command.AddOption(isKuroTypeOpt = new Option<bool>(["-k", "--kuro"], () => false,
+                                                               "Defining that the patch file is a Kuro Games HDiff format."));
 
             Command.SetHandler((context) =>
             {
                 inputPath  = context.ParseResult.GetValueForArgument(inputPathArg);
                 patchPath  = context.ParseResult.GetValueForArgument(patchPathArg);
                 outputPath = context.ParseResult.GetValueForArgument(outputPathArg);
+                isKuroType = context.ParseResult.GetValueForOption(isKuroTypeOpt);
 
                 BufferSize bufferSize = context.ParseResult.GetValueForOption(bufferModeOpt);
                 PatchOptions options = bufferSize switch
@@ -68,6 +77,11 @@ namespace SharpHPatchZ.Program
                     BufferSize.SmallBuffer     => PatchOptions.SmallBuffer,
                     BufferSize.OptimizedForHDD => PatchOptions.OptimizeForHDD,
                     _                          => PatchOptions.BigBuffer
+                };
+
+                InitializeOptions initializeOptions = new()
+                {
+                    IsKuroGamesHDiff = isKuroType
                 };
 
                 if (bufferSize != BufferSize.OptimizedForHDD)
@@ -83,8 +97,12 @@ namespace SharpHPatchZ.Program
                 {
                     ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(PatchProgress);
 
-                    using HDiffInfo info = HPatch.CreateInstance(CreatePatchStream);
-                    HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
+                    using HDiffInfo info = HPatch.CreateInstance(CreatePatchStream, initializeOptions);
+                    PatchResult result = HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
+                    if (result.Exception != null)
+                    {
+                        throw result.Exception;
+                    }
 
                     Console.WriteLine();
                     Console.WriteLine($"Patch completed in: {Stopwatch.Elapsed:c}");
