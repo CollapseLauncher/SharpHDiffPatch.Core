@@ -1,5 +1,4 @@
-﻿using System.Buffers;
-using System.IO;
+﻿using System.IO;
 using System.Threading;
 using SharpHPatchZ.Extension;
 
