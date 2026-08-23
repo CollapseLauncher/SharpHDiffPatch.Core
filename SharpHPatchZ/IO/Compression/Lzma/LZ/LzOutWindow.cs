@@ -2,31 +2,35 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
+using SharpHPatchZ.Extension;
 
 namespace SharpHPatchZ.IO.Compression.Lzma.LZ;
 
 internal class OutWindow : IDisposable
 {
-    private byte[]  _buffer = [];
-    private int     _windowSize;
-    private int     _pos;
-    private int     _streamPos;
-    private int     _pendingLen;
-    private int     _pendingDist;
-    private Stream? _stream;
+    private NativeMemoryBuffer<byte>? _buffer;
+#if !NET6_0_OR_GREATER
+    private byte[]                    _streamBuffer = [];
+#endif
+    private int                       _windowSize;
+    private int                       _pos;
+    private int                       _streamPos;
+    private int                       _pendingLen;
+    private int                       _pendingDist;
+    private Stream?                   _stream;
 
     public long Total;
     public long Limit;
 
     public void Create(int windowSize)
     {
-        if (_buffer.Length < windowSize)
+        if (_buffer is null || _buffer.Length < windowSize)
         {
-            ReturnPooledBuffer();
-            _buffer = ArrayPool<byte>.Shared.Rent(windowSize);
+            ReleaseBuffer();
+            _buffer = new NativeMemoryBuffer<byte>(windowSize);
         }
 
-        _buffer[windowSize - 1] = 0;
+        Unsafe.Add(ref _buffer.GetReference(), windowSize - 1) = 0;
         _windowSize             = windowSize;
         _pos                    = 0;
         _streamPos              = 0;
@@ -79,7 +83,21 @@ internal class OutWindow : IDisposable
             return;
         }
 
-        _stream.Write(_buffer, _streamPos, size);
+#if NET6_0_OR_GREATER
+        _stream.Write(_buffer!.Span.Slice(_streamPos, size));
+#else
+        byte[] streamBuffer = GetStreamBuffer();
+        int sourceOffset = _streamPos;
+        int remaining = size;
+        while (remaining > 0)
+        {
+            int step = Math.Min(remaining, streamBuffer.Length);
+            _buffer!.Span.Slice(sourceOffset, step).CopyTo(streamBuffer);
+            _stream.Write(streamBuffer, 0, step);
+            sourceOffset += step;
+            remaining    -= step;
+        }
+#endif
         if (_pos >= _windowSize)
         {
             _pos = 0;
@@ -106,7 +124,7 @@ internal class OutWindow : IDisposable
                 copySize = (int)available;
             }
 
-            ref byte buffer     = ref _buffer[0];
+            ref byte buffer     = ref _buffer!.GetReference();
             int      beforeWrap = Math.Min(copySize, _windowSize - source);
             CopyBytes(ref buffer, source, _pos, beforeWrap);
             source += beforeWrap;
@@ -161,7 +179,7 @@ internal class OutWindow : IDisposable
 
     public void PutByte(byte b)
     {
-        _buffer[_pos++] = b;
+        Unsafe.Add(ref _buffer!.GetReference(), _pos++) = b;
         Total++;
 
         if (_pos >= _windowSize)
@@ -177,7 +195,7 @@ internal class OutWindow : IDisposable
         {
             pos += _windowSize;
         }
-        return _buffer[pos];
+        return Unsafe.Add(ref _buffer!.GetReference(), pos);
     }
 
     public int CopyStream(Stream stream, int len)
@@ -196,7 +214,13 @@ internal class OutWindow : IDisposable
                 curSize = size;
             }
 
-            int numReadBytes = stream.Read(_buffer, _pos, curSize);
+#if NET6_0_OR_GREATER
+            int numReadBytes = stream.Read(_buffer!.Span.Slice(_pos, curSize));
+#else
+            byte[] streamBuffer = GetStreamBuffer();
+            int numReadBytes = stream.Read(streamBuffer, 0, Math.Min(curSize, streamBuffer.Length));
+            streamBuffer.AsSpan(0, numReadBytes).CopyTo(_buffer!.Span.Slice(_pos, numReadBytes));
+#endif
             if (numReadBytes == 0)
             {
                 throw new LzmaDataErrorException();
@@ -232,7 +256,7 @@ internal class OutWindow : IDisposable
             size = count;
         }
 
-        _buffer.AsSpan(_streamPos, size).CopyTo(buffer.AsSpan(offset, size));
+        _buffer!.Span.Slice(_streamPos, size).CopyTo(buffer.AsSpan(offset, size));
         _streamPos += size;
         if (_streamPos < _windowSize) return size;
 
@@ -254,16 +278,33 @@ internal class OutWindow : IDisposable
     public void Dispose()
     {
         ReleaseStream();
-        ReturnPooledBuffer();
+        ReleaseBuffer();
+#if !NET6_0_OR_GREATER
+        byte[] streamBuffer = _streamBuffer;
+        _streamBuffer = [];
+        if (streamBuffer.Length != 0)
+        {
+            ArrayPool<byte>.Shared.Return(streamBuffer);
+        }
+#endif
     }
 
-    private void ReturnPooledBuffer()
+    private void ReleaseBuffer()
     {
-        byte[] buffer = _buffer;
-        _buffer = [];
-        if (buffer.Length != 0)
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
+        NativeMemoryBuffer<byte>? buffer = _buffer;
+        _buffer = null;
+        buffer?.Dispose();
     }
+
+#if !NET6_0_OR_GREATER
+    private byte[] GetStreamBuffer()
+    {
+        if (_streamBuffer.Length == 0)
+        {
+            _streamBuffer = ArrayPool<byte>.Shared.Rent(64 << 10);
+        }
+
+        return _streamBuffer;
+    }
+#endif
 }

@@ -3,6 +3,7 @@ using SharpHPatchZ.Header.Metadata;
 using SharpHPatchZ.IO.Compression;
 using SharpHPatchZ.IO.Reader;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -82,17 +83,74 @@ internal static partial class PatcherFactory
         {
             int bufferSize = options.ReaderBufferSize;
 
-            Stream decCoverStream = CreateDecompressionStream(compType, *patchMetadata.CoverDataSizeP, coverCtx);
-            Stream decRleControlStream = CreateDecompressionStream(compType, *patchMetadata.RleControlDataSizeP, rleCtrlCtx);
-            Stream decRleCodeStream = CreateDecompressionStream(compType, *patchMetadata.RleCodeDataSizeP, rleCodeCtx);
-            Stream decNewDataStream = CreateDecompressionStream(compType, *patchMetadata.NewDiffDataSizeP, newDataCtx);
+            ChunkSizeInfo coverSize  = *patchMetadata.CoverDataSizeP;
+            ChunkSizeInfo controlSize = *patchMetadata.RleControlDataSizeP;
+            ChunkSizeInfo codeSize    = *patchMetadata.RleCodeDataSizeP;
+            ChunkSizeInfo newDataSize = *patchMetadata.NewDiffDataSizeP;
 
-            BittableStreamReader coverReader   = new(decCoverStream, bufferSize, coverCtx.Item2);
-            BittableStreamReader rleCtrlReader = new(decRleControlStream, bufferSize, rleCtrlCtx.Item2);
-            BittableStreamReader rleCodeReader = new(decRleCodeStream, bufferSize, rleCodeCtx.Item2);
-            BittableStreamReader newDataReader = new(decNewDataStream, bufferSize, newDataCtx.Item2);
+            Stream[] decompressedStreams =
+            [
+                CreateDecompressionStream(compType, coverSize,   coverCtx),
+                CreateDecompressionStream(compType, controlSize, rleCtrlCtx),
+                CreateDecompressionStream(compType, codeSize,    rleCodeCtx),
+                CreateDecompressionStream(compType, newDataSize, newDataCtx)
+            ];
+
+            EnableParallelDecompression(compType,
+                                        options,
+                                        decompressedStreams,
+                                        [coverSize, controlSize, codeSize, newDataSize]);
+
+            BittableStreamReader coverReader   = new(decompressedStreams[0], bufferSize, coverCtx.Item2);
+            BittableStreamReader rleCtrlReader = new(decompressedStreams[1], bufferSize, rleCtrlCtx.Item2);
+            BittableStreamReader rleCodeReader = new(decompressedStreams[2], bufferSize, rleCodeCtx.Item2);
+            BittableStreamReader newDataReader = new(decompressedStreams[3], bufferSize, newDataCtx.Item2);
 
             return new DiffReadersContext(coverReader, rleCtrlReader, rleCodeReader, newDataReader);
+        }
+
+        private static void EnableParallelDecompression(HDiffCompression compType,
+                                                        PatchOptions     options,
+                                                        Stream[]         streams,
+                                                        ChunkSizeInfo[]  sizes)
+        {
+            if (compType is not (HDiffCompression.Lzma or HDiffCompression.Lzma2))
+            {
+                return;
+            }
+
+            int requestedWorkers = options.ParallelThreads == 0
+                ? Environment.ProcessorCount
+                : options.ParallelThreads > int.MaxValue
+                    ? int.MaxValue
+                    : (int)options.ParallelThreads;
+            int prefetchCount = Math.Min(streams.Length, Math.Max(0, requestedWorkers - 1));
+            if (prefetchCount == 0)
+            {
+                return;
+            }
+
+            List<(int Index, long CompressedSize)> candidates = new(streams.Length);
+            for (int index = 0; index < sizes.Length; index++)
+            {
+                if (sizes[index].CompressedSize > 0 && sizes[index].Size > 0)
+                {
+                    candidates.Add((index, sizes[index].CompressedSize));
+                }
+            }
+
+            candidates.Sort(static (left, right) => right.CompressedSize.CompareTo(left.CompressedSize));
+            prefetchCount = Math.Min(prefetchCount, candidates.Count);
+
+            int prefetchBufferSize = options.ReaderBufferSize > 0
+                ? Math.Max(64 << 10, options.ReaderBufferSize)
+                : 1 << 20;
+            for (int candidateIndex = 0; candidateIndex < prefetchCount; candidateIndex++)
+            {
+                int streamIndex = candidates[candidateIndex].Index;
+                streams[streamIndex] = new PrefetchedReadStream(streams[streamIndex],
+                                                                prefetchBufferSize);
+            }
         }
 
         private static Stream CreateDecompressionStream(

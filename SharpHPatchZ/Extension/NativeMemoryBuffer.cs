@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace SharpHPatchZ.Extension;
@@ -48,6 +49,18 @@ internal sealed unsafe class NativeMemoryBuffer<T> : IDisposable
 
             return new Span<T>((void*)pointer, _length);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref T GetReference()
+    {
+        nint pointer = (nint)_pointer;
+        if (pointer == 0)
+        {
+            throw new ObjectDisposedException(nameof(NativeMemoryBuffer<T>));
+        }
+
+        return ref Unsafe.AsRef<T>((void*)pointer);
     }
 
     public void Dispose()

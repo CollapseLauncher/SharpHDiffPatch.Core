@@ -2,6 +2,9 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
+#if NET6_0_OR_GREATER
+using SharpHPatchZ.Extension;
+#endif
 
 namespace SharpHPatchZ.IO.Compression.Lzma.RangeCoder;
 
@@ -15,11 +18,15 @@ internal class RangeDecoder : IDisposable
     public Stream Stream;
     public long   Total;
 
-    private byte[] _inputBuffer = [];
-    private int    _inputOffset;
-    private int    _inputCount;
-    private long   _inputLimit;
-    private bool   _useInputBuffer;
+#if NET6_0_OR_GREATER
+    private NativeMemoryBuffer<byte>? _inputBuffer;
+#else
+    private byte[]                    _inputBuffer = [];
+#endif
+    private int                       _inputOffset;
+    private int                       _inputCount;
+    private long                      _inputLimit;
+    private bool                      _useInputBuffer;
 
     public void Init(Stream stream, long inputLimit = -1)
     {
@@ -96,7 +103,11 @@ internal class RangeDecoder : IDisposable
         }
 
         Total++;
+#if NET6_0_OR_GREATER
+        return Unsafe.Add(ref _inputBuffer!.GetReference(), _inputOffset++);
+#else
         return _inputBuffer[_inputOffset++];
+#endif
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -108,13 +119,19 @@ internal class RangeDecoder : IDisposable
             throw new LzmaDataErrorException();
         }
 
+#if NET6_0_OR_GREATER
+        _inputBuffer ??= new NativeMemoryBuffer<byte>(InputBufferSize);
+        int requested = (int)Math.Min(_inputBuffer.Length, remaining);
+        _inputCount = Stream.Read(_inputBuffer.Span[..requested]);
+#else
         if (_inputBuffer.Length == 0)
         {
             _inputBuffer = ArrayPool<byte>.Shared.Rent(InputBufferSize);
         }
 
         int requested = (int)Math.Min(_inputBuffer.Length, remaining);
-        _inputCount  = Stream.Read(_inputBuffer, 0, requested);
+        _inputCount = Stream.Read(_inputBuffer, 0, requested);
+#endif
         _inputOffset = 0;
         if (_inputCount <= 0)
         {
@@ -125,6 +142,11 @@ internal class RangeDecoder : IDisposable
     public void Dispose()
     {
         ReleaseStream();
+#if NET6_0_OR_GREATER
+        NativeMemoryBuffer<byte>? inputBuffer = _inputBuffer;
+        _inputBuffer = null;
+        inputBuffer?.Dispose();
+#else
         byte[] inputBuffer = _inputBuffer;
         _inputBuffer = [];
 
@@ -132,5 +154,6 @@ internal class RangeDecoder : IDisposable
         {
             ArrayPool<byte>.Shared.Return(inputBuffer);
         }
+#endif
     }
 }
