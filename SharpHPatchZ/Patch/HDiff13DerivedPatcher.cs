@@ -164,6 +164,25 @@ internal sealed partial class HDiff13DerivedPatcher(
             throw ExceptionHelper.ThrowHDiffPatchInputFilesMismatched(lastInputFileEnds, refInputTotalSize);
         }
 
+        // -- Reference Input Size sanity for Kuro Games HDiff format
+        if (Info.InitializeOptions.IsKuroGamesHDiff)
+        {
+            Span<long> inputFileSizes = dirMetadata.InputFileSizeListP->GetSpan();
+            for (int i = 0; i < refInputCount; i++)
+            {
+                ref long expectedOldRefSize = ref inputFileSizes[i];
+
+                string   filePath = refInputFiles[i];
+                FileInfo fileInfo = new(filePath);
+
+                if (!fileInfo.Exists)
+                    throw ExceptionHelper.ThrowHDiffPatchKuroInputPathNotExist(filePath);
+
+                if (fileInfo.Length != expectedOldRefSize)
+                    throw ExceptionHelper.ThrowHDiffPatchKuroInputSizeMismatched(filePath, fileInfo.Length, expectedOldRefSize);
+            }
+        }
+
         // -- Reference Output
         Span<int>  refOutputFileIndexSpan = dirMetadata.OutputFileIndexListP->GetSpan();
         Span<long> refOutputFileSizeSpan  = dirMetadata.OutputFileSizeListP->GetSpan();
