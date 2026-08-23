@@ -69,6 +69,10 @@ internal static class DecompressStreamFactory
         if (type == HDiffCompression.Uncompressed || compressedSize == 0)
             return sourceStream;
 
+        // Advance one byte padding for Zlib / Libdeflate
+        if (type == HDiffCompression.Zlib)
+            sourceStream.ReadByte();
+
         return type switch
         {
             HDiffCompression.Zstd => CreateZstdStream(sourceStream, leaveOpen),
