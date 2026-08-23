@@ -114,7 +114,7 @@ internal static partial class PatcherFactory
                                                         Stream[]         streams,
                                                         ChunkSizeInfo[]  sizes)
         {
-            if (compType is not (HDiffCompression.Lzma or HDiffCompression.Lzma2))
+            if (compType is HDiffCompression.Uncompressed)
             {
                 return;
             }
