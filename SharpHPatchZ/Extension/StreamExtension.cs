@@ -331,13 +331,25 @@ internal static class StreamExtension
                 return null;
             }
 
-            FileIndexPair* alloc          = MemoryAlloc.Alloc<FileIndexPair>(count);
-            long           oldIndexNumber = -1;
-            long           newIndexNumber = -1;
+            FileIndexPair*      alloc          = MemoryAlloc.Alloc<FileIndexPair>(count);
+            Span<FileIndexPair> allocSpan      = new(alloc, count);
+            long                oldIndexNumber = -1;
+            long                newIndexNumber = -1;
             for (int i = 0; i < count; i++)
             {
-                alloc[i].OldIndex = (int)(oldIndexNumber += 1 + reader.ReadLong7Bit());
-                alloc[i].NewIndex = (int)(newIndexNumber += 1 + reader.ReadLong7Bit());
+                long incNewValue = reader.ReadLong7Bit();
+                newIndexNumber    += 1 + incNewValue;
+
+                long incOldValue = reader.ReadLong7Bit(1);
+                int  pSign       = reader.PreviousByte;
+
+                if (pSign >> (8 - 1) == 0)
+                    oldIndexNumber += 1 + incOldValue;
+                else
+                    oldIndexNumber = oldIndexNumber + 1 - incOldValue;
+
+                allocSpan[i].OldIndex = (int)oldIndexNumber;
+                allocSpan[i].NewIndex = (int)newIndexNumber;
             }
 
             return alloc;
