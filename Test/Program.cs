@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using SharpHDiffPatch.Core;
 using SharpHPatchZ;
 using SharpHPatchZ.Header;
@@ -22,23 +23,21 @@ public class Program
         // hPatchOld.Patch(TestPathInput, TestPathOutput, true);
 
         ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(WriteProgress);
+        PatchOptions     options          = PatchOptions.Default;
 
+        Stopwatch sw = Stopwatch.StartNew();
         using (HDiffInfo info1 = await HPatch.CreateInstanceAsync(CreateStreamAsync))
         {
-            PatchResult result = await HPatch.PatchAsync(info1, CreateStreamAsync, TestPathInput, TestPathOutput, progressCallback: progressCallback);
+            PatchResult result = await HPatch.PatchAsync(info1, CreateStreamAsync, TestPathInput, TestPathOutput, options, progressCallback: progressCallback);
         }
-        Console.WriteLine();
 
-        using (HDiffInfo info2 = HPatch.CreateInstance(CreateStream))
-        {
-            PatchResult result = HPatch.Patch(info2, CreateStream, TestPathInput, TestPathOutput, progressCallback: progressCallback);
-        }
         Console.WriteLine();
+        Console.WriteLine($"Completed in: {sw.ElapsedMilliseconds} ms");
     }
 
     public static void WriteProgress(long totalProcessed, long totalSize, int written)
     {
-        // Console.Write($"{totalProcessed} / {totalSize} {(int)(totalProcessed / (double)totalSize * 100)}%\r");
+        Console.Write($"{totalProcessed} / {totalSize} {(int)(totalProcessed / (double)totalSize * 100)}%\r");
     }
 
     public static Stream CreateStream()

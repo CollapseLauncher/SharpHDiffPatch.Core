@@ -12,11 +12,14 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
     private readonly ReaderWriterLockSlim                        _lifetimeLock = new();
     private readonly long[]                                      _fileStreamEnds;
     private readonly string[]                                    _fileStreamPaths;
+    private readonly FileAccess                                  _fileAccess;
     private          int                                         _disposed;
 
-    public long Length => _fileStreamEnds[^1];
+    public long Length => _fileStreamEnds.Length == 0 ? 0 : _fileStreamEnds[^1];
 
-    public RandomMergedStreamWrapper(string[] fileStreams, long[] fileStreamEnds)
+    public RandomMergedStreamWrapper(string[] fileStreams,
+                                     long[]   fileStreamEnds,
+                                     bool     createFiles = false)
     {
         if (fileStreams is null)
         {
@@ -26,11 +29,6 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
         if (fileStreamEnds is null)
         {
             throw new ArgumentNullException(nameof(fileStreamEnds));
-        }
-
-        if (fileStreams.Length == 0)
-        {
-            throw new ArgumentException("At least one file is required.", nameof(fileStreams));
         }
 
         if (fileStreams.Length != fileStreamEnds.Length)
@@ -58,6 +56,12 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
 
         _fileStreamPaths = fileStreams;
         _fileStreamEnds  = fileStreamEnds;
+        _fileAccess      = createFiles ? FileAccess.ReadWrite : FileAccess.Read;
+
+        if (createFiles)
+        {
+            CreateOutputFiles();
+        }
     }
 
     public void Write(Span<byte> buffer, long offset)
@@ -164,13 +168,36 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
             index => new Lazy<FileStream>(
                 () => new FileStream(_fileStreamPaths[index],
                                      FileMode.Open,
-                                     FileAccess.ReadWrite,
+                                     _fileAccess,
                                      FileShare.ReadWrite,
                                      bufferSize: 1,
                                      FileOptions.RandomAccess),
                 LazyThreadSafetyMode.ExecutionAndPublication));
 
         return lazyStream.Value;
+    }
+
+    private void CreateOutputFiles()
+    {
+        long streamStart = 0;
+        for (int index = 0; index < _fileStreamPaths.Length; index++)
+        {
+            string path = _fileStreamPaths[index];
+            string? directoryPath = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            using FileStream stream = new(path,
+                                          FileMode.Create,
+                                          FileAccess.ReadWrite,
+                                          FileShare.ReadWrite,
+                                          bufferSize: 1,
+                                          FileOptions.RandomAccess);
+            stream.SetLength(_fileStreamEnds[index] - streamStart);
+            streamStart = _fileStreamEnds[index];
+        }
     }
 
     private int FindStreamIndex(long offset)

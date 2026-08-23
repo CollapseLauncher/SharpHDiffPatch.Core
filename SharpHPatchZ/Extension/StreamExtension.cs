@@ -204,10 +204,9 @@ internal static class StreamExtension
             long[] array = ArrayPool<long>.Shared.Rent(count);
             try
             {
-                long backNumber = -1;
                 for (int i = 0; i < count; i++)
                 {
-                    array[i] = backNumber += 1 + await reader.ReadLong7BitAsync(token);
+                    array[i] = await reader.ReadLong7BitAsync(token);
                 }
 
                 unsafe
@@ -233,10 +232,9 @@ internal static class StreamExtension
             UnmanagedArray<long>* allocArray = UnmanagedArray<long>.CreateAllocUnsafe(count);
             Span<long>            allocSpan  = allocArray->GetSpan();
 
-            long backNumber = -1;
             for (int i = 0; i < count; i++)
             {
-                allocSpan[i] = backNumber += 1 + reader.ReadLong7Bit();
+                allocSpan[i] = reader.ReadLong7Bit();
             }
 
             return allocArray;

@@ -44,6 +44,8 @@ internal struct RleCoverInfo
 
         for (int i = 0; i < rleCoverCount; i++)
         {
+            token.ThrowIfCancellationRequested();
+
             long oldPosBack = lastOldPosBack;
             long newPosBack = lastNewPosBack;
 

@@ -104,7 +104,9 @@ internal sealed partial class HDiff13DerivedPatcher(
                     inputFile.FullName, inputFile.Length, patchMetadata.DiffOldSize);
 
             InputStream  = new RandomMergedStreamWrapper([inputFile.FullName],  [inputFile.Length]);
-            OutputStream = new RandomMergedStreamWrapper([outputFile.FullName], [patchMetadata.DiffNewSize]);
+            OutputStream = new RandomMergedStreamWrapper([outputFile.FullName],
+                                                         [patchMetadata.DiffNewSize],
+                                                         createFiles: true);
 
             return;
         }
@@ -116,6 +118,11 @@ internal sealed partial class HDiff13DerivedPatcher(
 
         ref DirectoryPatchMetadata dirMetadata = ref Info.MetadataAs<DirectoryPatchMetadata>();
         if (Unsafe.IsNullRef(ref dirMetadata)) throw ExceptionHelper.ThrowHDiffInfoDirectoryPatchMetadataNotAllocated();
+
+        // Directory progress includes both the core/reference output and files
+        // copied unchanged from the input tree.
+        TotalSize = checked(dirMetadata.OutputPathCountSizeInfoP->Size +
+                            dirMetadata.SameFilePathCountSizeInfoP->Size);
 
         // All input and output paths
         Utf16UnmanagedString[] allInputPaths = CopyToManagedStringList(dirMetadata.InputPathListP);
@@ -132,8 +139,8 @@ internal sealed partial class HDiff13DerivedPatcher(
         long[]   refInputFilesSize = new long[refInputCount];
 
         int      refOutputCount     = dirMetadata.OutputFileIndexListP->Length;
-        string[] refOutputFiles     = new string[refInputCount];
-        long[]   refOutputFilesSize = new long[refInputCount];
+        string[] refOutputFiles     = new string[refOutputCount];
+        long[]   refOutputFilesSize = new long[refOutputCount];
 
         // -- Reference Input
         Span<int> refInputFileIndexSpan = dirMetadata.InputFileIndexListP->GetSpan();
@@ -161,17 +168,27 @@ internal sealed partial class HDiff13DerivedPatcher(
         Span<int>  refOutputFileIndexSpan = dirMetadata.OutputFileIndexListP->GetSpan();
         Span<long> refOutputFileSizeSpan  = dirMetadata.OutputFileSizeListP->GetSpan();
 
+        long outputSize = 0;
         for (int i = 0; i < refOutputCount; i++)
         {
             int  fileIndex = refOutputFileIndexSpan[i];
             long fileSize  = refOutputFileSizeSpan[i];
 
             refOutputFiles[i]     = Path.GetFullPath(Path.Combine(outputDir.FullName, allOutputPaths[fileIndex]));
-            refOutputFilesSize[i] = fileSize;
+            outputSize            += fileSize;
+            refOutputFilesSize[i] = outputSize;
+        }
+
+        if (outputSize != patchMetadata.DiffNewSize)
+        {
+            throw new InvalidDataException(
+                $"The reference output size ({outputSize}) does not match the patch output size ({patchMetadata.DiffNewSize}).");
         }
 
         InputStream  = new RandomMergedStreamWrapper(refInputFiles,  refInputFilesSize);
-        OutputStream = new RandomMergedStreamWrapper(refOutputFiles, refOutputFilesSize);
+        OutputStream = new RandomMergedStreamWrapper(refOutputFiles,
+                                                     refOutputFilesSize,
+                                                     createFiles: true);
         _copySimilarFilesContext = new CopySimilarFilesContext(inputDir.FullName, similarInputFiles,
                                                                outputDir.FullName, similarOutputFiles);
     }
