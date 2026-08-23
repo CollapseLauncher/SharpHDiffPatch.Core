@@ -33,12 +33,11 @@ file static class Const
         { HDiffPathIsEmptyOrInvalid,                   0x52 },
         { HDiffIOException,                            0x53 },
         { HDiffPatchInputPathNotExist,                 0x54 },
-        { HDiffPatchKuroInputPathNotExist,             0x54 },
         { HDiffPatchInputSizeMismatched,               0x55 },
-        { HDiffPatchKuroInputSizeMismatched,           0x55 },
         { HDiffPatchPathNotADirectory,                 0x56 },
         { HDiffPatchPathNotAFile,                      0x57 },
         { HDiffPatchInputFilesMismatched,              0x58 },
+        { HDiffPatchKuroInputFileSizeMismatched,       0x59 },
 
         // Decompression Initialization
         { HDiffCompLZMAPropertyMissing,                0xA0 },
@@ -64,12 +63,11 @@ file static class Const
     public const string HDiffPathIsEmptyOrInvalid             = "HDIFF_PathIsEmptyOrInvalid";
     public const string HDiffIOException                      = "HDIFF_IOException";
     public const string HDiffPatchInputPathNotExist           = "HDIFF_PatchInputPathNotExist";
-    public const string HDiffPatchKuroInputPathNotExist       = "HDIFF_PatchKuroInputPathNotExist";
     public const string HDiffPatchInputSizeMismatched         = "HDIFF_PatchInputSizeMismatched";
-    public const string HDiffPatchKuroInputSizeMismatched     = "HDIFF_PatchKuroInputSizeMismatched";
     public const string HDiffPatchPathNotADirectory           = "HDIFF_PatchPathNotADirectory";
     public const string HDiffPatchPathNotAFile                = "HDIFF_PatchPathNotAFile";
     public const string HDiffPatchInputFilesMismatched        = "HDIFF_PatchInputFilesMismatched";
+    public const string HDiffPatchKuroInputFileSizeMismatched = "HDIFF_PatchKuroInputFileSizeMismatched";
 
     public const string HDiffCompLZMAPropertyMissing              = "HDIFF_CompLZMAPropertyMissing";
     public const string HDiffCompLZMA2DictionaryInvalid           = "HDIFF_CompLZMA2DictionaryInvalid";
@@ -112,18 +110,16 @@ public static class ExceptionHelper
         => new($"[{Const.HDiffIOException}] An IO Error has occurred with message: {ex.Message}", ex);
     public static FileNotFoundException ThrowHDiffPatchInputPathNotExist(string filePath)
         => new($"[{Const.HDiffPatchInputPathNotExist}] Input path does not exist: {filePath}", filePath);
-    public static FileNotFoundException ThrowHDiffPatchKuroInputPathNotExist(string filePath)
-        => new($"[{Const.HDiffPatchKuroInputPathNotExist}] Kuro Games Patch input path does not exist: {filePath}", filePath);
     public static InvalidOperationException ThrowHDiffPatchInputSizeMismatched(string filePath, long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchInputSizeMismatched}] Input file size does not match: {filePath} (Expecting: {expectingSize} bytes, but got: {existingSize} instead).");
-    public static InvalidOperationException ThrowHDiffPatchKuroInputSizeMismatched(string filePath, long existingSize, long expectingSize)
-        => new($"[{Const.HDiffPatchKuroInputSizeMismatched}] Kuro Games Patch input file size does not match: {filePath} (Expecting: {expectingSize} bytes, but got: {existingSize} instead).");
     public static InvalidOperationException ThrowHDiffPatchPathNotADirectory(string path)
         => new($"[{Const.HDiffPatchPathNotADirectory}] Path is not a directory!: {path}");
     public static InvalidOperationException ThrowHDiffPatchPathNotAFile(string path)
         => new($"[{Const.HDiffPatchPathNotAFile}] Path is not a file!: {path}");
     public static InvalidOperationException ThrowHDiffPatchInputFilesMismatched(long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchInputFilesMismatched}] Input file size mismatched! Expecting: {expectingSize} bytes but got: {expectingSize} bytes instead.");
+    public static InvalidOperationException ThrowHDiffPatchKuroInputFileSizeMismatched(string filePath, long existingSize, long expectingSize)
+        => new($"[{Const.HDiffPatchKuroInputFileSizeMismatched}] Kuro Games Patch input file size does not match: {filePath} (Expecting: {expectingSize} bytes, but got: {existingSize} instead).");
 
     public static InvalidDataException ThrowHDiffCompLZMAPropertyMissing()
         => new($"[{Const.HDiffCompLZMAPropertyMissing}] The LZMA stream is missing its properties.");

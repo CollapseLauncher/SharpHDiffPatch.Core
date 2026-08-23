@@ -7,6 +7,7 @@ using SharpHPatchZ.Extension;
 using SharpHPatchZ.Header;
 using SharpHPatchZ.Header.Metadata;
 using SharpHPatchZ.IO.Reader;
+// ReSharper disable CommentTypo
 
 namespace SharpHPatchZ.Patch;
 
@@ -46,7 +47,11 @@ internal sealed partial class HDiff13DerivedPatcher(
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
+#if NET6_0_OR_GREATER
+                    copyOverTcs.SetCanceled(token);
+#else
                     copyOverTcs.SetCanceled();
+#endif
                 }
                 catch (Exception ex)
                 {
@@ -63,7 +68,11 @@ internal sealed partial class HDiff13DerivedPatcher(
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
-                    corePatcherTcs.SetCanceled();
+#if NET6_0_OR_GREATER
+                    copyOverTcs.SetCanceled(token);
+#else
+                    copyOverTcs.SetCanceled();
+#endif
                 }
                 catch (Exception ex)
                 {
@@ -152,9 +161,20 @@ internal sealed partial class HDiff13DerivedPatcher(
 
             string   filePath = refInputFiles[i];
             FileInfo fileInfo = new(filePath);
-            long     fileSize = fileInfo.Exists ? fileInfo.Length : 0;
 
-            lastInputFileEnds    += fileSize;
+            if (!fileInfo.Exists)
+                throw ExceptionHelper.ThrowHDiffPatchInputPathNotExist(filePath);
+
+            //   -- Additional size check reference for Kuro Games HDiff format.
+            if (Info.InitializeOptions.IsKuroGamesHDiff &&
+                dirMetadata.InputFileSizeListP != null)
+            {
+                ref long expectedOldRefSize = ref dirMetadata.InputFileSizeListP->GetSpan()[i];
+                if (fileInfo.Length != expectedOldRefSize)
+                    throw ExceptionHelper.ThrowHDiffPatchKuroInputFileSizeMismatched(filePath, fileInfo.Length, expectedOldRefSize);
+            }
+
+            lastInputFileEnds    += fileInfo.Length;
             refInputFilesSize[i] =  lastInputFileEnds;
         }
 
@@ -162,25 +182,6 @@ internal sealed partial class HDiff13DerivedPatcher(
         if (lastInputFileEnds != refInputTotalSize)
         {
             throw ExceptionHelper.ThrowHDiffPatchInputFilesMismatched(lastInputFileEnds, refInputTotalSize);
-        }
-
-        // -- Reference Input Size sanity for Kuro Games HDiff format
-        if (Info.InitializeOptions.IsKuroGamesHDiff)
-        {
-            Span<long> inputFileSizes = dirMetadata.InputFileSizeListP->GetSpan();
-            for (int i = 0; i < refInputCount; i++)
-            {
-                ref long expectedOldRefSize = ref inputFileSizes[i];
-
-                string   filePath = refInputFiles[i];
-                FileInfo fileInfo = new(filePath);
-
-                if (!fileInfo.Exists)
-                    throw ExceptionHelper.ThrowHDiffPatchKuroInputPathNotExist(filePath);
-
-                if (fileInfo.Length != expectedOldRefSize)
-                    throw ExceptionHelper.ThrowHDiffPatchKuroInputSizeMismatched(filePath, fileInfo.Length, expectedOldRefSize);
-            }
         }
 
         // -- Reference Output
