@@ -1,10 +1,10 @@
 @echo off
 if /i not exist "artifacts" mkdir "artifacts"
 dotnet restore || goto :Fail
-dotnet clean -c Release SharpHDiffPatch.Core.csproj || goto :Fail
+dotnet clean -c Release SharpHPatchZ.csproj || goto :Fail
 call :Clean
-dotnet build -c Release SharpHDiffPatch.Core.csproj || goto :Fail
-dotnet pack -c Release -o artifacts -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg  SharpHDiffPatch.Core.csproj || goto :Fail
+dotnet build -c Release SharpHPatchZ.csproj || goto :Fail
+dotnet pack -c Release -o artifacts -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg  SharpHPatchZ.csproj || goto :Fail
 goto :Success
 
 :Fail
