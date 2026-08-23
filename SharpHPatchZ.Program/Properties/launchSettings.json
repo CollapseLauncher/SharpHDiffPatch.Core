@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "SharpHDiffPatch-bin": {
+      "commandName": "Project",
+      "commandLineArgs": "G:\\Hi3SEA G:\\Hi3SEAtoCNExecOnly.lzma2.diff G:\\Hi3CN-dotnet"
+    }
+  }
+}

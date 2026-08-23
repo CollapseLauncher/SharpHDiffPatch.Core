@@ -3,16 +3,17 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
-        <RootNamespace>SharpHDiffPatch</RootNamespace>
+		<AssemblyName>SharpHPatchZ.Program</AssemblyName>
+        <RootNamespace>SharpHPatchZ.Program</RootNamespace>
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <Platforms>x64;ARM64;AnyCPU;x86</Platforms>
-        <Version>2.3.4</Version>
+        <Version>3.0.0</Version>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Configurations>Debug;Release</Configurations>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\SharpHDiffPatch.Core\SharpHDiffPatch.Core.csproj" />
+      <ProjectReference Include="..\SharpHPatchZ\SharpHPatchZ.csproj" />
     </ItemGroup>
 </Project>
