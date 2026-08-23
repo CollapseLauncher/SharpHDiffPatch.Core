@@ -95,8 +95,10 @@ public class HeaderReader
 
     internal static void ReadHDiffHeaderMetadata(
         ref HDiffInfo        info,
-        BittableStreamReader streamReader)
+        BittableStreamReader streamReader,
+        InitializeOptions    initializeOptions)
     {
+        info.InitializeOptions = initializeOptions;
         PatchMetadataAllocator patchMetadataAllocator = DefaultPatchMetadataAllocator;
         switch (info.MagicType)
         {
@@ -114,8 +116,10 @@ public class HeaderReader
     internal static async Task<HDiffInfo> ReadHDiffHeaderMetadataAsync(
         HDiffInfo            info,
         BittableStreamReader streamReader,
+        InitializeOptions    initializeOptions,
         CancellationToken    token)
     {
+        info.InitializeOptions = initializeOptions;
         PatchMetadataAllocator patchMetadataAllocator = DefaultPatchMetadataAllocator;
         switch (info.MagicType)
         {
@@ -194,13 +198,23 @@ public class HeaderReader
 
         long headDataStartOffset = streamReader.Offset;
 
-        UnmanagedArray<Utf16UnmanagedString>* inputPathEntryArray        = streamReader.CreateUnmanagedStringList(inputPathEntryCount, (int)inputPathEntryBufferSize);
-        UnmanagedArray<Utf16UnmanagedString>* outputPathEntryArray       = streamReader.CreateUnmanagedStringList(outputPathEntryCount, (int)outputPathEntryBufferSize);
-        UnmanagedArray<int>*                  inputFilesIndexArray       = streamReader.CreateUnmanagedInt64As32List(inputRefFileCount);
-        UnmanagedArray<int>*                  outputFilesIndexArray      = streamReader.CreateUnmanagedInt64As32List(outputRefFileCount);
-        UnmanagedArray<long>*                 outputFilesSizesArray      = streamReader.CreateUnmanagedInt64List(outputRefFileCount);
-        FileIndexPair*                        sameFilePathIndexPairArray = streamReader.CreateUnmanagedIndexPairList(sameFilePathEntryCount);
-        UnmanagedArray<int>*                  newExecuteListArray        = streamReader.CreateUnmanagedInt64As32List(newExecuteCount);
+        UnmanagedArray<Utf16UnmanagedString>* inputPathEntryArray = streamReader.CreateUnmanagedStringList(inputPathEntryCount, (int)inputPathEntryBufferSize);
+        UnmanagedArray<Utf16UnmanagedString>* outputPathEntryArray = streamReader.CreateUnmanagedStringList(outputPathEntryCount, (int)outputPathEntryBufferSize);
+        UnmanagedArray<int>* inputFilesIndexArray = streamReader.CreateUnmanagedInt64As32List(inputRefFileCount);
+        UnmanagedArray<int>* outputFilesIndexArray = streamReader.CreateUnmanagedInt64As32List(outputRefFileCount);
+
+        UnmanagedArray<long>* inputFilesSizesArray = null;
+        if (info.InitializeOptions.IsKuroGamesHDiff)
+            inputFilesSizesArray = streamReader.CreateUnmanagedInt64List(inputRefFileCount);
+
+        UnmanagedArray<long>* outputFilesSizesArray = streamReader.CreateUnmanagedInt64List(outputRefFileCount);
+
+        UnmanagedArray<long>* outputFilesHashesArray = null;
+        if (info.InitializeOptions.IsKuroGamesHDiff)
+            outputFilesHashesArray = streamReader.CreateUnmanagedInt64List(outputRefFileCount);
+
+        FileIndexPair* sameFilePathIndexPairArray = streamReader.CreateUnmanagedIndexPairList(sameFilePathEntryCount);
+        UnmanagedArray<int>* newExecuteListArray = streamReader.CreateUnmanagedInt64As32List(newExecuteCount);
 
         if (streamReader.Offset - headDataStartOffset != headDataSize)
         {
@@ -231,11 +245,13 @@ public class HeaderReader
         dirTypeMetadata.SameFilePathIndexPairP = sameFilePathIndexPairArray;
         dirTypeMetadata.NewExecuteListP        = newExecuteListArray;
 
-        dirTypeMetadata.InputPathListP       = inputPathEntryArray;
-        dirTypeMetadata.OutputPathListP      = outputPathEntryArray;
-        dirTypeMetadata.InputFileIndexListP  = inputFilesIndexArray;
-        dirTypeMetadata.OutputFileIndexListP = outputFilesIndexArray;
-        dirTypeMetadata.OutputFileSizeListP  = outputFilesSizesArray;
+        dirTypeMetadata.InputPathListP        = inputPathEntryArray;
+        dirTypeMetadata.OutputPathListP       = outputPathEntryArray;
+        dirTypeMetadata.InputFileIndexListP   = inputFilesIndexArray;
+        dirTypeMetadata.InputFileSizeListP    = inputFilesSizesArray;
+        dirTypeMetadata.OutputFileIndexListP  = outputFilesIndexArray;
+        dirTypeMetadata.OutputFileSizeListP   = outputFilesSizesArray;
+        dirTypeMetadata.OutputFileHashesListP = outputFilesHashesArray;
 
         externSizeInfo->NewExecuteCount         = newExecuteCount;
         externSizeInfo->PrivateReservedDataSize = privateReservedDataSize;
@@ -292,13 +308,23 @@ public class HeaderReader
 
         long headDataStartOffset = streamReader.Offset;
 
-        nint inputPathEntryArray        = await streamReader.CreateUnmanagedStringListAsync(inputPathEntryCount, (int)inputPathEntryBufferSize, token);
-        nint outputPathEntryArray       = await streamReader.CreateUnmanagedStringListAsync(outputPathEntryCount, (int)outputPathEntryBufferSize, token);
-        nint inputFilesIndexArray       = await streamReader.CreateUnmanagedInt64As32ListAsync(inputRefFileCount, token);
-        nint outputFilesIndexArray      = await streamReader.CreateUnmanagedInt64As32ListAsync(outputRefFileCount, token);
-        nint outputFilesSizesArray      = await streamReader.CreateUnmanagedInt64ListAsync(outputRefFileCount, token);
+        nint inputPathEntryArray = await streamReader.CreateUnmanagedStringListAsync(inputPathEntryCount, (int)inputPathEntryBufferSize, token);
+        nint outputPathEntryArray = await streamReader.CreateUnmanagedStringListAsync(outputPathEntryCount, (int)outputPathEntryBufferSize, token);
+        nint inputFilesIndexArray = await streamReader.CreateUnmanagedInt64As32ListAsync(inputRefFileCount, token);
+        nint outputFilesIndexArray = await streamReader.CreateUnmanagedInt64As32ListAsync(outputRefFileCount, token);
+
+        nint inputFilesSizesArray = 0;
+        if (info.InitializeOptions.IsKuroGamesHDiff)
+            inputFilesSizesArray = await streamReader.CreateUnmanagedInt64ListAsync(inputRefFileCount, token);
+
+        nint outputFilesSizesArray = await streamReader.CreateUnmanagedInt64ListAsync(outputRefFileCount, token);
+
+        nint outputFilesHashesArray = 0;
+        if (info.InitializeOptions.IsKuroGamesHDiff)
+            outputFilesHashesArray = await streamReader.CreateUnmanagedInt64ListAsync(outputRefFileCount, token);
+
         nint sameFilePathIndexPairArray = await streamReader.CreateUnmanagedIndexPairListAsync(sameFilePathEntryCount, token);
-        nint newExecuteListArray        = await streamReader.CreateUnmanagedInt64As32ListAsync(newExecuteCount, token);
+        nint newExecuteListArray = await streamReader.CreateUnmanagedInt64As32ListAsync(newExecuteCount, token);
 
         if (streamReader.Offset - headDataStartOffset != headDataSize)
         {
@@ -333,11 +359,13 @@ public class HeaderReader
                 dirTypeMetadata.SameFilePathIndexPairP = (FileIndexPair*)sameFilePathIndexPairArray;
                 dirTypeMetadata.NewExecuteListP        = (UnmanagedArray<int>*)newExecuteListArray;
 
-                dirTypeMetadata.InputPathListP       = (UnmanagedArray<Utf16UnmanagedString>*)inputPathEntryArray;
-                dirTypeMetadata.OutputPathListP      = (UnmanagedArray<Utf16UnmanagedString>*)outputPathEntryArray;
-                dirTypeMetadata.InputFileIndexListP  = (UnmanagedArray<int>*)inputFilesIndexArray;
-                dirTypeMetadata.OutputFileIndexListP = (UnmanagedArray<int>*)outputFilesIndexArray;
-                dirTypeMetadata.OutputFileSizeListP  = (UnmanagedArray<long>*)outputFilesSizesArray;
+                dirTypeMetadata.InputPathListP        = (UnmanagedArray<Utf16UnmanagedString>*)inputPathEntryArray;
+                dirTypeMetadata.OutputPathListP       = (UnmanagedArray<Utf16UnmanagedString>*)outputPathEntryArray;
+                dirTypeMetadata.InputFileIndexListP   = (UnmanagedArray<int>*)inputFilesIndexArray;
+                dirTypeMetadata.InputFileSizeListP    = (UnmanagedArray<long>*)inputFilesSizesArray;
+                dirTypeMetadata.OutputFileIndexListP  = (UnmanagedArray<int>*)outputFilesIndexArray;
+                dirTypeMetadata.OutputFileSizeListP   = (UnmanagedArray<long>*)outputFilesSizesArray;
+                dirTypeMetadata.OutputFileHashesListP = (UnmanagedArray<long>*)outputFilesHashesArray;
 
                 externSizeInfo->NewExecuteCount         = newExecuteCount;
                 externSizeInfo->PrivateReservedDataSize = privateReservedDataSize;

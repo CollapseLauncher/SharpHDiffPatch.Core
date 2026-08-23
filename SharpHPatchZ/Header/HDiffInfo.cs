@@ -9,10 +9,11 @@ namespace SharpHPatchZ.Header;
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct HDiffInfo : IDisposable
 {
-    public HDiffMagic       MagicType;
-    public HDiffCompression CompressionType;
-    public HDiffChecksum    ChecksumType;
-    public void*            MetadataP;
+    public HDiffMagic        MagicType;
+    public HDiffCompression  CompressionType;
+    public HDiffChecksum     ChecksumType;
+    public InitializeOptions InitializeOptions;
+    public void*             MetadataP;
 
     public ref T MetadataAs<T>()
         where T : unmanaged, IMetadataInit

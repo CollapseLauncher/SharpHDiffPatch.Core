@@ -52,11 +52,12 @@ public static partial class HPatch
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_init_from_memory")]
-    public static unsafe int SharpHPatchZ_InitializeFromMemory(byte* dataP, long dataLength, HDiffInfo* signP)
+    public static unsafe int SharpHPatchZ_InitializeFromMemory(byte* dataP, long dataLength, HDiffInfo* signP, InitializeOptions* initializeOptionsP)
     {
         try
         {
-            HDiffInfo thisInfo = CreateInstance(CreateUnmanagedStreamWrapper);
+            InitializeOptions initializeOptions = initializeOptionsP != null ? *initializeOptionsP : default;
+            HDiffInfo thisInfo = CreateInstance(CreateUnmanagedStreamWrapper, initializeOptions);
             thisInfo.CopyTo(signP);
 
             return 0;
@@ -75,17 +76,18 @@ public static partial class HPatch
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_init_from_filepath")]
-    public static unsafe int SharpHPatchZ_InitializeFromFilePathAuto(void* pathP, HDiffInfo* signP)
+    public static unsafe int SharpHPatchZ_InitializeFromFilePathAuto(void* pathP, HDiffInfo* signP, InitializeOptions* initializeOptionsP)
     {
         try
         {
-            string? filePath = StringExtension.GetManagedStringAuto(pathP);
+            string?           filePath          = StringExtension.GetManagedStringAuto(pathP);
             if (filePath == null)
             {
                 throw ExceptionHelper.ThrowHDiffPathIsEmptyOrInvalid();
             }
 
-            HDiffInfo thisInfo = CreateInstance(pos => CreateFileStreamWrapper(filePath, pos));
+            InitializeOptions initializeOptions = initializeOptionsP != null ? *initializeOptionsP : default;
+            HDiffInfo thisInfo = CreateInstance(pos => CreateFileStreamWrapper(filePath, pos), initializeOptions);
             thisInfo.CopyTo(signP);
 
             return 0;
@@ -97,7 +99,7 @@ public static partial class HPatch
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_init_from_FILE")]
-    public static unsafe int SharpHPatchZ_InitializeFromFILE(void* FILEP, HDiffInfo* signP)
+    public static unsafe int SharpHPatchZ_InitializeFromFILE(void* FILEP, HDiffInfo* signP, InitializeOptions* initializeOptionsP)
     {
         try
         {
@@ -106,7 +108,8 @@ public static partial class HPatch
                 throw ExceptionHelper.ThrowHDiffFILEDescriptorNull();
             }
 
-            HDiffInfo thisInfo = CreateInstance(pos => CreateFileStreamWrapper(FILEP, pos));
+            InitializeOptions initializeOptions = initializeOptionsP != null ? *initializeOptionsP : default;
+            HDiffInfo         thisInfo = CreateInstance(pos => CreateFileStreamWrapper(FILEP, pos), initializeOptions);
             thisInfo.CopyTo(signP);
 
             return 0;

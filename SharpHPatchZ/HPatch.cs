@@ -14,7 +14,8 @@ public delegate ValueTask<(Stream Stream, bool LeaveOpen)> CreateStreamAsync(lon
 
 public static partial class HPatch
 {
-    public static HDiffInfo CreateInstance(CreateStream createPatchStream)
+    public static HDiffInfo CreateInstance(CreateStream      createPatchStream,
+                                           InitializeOptions initializeOptions = default)
     {
         try
         {
@@ -24,7 +25,7 @@ public static partial class HPatch
             string    signature = reader.ReadStringToNull();
             HDiffInfo info      = default;
             HeaderReader.ReadHeaderSignature(signature, ref info);
-            HeaderReader.ReadHDiffHeaderMetadata(ref info, reader);
+            HeaderReader.ReadHDiffHeaderMetadata(ref info, reader, initializeOptions);
 
             return info;
         }
@@ -34,8 +35,14 @@ public static partial class HPatch
         }
     }
 
+    public static ValueTask<HDiffInfo> CreateInstanceAsync(
+        CreateStreamAsync createPatchStreamAsync,
+        CancellationToken token = default)
+        => CreateInstanceAsync(createPatchStreamAsync, default, token);
+
     public static async ValueTask<HDiffInfo> CreateInstanceAsync(
         CreateStreamAsync createPatchStreamAsync,
+        InitializeOptions initializeOptions,
         CancellationToken token = default)
     {
         (Stream stream, bool leaveOpen) = await createPatchStreamAsync(0, token);
@@ -47,7 +54,7 @@ public static partial class HPatch
         string    signature = await reader.ReadStringToNullAsync(token: token);
         HDiffInfo info      = default;
         HeaderReader.ReadHeaderSignature(signature, ref info);
-        info = await HeaderReader.ReadHDiffHeaderMetadataAsync(info, reader, token);
+        info = await HeaderReader.ReadHDiffHeaderMetadataAsync(info, reader, initializeOptions, token);
 
         return info;
     }

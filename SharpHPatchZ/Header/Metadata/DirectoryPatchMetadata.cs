@@ -47,8 +47,10 @@ public unsafe struct DirectoryPatchMetadata : IMetadataInit
         MemoryAlloc.Free(InputPathListP);
         MemoryAlloc.Free(OutputPathListP);
         MemoryAlloc.Free(InputFileIndexListP);
+        MemoryAlloc.Free(InputFileSizeListP);
         MemoryAlloc.Free(OutputFileIndexListP);
         MemoryAlloc.Free(OutputFileSizeListP);
+        MemoryAlloc.Free(OutputFileHashesListP);
 
         MemoryAlloc.Free(ExternSizeInfoP);
 
@@ -86,8 +88,10 @@ public unsafe struct DirectoryPatchMetadata : IMetadataInit
     public UnmanagedArray<Utf16UnmanagedString>* InputPathListP;
     public UnmanagedArray<Utf16UnmanagedString>* OutputPathListP;
     public UnmanagedArray<int>*                  InputFileIndexListP;
+    public UnmanagedArray<long>*                 InputFileSizeListP;
     public UnmanagedArray<int>*                  OutputFileIndexListP;
     public UnmanagedArray<long>*                 OutputFileSizeListP;
+    public UnmanagedArray<long>*                 OutputFileHashesListP;
 
     // Seems unused.
     // TODO: See original code to see what it is.
