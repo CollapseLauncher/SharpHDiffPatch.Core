@@ -193,7 +193,7 @@ internal sealed class PrefetchedReadStream : Stream
         if (disposing)
         {
             _disposeCancellation.Cancel();
-            _source.Dispose();
+            // Produce owns _source and disposes it after its final read.
             _producer.GetAwaiter().GetResult();
 
             _current?.Dispose();
