@@ -17,9 +17,9 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
 
     public long Length => _fileStreamEnds.Length == 0 ? 0 : _fileStreamEnds[^1];
 
-    public RandomMergedStreamWrapper(string[] fileStreams,
-                                     long[]   fileStreamEnds,
-                                     bool     createFiles = false)
+    internal RandomMergedStreamWrapper(string[] fileStreams,
+                                       long[]   fileStreamEnds,
+                                       bool     createFiles = false)
     {
         if (fileStreams is null)
         {

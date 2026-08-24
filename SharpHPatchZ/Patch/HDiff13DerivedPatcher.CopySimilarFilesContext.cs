@@ -8,9 +8,9 @@ namespace SharpHPatchZ.Patch;
 
 internal sealed partial class HDiff13DerivedPatcher
 {
-    private class CopySimilarFilesContext(string inputDir,
+    private class CopySimilarFilesContext(string   inputDir,
                                           string[] inputPaths,
-                                          string outputDir,
+                                          string   outputDir,
                                           string[] outputPaths)
     {
         private string InputDir  { get; } = inputDir;

@@ -11,20 +11,28 @@ using SharpHPatchZ.IO.Reader;
 
 namespace SharpHPatchZ.Patch;
 
-internal sealed partial class HDiff13DerivedPatcher(
-    BittableStreamReader coverReader,
-    BittableStreamReader rleCtrlReader,
-    BittableStreamReader rleCodeReader,
-    BittableStreamReader newDataReader,
-    HDiffInfo            info,
-    PatchOptions         options,
-    ProgressCallback     progressCallback)
-    : PatcherBase(info, options, progressCallback)
+internal sealed partial class HDiff13DerivedPatcher : PatcherBase
 {
-    private readonly BittableStreamReader _coverReader   = coverReader;
-    private readonly BittableStreamReader _rleCtrlReader = rleCtrlReader;
-    private readonly BittableStreamReader _rleCodeReader = rleCodeReader;
-    private readonly BittableStreamReader _newDataReader = newDataReader;
+    private readonly BittableStreamReader _coverReader;
+    private readonly BittableStreamReader _rleCtrlReader;
+    private readonly BittableStreamReader _rleCodeReader;
+    private readonly BittableStreamReader _newDataReader;
+
+    internal HDiff13DerivedPatcher(
+        BittableStreamReader coverReader,
+        BittableStreamReader rleCtrlReader,
+        BittableStreamReader rleCodeReader,
+        BittableStreamReader newDataReader,
+        HDiffInfo            info,
+        PatchOptions         options,
+        ProgressCallback     progressCallback)
+        : base(info, options, progressCallback)
+    {
+        _coverReader   = coverReader;
+        _rleCtrlReader = rleCtrlReader;
+        _rleCodeReader = rleCodeReader;
+        _newDataReader = newDataReader;
+    }
 
     private CopySimilarFilesContext? _copySimilarFilesContext;
 

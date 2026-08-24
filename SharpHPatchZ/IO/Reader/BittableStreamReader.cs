@@ -64,7 +64,7 @@ internal sealed class BittableStreamReader
         }
     }
 
-    public BittableStreamReader(Stream stream, int bufferSize = -1, bool leaveOpen = false)
+    internal BittableStreamReader(Stream stream, int bufferSize = -1, bool leaveOpen = false)
     {
         if (stream is null)
         {

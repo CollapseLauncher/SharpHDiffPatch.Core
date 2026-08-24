@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SharpHPatchZ.Patch;
 
-internal abstract class PatcherBase(HDiffInfo info, PatchOptions options, ProgressCallback progressCallback)
+internal abstract class PatcherBase
     : IDisposable
 #if NET6_0_OR_GREATER
       , IAsyncDisposable
@@ -15,12 +15,20 @@ internal abstract class PatcherBase(HDiffInfo info, PatchOptions options, Progre
     protected RandomMergedStreamWrapper? InputStream      { get; set; }
     protected RandomMergedStreamWrapper? OutputStream     { get; set; }
 
-    protected HDiffInfo        Info             { get; set; } = info;
-    protected PatchOptions     Options          { get; set; } = options;
-    protected ProgressCallback ProgressCallback { get; }      = !progressCallback.IsAllocated ? new ProgressCallback() : progressCallback;
+    protected HDiffInfo        Info             { get; set; }
+    protected PatchOptions     Options          { get; set; }
+    protected ProgressCallback ProgressCallback { get; }
 
     protected long TotalWritten;
-    protected long TotalSize = info.GetPatchMetadata().DiffNewSize;
+    protected long TotalSize;
+
+    protected PatcherBase(HDiffInfo info, PatchOptions options, ProgressCallback progressCallback)
+    {
+        Info             = info;
+        Options          = options;
+        ProgressCallback = !progressCallback.IsAllocated ? new ProgressCallback() : progressCallback;
+        TotalSize        = info.GetPatchMetadata().DiffNewSize;
+    }
 
     public abstract void StartPatch(string      inputPath, string outputPath, CancellationToken token);
     public abstract Task StartPatchAsync(string inputPath, string outputPath, CancellationToken token);

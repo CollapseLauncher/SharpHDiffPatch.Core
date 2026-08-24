@@ -21,9 +21,9 @@ internal sealed class PrefetchedReadStream : Stream
     private int                    _currentOffset;
     private int                    _disposed;
 
-    public PrefetchedReadStream(Stream source,
-                                int    bufferSize,
-                                int    queueCapacity = 2)
+    internal PrefetchedReadStream(Stream source,
+                                  int    bufferSize,
+                                  int    queueCapacity = 2)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         if (!source.CanRead)

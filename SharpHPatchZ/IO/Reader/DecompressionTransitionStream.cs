@@ -16,7 +16,7 @@ internal sealed class BufferedRemainderStream : Stream
     private readonly int     _end;
     private          bool    _isDisposed;
 
-    public BufferedRemainderStream(
+    internal BufferedRemainderStream(
         Stream stream,
         byte[] buffer,
         int    offset,

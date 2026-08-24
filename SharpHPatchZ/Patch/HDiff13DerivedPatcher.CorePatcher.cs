@@ -59,17 +59,12 @@ internal sealed partial class HDiff13DerivedPatcher
 
     private static int GetWorkerCount(uint requestedWorkerCount)
     {
-        if (requestedWorkerCount == 0)
+        return requestedWorkerCount switch
         {
-            return Math.Max(1, Environment.ProcessorCount);
-        }
-
-        if (requestedWorkerCount > int.MaxValue)
-        {
-            throw new ArgumentOutOfRangeException(nameof(PatchOptions.ParallelThreads));
-        }
-
-        return (int)requestedWorkerCount;
+            0              => Math.Max(1, Environment.ProcessorCount),
+            > int.MaxValue => throw new ArgumentOutOfRangeException(nameof(PatchOptions.ParallelThreads)),
+            _              => (int)requestedWorkerCount
+        };
     }
 
     private void RunSequential(ReadOnlySpan<RleCoverInfo> covers,
@@ -258,9 +253,10 @@ internal sealed partial class HDiff13DerivedPatcher
         while (length > 0)
         {
             token.ThrowIfCancellationRequested();
-            Span<byte> destination = workBuilder.GetWritableSpan(newPosition,
-                                                                 length,
-                                                                 out int step);
+            Span<byte> destination = workBuilder
+                .GetWritableSpan(newPosition,
+                                 length,
+                                 out int step);
             _newDataReader.ReadBytes(destination);
             rleDecoder.Skip(step, skipBuffer, token);
             workBuilder.CommitNewData(step);
@@ -292,9 +288,9 @@ internal sealed partial class HDiff13DerivedPatcher
         }
     }
 
-    private void ProcessWorkItem(PatchWorkItem           item,
+    private void ProcessWorkItem(PatchWorkItem            item,
                                  NativeMemoryBuffer<byte> oldBuffer,
-                                 CancellationToken       token)
+                                 CancellationToken        token)
     {
         try
         {
@@ -313,12 +309,10 @@ internal sealed partial class HDiff13DerivedPatcher
                     }
 
 #if NET6_0_OR_GREATER
-                    Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset,
-                                                               segment.Length);
+                    Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset, segment.Length);
                     AddRle(rleData, oldData, Options.UseSIMD);
 #else
-                    Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset,
-                                                               segment.Length);
+                    Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset, segment.Length);
                     AddRle(rleData, oldData);
 #endif
                 }
@@ -402,9 +396,10 @@ internal sealed partial class HDiff13DerivedPatcher
             }
         }
 #endif
-        for (; index < length; index++)
+
+        while (index < length)
         {
-            destination[index] = unchecked((byte)(destination[index] + addend[index]));
+            destination[index] = unchecked((byte)(destination[index] + addend[index++]));
         }
     }
 
@@ -443,36 +438,56 @@ internal sealed partial class HDiff13DerivedPatcher
         }
     }
 
-    private readonly struct PatchWorkItem(NativeMemoryBuffer<byte> buffer,
-                                          int                      length,
-                                          long                     outputPosition,
-                                          List<CoverSegment>?      coverSegments)
+    private readonly struct PatchWorkItem
     {
-        public NativeMemoryBuffer<byte> Buffer         { get; } = buffer;
-        public int                      Length         { get; } = length;
-        public long                     OutputPosition { get; } = outputPosition;
-        public List<CoverSegment>?      CoverSegments  { get; } = coverSegments;
+        internal PatchWorkItem(NativeMemoryBuffer<byte> buffer,
+                               int                      length,
+                               long                     outputPosition,
+                               List<CoverSegment>?      coverSegments)
+        {
+            Buffer         = buffer;
+            Length         = length;
+            OutputPosition = outputPosition;
+            CoverSegments  = coverSegments;
+        }
+
+        public readonly NativeMemoryBuffer<byte> Buffer;
+        public readonly int                      Length;
+        public readonly long                     OutputPosition;
+        public readonly List<CoverSegment>?      CoverSegments;
     }
 
-    private readonly struct CoverSegment(int bufferOffset,
-                                         int length,
-                                         long oldPosition)
+    private readonly struct CoverSegment
     {
-        public int  BufferOffset { get; } = bufferOffset;
-        public int  Length       { get; } = length;
-        public long OldPosition  { get; } = oldPosition;
+        internal CoverSegment(int  bufferOffset,
+                              int  length,
+                              long oldPosition)
+        {
+            BufferOffset = bufferOffset;
+            Length       = length;
+            OldPosition  = oldPosition;
+        }
+
+        public readonly int  BufferOffset;
+        public readonly int  Length;
+        public readonly long OldPosition;
     }
 
-    private sealed class PatchWorkBuilder(int                   bufferSize,
-                                          Action<PatchWorkItem> emit) : IDisposable
+    private sealed class PatchWorkBuilder : IDisposable
     {
-        private readonly int                   _bufferSize = bufferSize;
-        private readonly Action<PatchWorkItem> _emit       = emit;
+        private          NativeMemoryBuffer<byte>? _buffer;
+        private          int                       _length;
+        private          long                      _outputPosition;
+        private          List<CoverSegment>?       _coverSegments;
+        private readonly int                       _bufferSize;
+        private readonly Action<PatchWorkItem>     _emit;
 
-        private NativeMemoryBuffer<byte>? _buffer;
-        private int                       _length;
-        private long                      _outputPosition;
-        private List<CoverSegment>?       _coverSegments;
+        internal PatchWorkBuilder(int                   bufferSize,
+                                  Action<PatchWorkItem> emit)
+        {
+            _bufferSize = bufferSize;
+            _emit       = emit;
+        }
 
         public Span<byte> GetWritableSpan(long outputPosition,
                                           long requestedLength,
@@ -542,23 +557,28 @@ internal sealed partial class HDiff13DerivedPatcher
 
         public void Dispose()
         {
-            if (_buffer is not null)
-            {
-                _buffer.Dispose();
-                _buffer = null;
-            }
+            if (_buffer is null) return;
+
+            _buffer.Dispose();
+            _buffer = null;
         }
     }
 
-    private sealed class RleDecoder(BittableStreamReader controlReader,
-                                    BittableStreamReader codeReader)
+    private sealed class RleDecoder
     {
-        private readonly BittableStreamReader _controlReader = controlReader;
-        private readonly BittableStreamReader _codeReader    = codeReader;
-
         private long _remaining;
         private byte _type;
         private byte _value;
+
+        private readonly BittableStreamReader _controlReader;
+        private readonly BittableStreamReader _codeReader;
+
+        internal RleDecoder(BittableStreamReader controlReader,
+                            BittableStreamReader codeReader)
+        {
+            _controlReader = controlReader;
+            _codeReader    = codeReader;
+        }
 
         public bool HasPendingData => _remaining != 0;
 
