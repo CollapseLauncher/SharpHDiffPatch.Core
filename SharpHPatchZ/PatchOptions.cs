@@ -18,7 +18,7 @@ public struct PatchOptions()
     {
         ReaderBufferSize = 4 << 20,
         CopyBufferSize = 128 << 10,
-        PatchWorkerBufferSize = 16 << 20
+        PatchWorkerBufferSize = 32 << 20
     };
 
     public static readonly PatchOptions SmallBuffer = Default with

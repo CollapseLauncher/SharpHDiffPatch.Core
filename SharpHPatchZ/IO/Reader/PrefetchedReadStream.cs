@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.ExceptionServices;
@@ -13,7 +13,6 @@ internal sealed class PrefetchedReadStream : Stream
     private readonly Stream                          _source;
     private readonly int                             _bufferSize;
     private readonly BlockingCollection<BufferChunk> _queue;
-    private readonly NativeMemoryBufferPool<byte>    _bufferPool;
     private readonly CancellationTokenSource         _disposeCancellation = new();
     private readonly Task                            _producer;
 
@@ -35,7 +34,6 @@ internal sealed class PrefetchedReadStream : Stream
         _bufferSize = bufferSize > 0
             ? bufferSize
             : throw new ArgumentOutOfRangeException(nameof(bufferSize));
-        _bufferPool = new NativeMemoryBufferPool<byte>(_bufferSize);
         _queue = new BlockingCollection<BufferChunk>(queueCapacity > 0
             ? queueCapacity
             : throw new ArgumentOutOfRangeException(nameof(queueCapacity)));
@@ -128,7 +126,7 @@ internal sealed class PrefetchedReadStream : Stream
         {
             while (!_disposeCancellation.IsCancellationRequested)
             {
-                NativeMemoryBuffer<byte> buffer = _bufferPool.Rent();
+                NativeMemoryBuffer<byte> buffer = new(_bufferSize);
                 try
                 {
 #if NET6_0_OR_GREATER
@@ -139,16 +137,15 @@ internal sealed class PrefetchedReadStream : Stream
 #endif
                     if (read == 0)
                     {
-                        _bufferPool.Return(buffer);
+                        buffer.Dispose();
                         break;
                     }
 
-                    _queue.Add(new BufferChunk(buffer, read, _bufferPool),
-                               _disposeCancellation.Token);
+                    _queue.Add(new BufferChunk(buffer, read), _disposeCancellation.Token);
                 }
                 catch
                 {
-                    _bufferPool.Return(buffer);
+                    buffer.Dispose();
                     throw;
                 }
             }
@@ -206,7 +203,6 @@ internal sealed class PrefetchedReadStream : Stream
                 chunk.Dispose();
             }
 
-            _bufferPool.Dispose();
             _queue.Dispose();
             _disposeCancellation.Dispose();
         }
@@ -227,21 +223,12 @@ internal sealed class PrefetchedReadStream : Stream
         }
     }
 
-    private sealed class BufferChunk(NativeMemoryBuffer<byte>     buffer,
-                                     int                          length,
-                                     NativeMemoryBufferPool<byte> bufferPool) : IDisposable
+    private sealed class BufferChunk(NativeMemoryBuffer<byte> buffer, int length) : IDisposable
     {
-        private int _disposed;
-
         public NativeMemoryBuffer<byte> Buffer { get; } = buffer;
         public int                      Length { get; } = length;
 
         public void Dispose()
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0)
-            {
-                bufferPool.Return(Buffer);
-            }
-        }
+            => Buffer.Dispose();
     }
 }

@@ -66,94 +66,73 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
 
     public void Write(Span<byte> buffer, long offset)
     {
-        StreamCursor cursor = default;
-        Write(buffer, offset, ref cursor);
-    }
-
-    internal void Write(Span<byte> buffer, long offset, ref StreamCursor cursor)
-    {
-        using AccessScope access = AcquireAccess();
-        access.Write(buffer, offset, ref cursor);
-    }
-
-    private void WriteCore(Span<byte> buffer, long offset, ref StreamCursor cursor)
-    {
-        ValidateOffset(offset);
-
-        if (buffer.Length > Length - offset)
+        _lifetimeLock.EnterReadLock();
+        try
         {
-            throw new EndOfStreamException("The write exceeds the merged stream length.");
+            ThrowIfDisposed();
+            ValidateOffset(offset);
+
+            if (buffer.Length > Length - offset)
+            {
+                throw new EndOfStreamException("The write exceeds the merged stream length.");
+            }
+
+            while (!buffer.IsEmpty)
+            {
+                int  streamIndex = FindStreamIndex(offset);
+                long streamStart = GetStreamStart(streamIndex);
+                int  writeLength = (int)Math.Min(buffer.Length, _fileStreamEnds[streamIndex] - offset);
+
+                FileStream stream = GetFileStream(streamIndex);
+                RandomAccessCompat.Write(stream.SafeFileHandle!,
+                                         buffer[..writeLength],
+                                         offset - streamStart);
+
+                buffer = buffer[writeLength..];
+                offset += writeLength;
+            }
         }
-
-        while (!buffer.IsEmpty)
+        finally
         {
-            int  streamIndex = FindStreamIndex(offset, cursor.StreamIndex);
-            long streamStart = GetStreamStart(streamIndex);
-            int  writeLength = (int)Math.Min(buffer.Length, _fileStreamEnds[streamIndex] - offset);
-
-            FileStream stream = GetFileStream(streamIndex, ref cursor);
-            RandomAccessCompat.Write(stream.SafeFileHandle!,
-                                     buffer[..writeLength],
-                                     offset - streamStart);
-
-            buffer = buffer[writeLength..];
-            offset += writeLength;
+            _lifetimeLock.ExitReadLock();
         }
     }
 
     public int Read(Span<byte> buffer, long offset)
     {
-        StreamCursor cursor = default;
-        return Read(buffer, offset, ref cursor);
-    }
-
-    internal int Read(Span<byte> buffer, long offset, ref StreamCursor cursor)
-    {
-        using AccessScope access = AcquireAccess();
-        return access.Read(buffer, offset, ref cursor);
-    }
-
-    private int ReadCore(Span<byte> buffer, long offset, ref StreamCursor cursor)
-    {
-        ValidateOffset(offset);
-
-        int totalRead = 0;
-        while (!buffer.IsEmpty && offset < Length)
-        {
-            int  streamIndex = FindStreamIndex(offset, cursor.StreamIndex);
-            long streamStart = GetStreamStart(streamIndex);
-            int  readLength  = (int)Math.Min(buffer.Length, _fileStreamEnds[streamIndex] - offset);
-
-            FileStream stream = GetFileStream(streamIndex, ref cursor);
-            int read = RandomAccessCompat.Read(stream.SafeFileHandle!,
-                                               buffer[..readLength],
-                                               offset - streamStart);
-
-            if (read == 0)
-            {
-                throw new EndOfStreamException("An underlying file ended before its declared length.");
-            }
-
-            totalRead += read;
-            offset    += read;
-            buffer    =  buffer[read..];
-        }
-
-        return totalRead;
-    }
-
-    internal AccessScope AcquireAccess()
-    {
         _lifetimeLock.EnterReadLock();
         try
         {
             ThrowIfDisposed();
-            return new AccessScope(this);
+            ValidateOffset(offset);
+
+            int totalRead = 0;
+            while (!buffer.IsEmpty && offset < Length)
+            {
+                int  streamIndex = FindStreamIndex(offset);
+                long streamStart = GetStreamStart(streamIndex);
+                int  readLength  = (int)Math.Min(buffer.Length, _fileStreamEnds[streamIndex] - offset);
+
+                FileStream stream = GetFileStream(streamIndex);
+                int read = RandomAccessCompat.Read(stream.SafeFileHandle!,
+                                                   buffer[..readLength],
+                                                   offset - streamStart);
+
+                if (read == 0)
+                {
+                    throw new EndOfStreamException("An underlying file ended before its declared length.");
+                }
+
+                totalRead += read;
+                offset    += read;
+                buffer    =  buffer[read..];
+            }
+
+            return totalRead;
         }
-        catch
+        finally
         {
             _lifetimeLock.ExitReadLock();
-            throw;
         }
     }
 
@@ -196,19 +175,6 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
                 LazyThreadSafetyMode.ExecutionAndPublication));
 
         return lazyStream.Value;
-    }
-
-    private FileStream GetFileStream(int streamIndex, ref StreamCursor cursor)
-    {
-        if (cursor.Stream is not null && cursor.StreamIndex == streamIndex)
-        {
-            return cursor.Stream;
-        }
-
-        FileStream stream = GetFileStream(streamIndex);
-        cursor.StreamIndex = streamIndex;
-        cursor.Stream      = stream;
-        return stream;
     }
 
     private void CreateOutputFiles()
@@ -257,20 +223,6 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
         return low;
     }
 
-    private int FindStreamIndex(long offset, int cachedStreamIndex)
-    {
-        if ((uint)cachedStreamIndex < (uint)_fileStreamEnds.Length)
-        {
-            long streamStart = GetStreamStart(cachedStreamIndex);
-            if (offset >= streamStart && offset < _fileStreamEnds[cachedStreamIndex])
-            {
-                return cachedStreamIndex;
-            }
-        }
-
-        return FindStreamIndex(offset);
-    }
-
     private long GetStreamStart(int streamIndex)
         => streamIndex == 0 ? 0 : _fileStreamEnds[streamIndex - 1];
 
@@ -288,23 +240,5 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
         {
             throw new ObjectDisposedException(nameof(RandomMergedStreamWrapper));
         }
-    }
-
-    internal struct StreamCursor
-    {
-        public int         StreamIndex;
-        public FileStream? Stream;
-    }
-
-    internal readonly ref struct AccessScope(RandomMergedStreamWrapper owner)
-    {
-        public int Read(Span<byte> buffer, long offset, ref StreamCursor cursor)
-            => owner.ReadCore(buffer, offset, ref cursor);
-
-        public void Write(Span<byte> buffer, long offset, ref StreamCursor cursor)
-            => owner.WriteCore(buffer, offset, ref cursor);
-
-        public void Dispose()
-            => owner._lifetimeLock.ExitReadLock();
     }
 }

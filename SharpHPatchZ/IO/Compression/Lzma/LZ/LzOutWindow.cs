@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -244,9 +244,6 @@ internal class OutWindow : IDisposable
     public bool HasPending => _pendingLen > 0;
 
     public int Read(byte[] buffer, int offset, int count)
-        => Read(buffer.AsSpan(offset, count));
-
-    public int Read(Span<byte> buffer)
     {
         if (_streamPos >= _pos)
         {
@@ -254,12 +251,12 @@ internal class OutWindow : IDisposable
         }
 
         int size = _pos - _streamPos;
-        if (size > buffer.Length)
+        if (size > count)
         {
-            size = buffer.Length;
+            size = count;
         }
 
-        _buffer!.Span.Slice(_streamPos, size).CopyTo(buffer);
+        _buffer!.Span.Slice(_streamPos, size).CopyTo(buffer.AsSpan(offset, size));
         _streamPos += size;
         if (_streamPos < _windowSize) return size;
 
