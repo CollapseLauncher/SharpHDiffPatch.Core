@@ -41,8 +41,9 @@ internal sealed partial class HDiff13DerivedPatcher
         int bufferSize = Options.PatchWorkerBufferSize > 0
             ? Options.PatchWorkerBufferSize
             : DefaultPatchBufferSize;
+        int workerCount = _coreWorkerCount;
 
-        if (_coreWorkerCount == 1)
+        if (workerCount == 1)
         {
             RunSequential(rleCoverSpan, patchMetadata, bufferSize, token);
         }
@@ -51,7 +52,7 @@ internal sealed partial class HDiff13DerivedPatcher
             RunParallel(rleCoverBuffer,
                         patchMetadata,
                         bufferSize,
-                        _coreWorkerCount,
+                        workerCount,
                         token);
         }
     }
