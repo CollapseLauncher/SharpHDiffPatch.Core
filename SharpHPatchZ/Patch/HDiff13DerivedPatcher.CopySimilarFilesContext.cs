@@ -1,5 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using SharpHPatchZ.Extension;
 
 namespace SharpHPatchZ.Patch;
@@ -24,15 +26,50 @@ internal sealed partial class HDiff13DerivedPatcher
             int bufferSize                  = options.CopyBufferSize;
             if (bufferSize <= 0) bufferSize = 16 << 10;
 
-            byte[] buffer = BigArrayPool<byte>.Shared.Rent(bufferSize);
-            try
+            token.ThrowIfCancellationRequested();
+            int count = InputPaths.Length;
+
+            Parallel.For(0, count, new ParallelOptions
             {
-                int count = InputPaths.Length;
+                MaxDegreeOfParallelism = (int)options.ParallelThreads
+            }, i =>
+            {
                 token.ThrowIfCancellationRequested();
 
-                for (int i = 0; i < count; i++)
+#if NET6_0_OR_GREATER
+                unsafe
                 {
-                    token.ThrowIfCancellationRequested();
+                    void* bufferP = MemoryAlloc.Alloc(bufferSize);
+                    var   buffer  = new Span<byte>(bufferP, bufferSize);
+                    try
+                    {
+                        string inputPath  = Path.GetFullPath(Path.Combine(InputDir,  InputPaths[i]));
+                        string outputPath = Path.GetFullPath(Path.Combine(OutputDir, OutputPaths[i]));
+
+                        if (Path.GetDirectoryName(outputPath) is { } outputDir)
+                            Directory.CreateDirectory(outputDir);
+
+                        using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
+                        using FileStream outputStream = File.Create(outputPath, bufferSize);
+                        int              read;
+
+                        while ((read = inputStream.Read(buffer)) > 0)
+                        {
+                            token.ThrowIfCancellationRequested();
+
+                            outputStream.Write(buffer[..read]);
+                            patcher.AdvanceProgress(read);
+                        }
+                    }
+                    finally
+                    {
+                        MemoryAlloc.FreeRaw(bufferP);
+                    }
+                }
+#else
+                byte[] buffer = BigArrayPool<byte>.Shared.Rent(bufferSize);
+                try
+                {
                     string inputPath  = Path.GetFullPath(Path.Combine(InputDir,  InputPaths[i]));
                     string outputPath = Path.GetFullPath(Path.Combine(OutputDir, OutputPaths[i]));
 
@@ -42,18 +79,21 @@ internal sealed partial class HDiff13DerivedPatcher
                     using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
                     using FileStream outputStream = File.Create(outputPath, bufferSize);
                     int              read;
+
                     while ((read = inputStream.Read(buffer, 0, bufferSize)) > 0)
                     {
                         token.ThrowIfCancellationRequested();
+
                         outputStream.Write(buffer, 0, read);
                         patcher.AdvanceProgress(read);
                     }
                 }
-            }
-            finally
-            {
-                BigArrayPool<byte>.Shared.Return(buffer);
-            }
+                finally
+                {
+                    BigArrayPool<byte>.Shared.Return(buffer);
+                }
+#endif
+            });
         }
     }
 }
