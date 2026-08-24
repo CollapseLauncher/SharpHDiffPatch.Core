@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFrameworks>net472;net11.0</TargetFrameworks>
+        <TargetFrameworks>net461;net11.0</TargetFrameworks>
         <AssemblyName>SharpHPatchZ.Program</AssemblyName>
         <RootNamespace>SharpHPatchZ.Program</RootNamespace>
         <ImplicitUsings>disable</ImplicitUsings>
