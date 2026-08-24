@@ -52,7 +52,11 @@ namespace System.CommandLine
         /// <param name="name">The name of the directive.</param>
         /// <param name="values">The values provided for the specified directive.</param>
         /// <returns><see langword="true"/> if a directive with the specified name was parsed; otherwise, <see langword="false"/>.</returns>
-        public bool TryGetValues(string name, [NotNullWhen(true)] out IReadOnlyList<string>? values)
+        public bool TryGetValues(string name,
+#if NET6_0_OR_GREATER
+                                 [NotNullWhen(true)]
+#endif
+                                 out IReadOnlyList<string>? values)
         {
             if (_directives is not null &&
                 _directives.TryGetValue(name, out var v))

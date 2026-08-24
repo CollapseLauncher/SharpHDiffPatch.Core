@@ -50,7 +50,9 @@ namespace System.CommandLine.Parsing
         /// Gets the parsed value or the default value for <see cref="Option"/>.
         /// </summary>
         /// <returns>The parsed value or the default value for <see cref="Option"/></returns>
+#if NET6_0_OR_GREATER
         [return: MaybeNull]
+#endif
         public T GetValueOrDefault<T>() =>
             this.ConvertIfNeeded(typeof(T))
                 .GetValueOrDefault<T>();

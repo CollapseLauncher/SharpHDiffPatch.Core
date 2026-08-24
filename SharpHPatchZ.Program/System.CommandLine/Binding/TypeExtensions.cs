@@ -51,7 +51,10 @@ namespace System.CommandLine.Binding
 
         internal static bool TryGetNullableType(
             this Type type,
-            [NotNullWhen(true)] out Type? nullableType)
+#if NET6_0_OR_GREATER
+            [NotNullWhen(true)]
+#endif
+            out Type? nullableType)
         {
             nullableType = Nullable.GetUnderlyingType(type);
             return nullableType is not null;

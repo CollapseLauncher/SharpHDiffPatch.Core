@@ -72,7 +72,10 @@ namespace System.CommandLine.Binding
 
         internal bool TryGetValueSource(
             IValueDescriptor valueDescriptor,
-            [MaybeNullWhen(false)] out IValueSource valueSource)
+#if NET6_0_OR_GREATER
+            [MaybeNullWhen(false)]
+#endif
+            out IValueSource valueSource)
         {
             if (ServiceProvider.AvailableServiceTypes.Contains(valueDescriptor.ValueType))
             {
