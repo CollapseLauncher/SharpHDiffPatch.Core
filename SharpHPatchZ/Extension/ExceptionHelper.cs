@@ -38,6 +38,8 @@ file static class Const
         { HDiffPatchPathNotAFile,                      0x57 },
         { HDiffPatchInputFilesMismatched,              0x58 },
         { HDiffPatchKuroInputFileSizeMismatched,       0x59 },
+        { HDiffStreamReadOutOfBound,                   0x5A },
+        { HDiffStringEncodingFailed,                   0x5B },
 
         // Decompression Initialization
         { HDiffCompLZMAPropertyMissing,                0xA0 },
@@ -68,6 +70,8 @@ file static class Const
     public const string HDiffPatchPathNotAFile                = "HDIFF_PatchPathNotAFile";
     public const string HDiffPatchInputFilesMismatched        = "HDIFF_PatchInputFilesMismatched";
     public const string HDiffPatchKuroInputFileSizeMismatched = "HDIFF_PatchKuroInputFileSizeMismatched";
+    public const string HDiffStreamReadOutOfBound             = "HDIFF_StreamReadOutOfBound";
+    public const string HDiffStringEncodingFailed             = "HDIFF_StringEncodingFailed";
 
     public const string HDiffCompLZMAPropertyMissing              = "HDIFF_CompLZMAPropertyMissing";
     public const string HDiffCompLZMA2DictionaryInvalid           = "HDIFF_CompLZMA2DictionaryInvalid";
@@ -120,6 +124,10 @@ public static class ExceptionHelper
         => new($"[{Const.HDiffPatchInputFilesMismatched}] Input file size mismatched! Expecting: {expectingSize} bytes but got: {expectingSize} bytes instead.");
     public static InvalidOperationException ThrowHDiffPatchKuroInputFileSizeMismatched(string filePath, long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchKuroInputFileSizeMismatched}] Kuro Games Patch input file size does not match: {filePath} (Expecting: {expectingSize} bytes, but got: {existingSize} instead).");
+    public static IndexOutOfRangeException ThrowHDiffStreamReadOutOfBound()
+        => new($"[{Const.HDiffStreamReadOutOfBound}] Stream Read is out of bound!");
+    public static InvalidDataException ThrowHDiffStringEncodingFailed(Exception? innerException)
+        => new($"[{Const.HDiffStringEncodingFailed}] Error while trying to encode a string!", innerException);
 
     public static InvalidDataException ThrowHDiffCompLZMAPropertyMissing()
         => new($"[{Const.HDiffCompLZMAPropertyMissing}] The LZMA stream is missing its properties.");

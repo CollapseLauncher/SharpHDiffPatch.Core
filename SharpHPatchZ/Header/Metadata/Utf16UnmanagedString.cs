@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using SharpHPatchZ.Extension;
 
 namespace SharpHPatchZ.Header.Metadata;
@@ -57,7 +60,31 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
     private byte          _isDisposed;
     public  NativeStringW Native;
 
-    public static Utf16UnmanagedString CreateFromManaged(ReadOnlySpan<char> source)
+#if NET6_0_OR_GREATER
+    [SkipLocalsInit]
+#endif
+    public static Utf16UnmanagedString CreateFromManaged(ReadOnlySpan<byte> source)
+    {
+        int maxLenTransform = Encoding.Unicode.GetMaxByteCount(source.Length);
+        char[]? tempCharsBuffer = maxLenTransform <= 1024
+            ? null
+            : ArrayPool<char>.Shared.Rent(maxLenTransform);
+
+        Span<char> tempCharsSpan = tempCharsBuffer ?? stackalloc char[maxLenTransform];
+        try
+        {
+            return TransformUtf8ToUnicode(source, tempCharsSpan);
+        }
+        finally
+        {
+            if (tempCharsBuffer != null) ArrayPool<char>.Shared.Return(tempCharsBuffer);
+        }
+    }
+
+#if NET6_0_OR_GREATER
+    [SkipLocalsInit]
+#endif
+    public static Utf16UnmanagedString CreateFromManaged(scoped ReadOnlySpan<char> source)
     {
         int   lengthToAlloc = source.Length + 1;
         char* nativeChar    = MemoryAlloc.Alloc<char>(lengthToAlloc, true);
@@ -81,6 +108,27 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
             : unmanaged.Native.ToString();
 
     public override string ToString() => Native.ToString();
+
+    private static Utf16UnmanagedString TransformUtf8ToUnicode(
+        ReadOnlySpan<byte> source,
+        Span<char>         target)
+    {
+        try
+        {
+            ref byte sourceRef = ref MemoryMarshal.GetReference(source);
+            ref char targetRef = ref MemoryMarshal.GetReference(target);
+
+            byte* sourceP = (byte*)Unsafe.AsPointer(ref sourceRef);
+            char* targetP = (char*)Unsafe.AsPointer(ref targetRef);
+
+            int written = Encoding.UTF8.GetChars(sourceP, source.Length, targetP, target.Length);
+            return CreateFromManaged(target[..written]);
+        }
+        catch (Exception ex)
+        {
+            throw ExceptionHelper.ThrowHDiffStringEncodingFailed(ex);
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     public readonly struct NativeStringW(char* chars, int length)

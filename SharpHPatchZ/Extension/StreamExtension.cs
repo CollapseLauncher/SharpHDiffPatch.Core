@@ -145,6 +145,31 @@ internal static class StreamExtension
 #endif
     }
 
+    public static unsafe UnmanagedArray<Utf16UnmanagedString>* CreateUnmanagedStringList(
+        scoped ReadOnlySpan<byte> buffer, int count)
+    {
+        UnmanagedArray<Utf16UnmanagedString>* unmanagedStringArray = UnmanagedArray<Utf16UnmanagedString>.CreateAllocUnsafe(count);
+        Span<Utf16UnmanagedString> unmanagedStringSpan = unmanagedStringArray->GetSpan();
+        int index = 0;
+        do
+        {
+            int indexOfNull = buffer.IndexOf((byte)0);
+            if (indexOfNull < 0)
+            {
+                throw ExceptionHelper.ThrowHDiffStreamReadOutOfBound();
+            }
+
+            ReadOnlySpan<byte> currentSlice = buffer[..indexOfNull];
+            unmanagedStringSpan[index++] = Utf16UnmanagedString.CreateFromManaged(currentSlice);
+
+            buffer = buffer[(indexOfNull + 1)..];
+        } while (!buffer.IsEmpty);
+
+        return index != count
+            ? throw ExceptionHelper.ThrowHDiffStreamReadOutOfBound()
+            : unmanagedStringArray;
+    }
+
     extension(BittableStreamReader reader)
     {
         public async ValueTask<nint> CreateUnmanagedStringListAsync(int count, int bufferSize, CancellationToken token)
@@ -155,21 +180,23 @@ internal static class StreamExtension
             }
 
             long readerOffset = reader.Offset;
-            UnmanagedArray<Utf16UnmanagedString> unmanagedBuffer = UnmanagedArray<Utf16UnmanagedString>.CreateAlloc(count);
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
 
-            for (int i = 0; i < count; i++)
+            try
             {
-                string readString = await reader.ReadStringToNullAsync(token);
-
-                ref Utf16UnmanagedString current = ref unmanagedBuffer[i];
-                current = Utf16UnmanagedString.CreateFromManaged(readString);
-                if (reader.Offset - readerOffset > bufferSize)
+                // Preload string buffer
+                await reader.ReadBytesAsync(buffer.AsMemory(0, bufferSize), token);
+                unsafe
                 {
-                    throw new IndexOutOfRangeException("Read is out of index!");
+                    return reader.Offset != readerOffset + bufferSize
+                        ? throw ExceptionHelper.ThrowHDiffStreamReadOutOfBound()
+                        : (nint)CreateUnmanagedStringList(buffer.AsSpan(0, bufferSize), count);
                 }
             }
-
-            return unmanagedBuffer.CopyToUnmanaged();
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         public unsafe UnmanagedArray<Utf16UnmanagedString>* CreateUnmanagedStringList(int count, int bufferSize)
@@ -179,19 +206,23 @@ internal static class StreamExtension
                 return null;
             }
 
-            long                                  readerOffset      = reader.Offset;
-            UnmanagedArray<Utf16UnmanagedString>* readOnlyArraySpan = UnmanagedArray<Utf16UnmanagedString>.CreateAllocUnsafe(count);
+            long readerOffset = reader.Offset;
 
-            for (int i = 0; i < count; i++)
+            byte[]?    buffer     = bufferSize > 4 << 10 ? ArrayPool<byte>.Shared.Rent(bufferSize) : null;
+            Span<byte> bufferSpan = (buffer ?? stackalloc byte[bufferSize])[..bufferSize];
+
+            try
             {
-                readOnlyArraySpan[0][i] = Utf16UnmanagedString.CreateFromManaged(reader.ReadStringToNull());
-                if (reader.Offset - readerOffset > bufferSize)
-                {
-                    throw new IndexOutOfRangeException("Read is out of index!");
-                }
+                // Preload string buffer
+                reader.ReadBytes(bufferSpan);
+                return reader.Offset != readerOffset + bufferSize
+                    ? throw ExceptionHelper.ThrowHDiffStreamReadOutOfBound()
+                    : CreateUnmanagedStringList(bufferSpan, count);
             }
-
-            return readOnlyArraySpan;
+            finally
+            {
+                if (buffer != null) ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         public async ValueTask<nint> CreateUnmanagedInt64ListAsync(int count, CancellationToken token)
