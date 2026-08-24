@@ -23,7 +23,7 @@ internal sealed class PrefetchedReadStream : Stream
 
     public PrefetchedReadStream(Stream source,
                                 int    bufferSize,
-                                int    queueCapacity = 4)
+                                int    queueCapacity = 2)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         if (!source.CanRead)
