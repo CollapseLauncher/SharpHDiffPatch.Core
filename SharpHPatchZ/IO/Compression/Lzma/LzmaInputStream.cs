@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.IO;
 using SharpHPatchZ.IO.Compression.Lzma.LZ;
@@ -127,6 +127,14 @@ public sealed class LzmaInputStream : Stream
     }
 
     public override int Read(byte[] buffer, int offset, int count)
+        => ReadCore(buffer.AsSpan(offset, count));
+
+#if NET6_0_OR_GREATER
+    public override int Read(Span<byte> buffer)
+        => ReadCore(buffer);
+#endif
+
+    private int ReadCore(Span<byte> buffer)
     {
         if (_endReached)
         {
@@ -134,7 +142,7 @@ public sealed class LzmaInputStream : Stream
         }
 
         int total = 0;
-        while (total < count)
+        while (total < buffer.Length)
         {
             if (_availableBytes == 0)
             {
@@ -152,7 +160,7 @@ public sealed class LzmaInputStream : Stream
                 }
             }
 
-            int toProcess = count - total;
+            int toProcess = buffer.Length - total;
             if (toProcess > _availableBytes)
             {
                 toProcess = (int)_availableBytes;
@@ -168,9 +176,8 @@ public sealed class LzmaInputStream : Stream
                 _availableBytes = _outWindow.AvailableBytes;
             }
 
-            int read = _outWindow.Read(buffer, offset, toProcess);
+            int read = _outWindow.Read(buffer.Slice(total, toProcess));
             total += read;
-            offset += read;
             _position += read;
             _availableBytes -= read;
 

@@ -200,6 +200,25 @@ internal sealed class BittableStreamReader
 
         while (!buffer.IsEmpty)
         {
+#if NET6_0_OR_GREATER
+            int available = _bufferedLength - _offset;
+            if (available == 0 && buffer.Length >= _backedBuffer.Length)
+            {
+                _consumedByteCount += _offset;
+                _offset            =  0;
+                _bufferedLength    =  0;
+
+                int directRead = BackedStream.Read(buffer);
+                if (directRead == 0)
+                {
+                    throw new EndOfStreamException("Unable to read beyond the end of the stream.");
+                }
+
+                _consumedByteCount += directRead;
+                buffer             =  buffer[directRead..];
+                continue;
+            }
+#endif
             EnsureBuffered(1);
 
             int copyLength = Math.Min(buffer.Length, _bufferedLength - _offset);
@@ -235,6 +254,25 @@ internal sealed class BittableStreamReader
 
         while (!buffer.IsEmpty)
         {
+#if NET6_0_OR_GREATER
+            int available = _bufferedLength - _offset;
+            if (available == 0 && buffer.Length >= _backedBuffer.Length)
+            {
+                _consumedByteCount += _offset;
+                _offset            =  0;
+                _bufferedLength    =  0;
+
+                int directRead = await BackedStream.ReadAsync(buffer, token).ConfigureAwait(false);
+                if (directRead == 0)
+                {
+                    throw new EndOfStreamException("Unable to read beyond the end of the stream.");
+                }
+
+                _consumedByteCount += directRead;
+                buffer             =  buffer[directRead..];
+                continue;
+            }
+#endif
             await EnsureBufferedAsync(1, token).ConfigureAwait(false);
 
             int copyLength = Math.Min(buffer.Length, _bufferedLength - _offset);

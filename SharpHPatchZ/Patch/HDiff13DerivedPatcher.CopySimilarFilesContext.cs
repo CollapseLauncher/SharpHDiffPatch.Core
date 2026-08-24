@@ -21,6 +21,7 @@ internal sealed partial class HDiff13DerivedPatcher
 
         public void RunCopy(PatcherBase       patcher,
                             PatchOptions      options,
+                            int               workerCount,
                             CancellationToken token)
         {
             int bufferSize                  = options.CopyBufferSize;
@@ -29,71 +30,72 @@ internal sealed partial class HDiff13DerivedPatcher
             token.ThrowIfCancellationRequested();
             int count = InputPaths.Length;
 
-            Parallel.For(0, count, new ParallelOptions
+            ParallelOptions parallelOptions = new()
             {
-                MaxDegreeOfParallelism = (int)options.ParallelThreads
-            }, i =>
-            {
-                token.ThrowIfCancellationRequested();
+                CancellationToken      = token,
+                MaxDegreeOfParallelism = workerCount
+            };
 
 #if NET6_0_OR_GREATER
-                unsafe
+            Parallel.For(0,
+                         count,
+                         parallelOptions,
+                         () => new NativeMemoryBuffer<byte>(bufferSize),
+                         (i, _, nativeBuffer) =>
+            {
+                token.ThrowIfCancellationRequested();
+                Span<byte> buffer = nativeBuffer.Span;
+                string inputPath  = Path.GetFullPath(Path.Combine(InputDir,  InputPaths[i]));
+                string outputPath = Path.GetFullPath(Path.Combine(OutputDir, OutputPaths[i]));
+
+                if (Path.GetDirectoryName(outputPath) is { } outputDir)
+                    Directory.CreateDirectory(outputDir);
+
+                using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
+                using FileStream outputStream = File.Create(outputPath, bufferSize);
+                int              read;
+
+                while ((read = inputStream.Read(buffer)) > 0)
                 {
-                    void* bufferP = MemoryAlloc.Alloc(bufferSize);
-                    var   buffer  = new Span<byte>(bufferP, bufferSize);
-                    try
-                    {
-                        string inputPath  = Path.GetFullPath(Path.Combine(InputDir,  InputPaths[i]));
-                        string outputPath = Path.GetFullPath(Path.Combine(OutputDir, OutputPaths[i]));
+                    token.ThrowIfCancellationRequested();
 
-                        if (Path.GetDirectoryName(outputPath) is { } outputDir)
-                            Directory.CreateDirectory(outputDir);
-
-                        using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
-                        using FileStream outputStream = File.Create(outputPath, bufferSize);
-                        int              read;
-
-                        while ((read = inputStream.Read(buffer)) > 0)
-                        {
-                            token.ThrowIfCancellationRequested();
-
-                            outputStream.Write(buffer[..read]);
-                            patcher.AdvanceProgress(read);
-                        }
-                    }
-                    finally
-                    {
-                        MemoryAlloc.FreeRaw(bufferP);
-                    }
+                    outputStream.Write(buffer[..read]);
+                    patcher.AdvanceProgress(read);
                 }
+
+                return nativeBuffer;
+            },
+                         nativeBuffer => nativeBuffer.Dispose());
 #else
-                byte[] buffer = BigArrayPool<byte>.Shared.Rent(bufferSize);
-                try
+            Parallel.For(0,
+                         count,
+                         parallelOptions,
+                         () => BigArrayPool<byte>.Shared.Rent(bufferSize),
+                         (i, _, buffer) =>
+            {
+                token.ThrowIfCancellationRequested();
+                string inputPath  = Path.GetFullPath(Path.Combine(InputDir,  InputPaths[i]));
+                string outputPath = Path.GetFullPath(Path.Combine(OutputDir, OutputPaths[i]));
+
+                if (Path.GetDirectoryName(outputPath) is { } outputDir)
+                    Directory.CreateDirectory(outputDir);
+
+                using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
+                using FileStream outputStream = File.Create(outputPath, bufferSize);
+                int              read;
+
+                while ((read = inputStream.Read(buffer, 0, bufferSize)) > 0)
                 {
-                    string inputPath  = Path.GetFullPath(Path.Combine(InputDir,  InputPaths[i]));
-                    string outputPath = Path.GetFullPath(Path.Combine(OutputDir, OutputPaths[i]));
+                    token.ThrowIfCancellationRequested();
 
-                    if (Path.GetDirectoryName(outputPath) is { } outputDir)
-                        Directory.CreateDirectory(outputDir);
-
-                    using FileStream inputStream  = File.Open(inputPath, FileMode.Open, FileAccess.Read);
-                    using FileStream outputStream = File.Create(outputPath, bufferSize);
-                    int              read;
-
-                    while ((read = inputStream.Read(buffer, 0, bufferSize)) > 0)
-                    {
-                        token.ThrowIfCancellationRequested();
-
-                        outputStream.Write(buffer, 0, read);
-                        patcher.AdvanceProgress(read);
-                    }
+                    outputStream.Write(buffer, 0, read);
+                    patcher.AdvanceProgress(read);
                 }
-                finally
-                {
-                    BigArrayPool<byte>.Shared.Return(buffer);
-                }
+
+                return buffer;
+            },
+                         buffer => BigArrayPool<byte>.Shared.Return(buffer));
 #endif
-            });
         }
     }
 }

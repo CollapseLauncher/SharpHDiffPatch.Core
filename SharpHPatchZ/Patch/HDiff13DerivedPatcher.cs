@@ -18,13 +18,21 @@ internal sealed partial class HDiff13DerivedPatcher(
     BittableStreamReader newDataReader,
     HDiffInfo            info,
     PatchOptions         options,
-    ProgressCallback     progressCallback)
+    ProgressCallback     progressCallback,
+    int                  coreWorkerCount,
+    int                  copyWorkerCount,
+    bool                 runCopyConcurrently)
     : PatcherBase(info, options, progressCallback)
 {
     private readonly BittableStreamReader _coverReader   = coverReader;
     private readonly BittableStreamReader _rleCtrlReader = rleCtrlReader;
     private readonly BittableStreamReader _rleCodeReader = rleCodeReader;
     private readonly BittableStreamReader _newDataReader = newDataReader;
+    private readonly int _coreWorkerCount = coreWorkerCount > 0
+        ? coreWorkerCount
+        : throw new ArgumentOutOfRangeException(nameof(coreWorkerCount));
+    private readonly int _copyWorkerCount = copyWorkerCount;
+    private readonly bool _runCopyConcurrently = runCopyConcurrently;
 
     private CopySimilarFilesContext? _copySimilarFilesContext;
 
@@ -35,6 +43,16 @@ internal sealed partial class HDiff13DerivedPatcher(
         // Start both CopyOver and CorePatch routine if context is not null.
         if (_copySimilarFilesContext != null)
         {
+            if (!_runCopyConcurrently)
+            {
+                _copySimilarFilesContext.RunCopy(this,
+                                                 Options,
+                                                 _copyWorkerCount,
+                                                 token);
+                StartCorePatcher(token);
+                return;
+            }
+
             TaskCompletionSource<bool> copyOverTcs = new(null!, TaskCreationOptions.RunContinuationsAsynchronously); 
             TaskCompletionSource<bool> corePatcherTcs = new(null!, TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -42,7 +60,10 @@ internal sealed partial class HDiff13DerivedPatcher(
             {
                 try
                 {
-                    _copySimilarFilesContext.RunCopy(this, Options, token);
+                    _copySimilarFilesContext.RunCopy(this,
+                                                     Options,
+                                                     _copyWorkerCount,
+                                                     token);
                     copyOverTcs.SetResult(true);
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -69,9 +90,9 @@ internal sealed partial class HDiff13DerivedPatcher(
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
                 {
 #if NET6_0_OR_GREATER
-                    copyOverTcs.SetCanceled(token);
+                    corePatcherTcs.SetCanceled(token);
 #else
-                    copyOverTcs.SetCanceled();
+                    corePatcherTcs.SetCanceled();
 #endif
                 }
                 catch (Exception ex)
