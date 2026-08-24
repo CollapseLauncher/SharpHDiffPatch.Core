@@ -17,13 +17,13 @@ internal sealed class PrefetchedReadStream : Stream
     private readonly Task                            _producer;
 
     private ExceptionDispatchInfo? _producerFailure;
-    private BufferChunk?             _current;
-    private int                      _currentOffset;
-    private int                      _disposed;
+    private BufferChunk?           _current;
+    private int                    _currentOffset;
+    private int                    _disposed;
 
     public PrefetchedReadStream(Stream source,
                                 int    bufferSize,
-                                int    queueCapacity = 2)
+                                int    queueCapacity = 4)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         if (!source.CanRead)
@@ -120,7 +120,7 @@ internal sealed class PrefetchedReadStream : Stream
     private void Produce()
     {
 #if !NET6_0_OR_GREATER
-        byte[] streamBuffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_bufferSize);
+        byte[] streamBuffer = BigArrayPool<byte>.Shared.Rent(_bufferSize);
 #endif
         try
         {
@@ -161,7 +161,7 @@ internal sealed class PrefetchedReadStream : Stream
         finally
         {
 #if !NET6_0_OR_GREATER
-            System.Buffers.ArrayPool<byte>.Shared.Return(streamBuffer);
+            BigArrayPool<byte>.Shared.Return(streamBuffer);
 #endif
             try
             {
