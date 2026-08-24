@@ -315,13 +315,12 @@ internal sealed partial class HDiff13DerivedPatcher
 #if NET6_0_OR_GREATER
                     Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset,
                                                                segment.Length);
-                    AddRle(oldData, rleData, Options.UseSIMD);
+                    AddRle(rleData, oldData, Options.UseSIMD);
 #else
                     Span<byte> rleData = item.Buffer.Span.Slice(segment.BufferOffset,
                                                                segment.Length);
-                    AddRle(oldData, rleData);
+                    AddRle(rleData, oldData);
 #endif
-                    oldData.CopyTo(rleData);
                 }
             }
 
@@ -336,14 +335,14 @@ internal sealed partial class HDiff13DerivedPatcher
 
 #if NET6_0_OR_GREATER
     private static void AddRle(Span<byte>         destination,
-                               ReadOnlySpan<byte> rle,
+                               ReadOnlySpan<byte> addend,
                                bool               useSimd)
 #else
     private static void AddRle(Span<byte>         destination,
-                               ReadOnlySpan<byte> rle)
+                               ReadOnlySpan<byte> addend)
 #endif
     {
-        if (destination.Length != rle.Length)
+        if (destination.Length != addend.Length)
         {
             throw new ArgumentException("The old-data and RLE buffers must have the same length.");
         }
@@ -358,12 +357,12 @@ internal sealed partial class HDiff13DerivedPatcher
             if (vectorEnd != 0)
             {
                 ref byte destinationRef = ref destination[0];
-                ref byte rleRef         = ref Unsafe.AsRef(in rle[0]);
+                ref byte addendRef      = ref Unsafe.AsRef(in addend[0]);
                 for (; index < vectorEnd; index += vectorLength)
                 {
-                    var oldVector = Unsafe.ReadUnaligned<Vector256<byte>>(ref Unsafe.Add(ref destinationRef, index));
-                    var rleVector = Unsafe.ReadUnaligned<Vector256<byte>>(ref Unsafe.Add(ref rleRef, index));
-                    Vector256<byte> result = Avx2.Add(oldVector, rleVector);
+                    var destinationVector = Unsafe.ReadUnaligned<Vector256<byte>>(ref Unsafe.Add(ref destinationRef, index));
+                    var addendVector      = Unsafe.ReadUnaligned<Vector256<byte>>(ref Unsafe.Add(ref addendRef, index));
+                    Vector256<byte> result = Avx2.Add(destinationVector, addendVector);
                     Unsafe.WriteUnaligned(ref Unsafe.Add(ref destinationRef, index), result);
                 }
             }
@@ -375,12 +374,12 @@ internal sealed partial class HDiff13DerivedPatcher
             if (vectorEnd != 0)
             {
                 ref byte destinationRef = ref destination[0];
-                ref byte rleRef         = ref Unsafe.AsRef(in rle[0]);
+                ref byte addendRef      = ref Unsafe.AsRef(in addend[0]);
                 for (; index < vectorEnd; index += vectorLength)
                 {
-                    var oldVector = Unsafe.ReadUnaligned<Vector128<byte>>(ref Unsafe.Add(ref destinationRef, index));
-                    var rleVector = Unsafe.ReadUnaligned<Vector128<byte>>(ref Unsafe.Add(ref rleRef, index));
-                    Vector128<byte> result = Sse2.Add(oldVector, rleVector);
+                    var destinationVector = Unsafe.ReadUnaligned<Vector128<byte>>(ref Unsafe.Add(ref destinationRef, index));
+                    var addendVector      = Unsafe.ReadUnaligned<Vector128<byte>>(ref Unsafe.Add(ref addendRef, index));
+                    Vector128<byte> result = Sse2.Add(destinationVector, addendVector);
                     Unsafe.WriteUnaligned(ref Unsafe.Add(ref destinationRef, index), result);
                 }
             }
@@ -389,17 +388,23 @@ internal sealed partial class HDiff13DerivedPatcher
         {
             int vectorLength = Vector<byte>.Count;
             int vectorEnd    = length - length % vectorLength;
-            for (; index < vectorEnd; index += vectorLength)
+            if (vectorEnd != 0)
             {
-                Vector<byte> oldVector = new(destination.Slice(index, vectorLength));
-                Vector<byte> rleVector = new(rle.Slice(index, vectorLength));
-                (oldVector + rleVector).CopyTo(destination.Slice(index, vectorLength));
+                ref byte destinationRef = ref destination[0];
+                ref byte addendRef      = ref Unsafe.AsRef(in addend[0]);
+                for (; index < vectorEnd; index += vectorLength)
+                {
+                    var destinationVector = Unsafe.ReadUnaligned<Vector<byte>>(ref Unsafe.Add(ref destinationRef, index));
+                    var addendVector      = Unsafe.ReadUnaligned<Vector<byte>>(ref Unsafe.Add(ref addendRef, index));
+                    Vector<byte> result = destinationVector + addendVector;
+                    Unsafe.WriteUnaligned(ref Unsafe.Add(ref destinationRef, index), result);
+                }
             }
         }
 #endif
         for (; index < length; index++)
         {
-            destination[index] = unchecked((byte)(destination[index] + rle[index]));
+            destination[index] = unchecked((byte)(destination[index] + addend[index]));
         }
     }
 
