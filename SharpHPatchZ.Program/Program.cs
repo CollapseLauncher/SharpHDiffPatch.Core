@@ -105,7 +105,7 @@ namespace SharpHPatchZ.Program
                     }
 
                     Console.WriteLine();
-                    Console.WriteLine($"Patch completed in: {Stopwatch.Elapsed:c}");
+                    Console.WriteLine($"Patch completed in: {Stopwatch.Elapsed:c} ({Stopwatch.Elapsed.TotalSeconds} seconds)");
 
                     (Stream, bool) CreatePatchStream(long position)
                     {
