@@ -15,13 +15,11 @@ using SharpHPatchZ.Extension;
 using SharpHPatchZ.Header;
 using SharpHPatchZ.IO.Compression.BZip2;
 using SharpHPatchZ.IO.Compression.Lzma;
-#if NETSTANDARD2_0_OR_GREATER || NET6_0_OR_GREATER
 using ZstdManagedDecompressor = ZstdSharp.Decompressor;
 using ZstdManagedDecompressorParameter = ZstdSharp.Unsafe.ZSTD_dParameter;
 using ZstdManagedStream = ZstdSharp.DecompressionStream;
-#endif
 
-#if !NETSTANDARD2_0_OR_GREATER
+#if NET6_0_OR_GREATER
 using ZstdNativeDecompressor = ZstdNet.DecompressionOptions;
 using ZstdNativeDecompressorParameter = ZstdNet.ZSTD_dParameter;
 using ZstdNativeStream = ZstdNet.DecompressionStream;
@@ -88,7 +86,7 @@ internal static class DecompressStreamFactory
     {
         if (_createZstdStreamFallback != null) return _createZstdStreamFallback(rawStream, leaveOpen);
 
-#if !(NETSTANDARD2_0_OR_GREATER || NET461_OR_GREATER)
+#if NET6_0_OR_GREATER
         if (DllUtils.IsLibraryExist(DllUtils.DllName))
             _createZstdStreamFallback = CreateZstdNativeStream;
         else
@@ -105,12 +103,12 @@ internal static class DecompressStreamFactory
      * Code Snippets (decompress_plugin_demo.h:963):
      *     #define _ZSTD_WINDOWLOG_MAX ((sizeof(size_t)<=4)?30:31)
      */
-#if !NETSTANDARD2_0_OR_GREATER
+#if NET6_0_OR_GREATER
     private static Stream CreateZstdNativeStream(Stream rawStream, bool leaveOpen) =>
         new ZstdNativeStream(rawStream, new ZstdNativeDecompressor(null, new Dictionary<ZstdNativeDecompressorParameter, int>
         {
             { ZstdNativeDecompressorParameter.ZSTD_d_windowLogMax, ZstdWindowLogMax }
-        }));
+        }), 0, leaveOpen);
 #endif
 
     private static Stream CreateZstdManagedStream(Stream rawStream, bool leaveOpen)
