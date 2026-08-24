@@ -3,7 +3,6 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 using SharpHPatchZ.Header;
 
 // ReSharper disable InconsistentNaming
@@ -55,7 +54,9 @@ namespace SharpHPatchZ.Program
                                                                      
                                                                      [OptimizedForHDD]
                                                                      Thread = 1, Buffer Size = Up to 16 MB per chunks
-                                                                     (Note: -p/--parallel-threads values will be ignored)
+                                                                     (Note: -p/--parallel-threads will be ignored with this mode)
+                                                                     
+                                                                     
                                                                      """));
             Command.AddOption(threadsOpt = new Option<int>(["-p", "--parallel-threads"], () => Environment.ProcessorCount,
                                                            "Determines how much parallel threads to be run."));
@@ -98,13 +99,15 @@ namespace SharpHPatchZ.Program
                     ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(PatchProgress);
 
                     using HDiffInfo info = HPatch.CreateInstance(CreatePatchStream, initializeOptions);
-                    PatchResult result = HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
+                    PatchResult? result = HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
+                    Console.WriteLine();
+
                     if (result.Exception != null)
                     {
-                        throw result.Exception;
+                        Console.WriteLine($"Patching process throws an error: {result.Exception}");
+                        context.ExitCode = result;
+                        return;
                     }
-
-                    Console.WriteLine();
                     Console.WriteLine($"Patch completed in: {Stopwatch.Elapsed:c} ({Stopwatch.Elapsed.TotalSeconds} seconds)");
 
                     (Stream, bool) CreatePatchStream(long position)
