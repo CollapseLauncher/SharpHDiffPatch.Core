@@ -209,9 +209,10 @@ internal sealed partial class HDiff13DerivedPatcher
                              Action<PatchWorkItem>      emit,
                              CancellationToken          token)
     {
-        RleDecoder rleDecoder = new(_rleCtrlReader, _rleCodeReader);
-        using NativeMemoryBuffer<byte> skipBuffer = new(Math.Min(bufferSize, 64 << 10));
-        using PatchWorkBuilder workBuilder = new(bufferSize, emit);
+        RleDecoder                     rleDecoder  = new(_rleCtrlReader, _rleCodeReader);
+        using NativeMemoryBuffer<byte> skipBuffer  = new(Math.Min(bufferSize, 64 << 10));
+        using PatchWorkBuilder         workBuilder = new(bufferSize, emit);
+
         long newPosition = 0;
         for (int coverIndex = 0; coverIndex < covers.Length; coverIndex++)
         {
