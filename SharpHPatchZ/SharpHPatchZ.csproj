@@ -24,10 +24,10 @@
         <LangVersion>14</LangVersion>
     </PropertyGroup>
 
-	<ItemGroup>
-		<None Include="icon.png" Pack="true" PackagePath="\" />
-		<None Include="../README.md" Pack="true" PackagePath="\" />
-	</ItemGroup>
+    <ItemGroup>
+        <None Include="icon.png" Pack="true" PackagePath="\" />
+        <None Include="../README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="System.IO.Hashing" Version="*" />
@@ -46,7 +46,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="NetStandardCompat\System.Runtime.InteropServices\" />
+        <Folder Include="NetStandardCompat\System.Runtime.InteropServices\" />
     </ItemGroup>
 
     <PropertyGroup Condition="'$(Configuration)'=='Release'">
