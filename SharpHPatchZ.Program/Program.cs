@@ -2,8 +2,10 @@
 using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading;
 using SharpHPatchZ.Header;
+using SharpHPatchZ.Header.Metadata;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable CommentTypo
@@ -99,7 +101,8 @@ namespace SharpHPatchZ.Program
                     ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(PatchProgress);
 
                     using HDiffInfo info = HPatch.CreateInstance(CreatePatchStream, initializeOptions);
-                    PatchResult? result = HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
+                    PrintFileInfo(info, inputPath, patchPath, outputPath, bufferSize);
+                    PatchResult result = HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
                     Console.WriteLine();
 
                     if (result.Exception != null)
@@ -133,6 +136,67 @@ namespace SharpHPatchZ.Program
             });
 
             return Command.Invoke(args);
+        }
+
+        private static unsafe void PrintFileInfo(HDiffInfo  info,
+                                                 string     inputPath,
+                                                 string     patchPath,
+                                                 string     outputPath,
+                                                 BufferSize bufferSizeType)
+        {
+            StringBuilder sb = new();
+            sb.AppendLine($"""
+                           Input Path       : {inputPath}
+                           Patch Path       : {patchPath}
+                           Output Path      : {outputPath}
+                           Buffer Type      : {bufferSizeType}
+                           Diff Type        : {info.MagicType}
+                           Diff File Size   : {new FileInfo(patchPath).Length}
+                           Compression Type : {info.CompressionType}
+                           
+                           """);
+
+            if (HPatch.TryGetHDiff19DirectoryPatchMetadata(ref info, out DirectoryPatchMetadata dirPatchMetadata))
+            {
+                sb.AppendLine($"""
+                               Directory Patch Info (HDiff19 Extension):
+                                   Checksum Type               : {info.ChecksumType}
+                                   New Path Count              : {dirPatchMetadata.OutputPathListP->Length} (File Count: {dirPatchMetadata.SameFilePathCountSizeInfoP->Count + dirPatchMetadata.OutputFileIndexListP->Length})
+                                   Identical File Count        : {dirPatchMetadata.SameFilePathCountSizeInfoP->Count} (Total Size: {dirPatchMetadata.SameFilePathCountSizeInfoP->Size})
+                                   Input Reference File Count  : {dirPatchMetadata.InputFileIndexListP->Length} (Total Size: {dirPatchMetadata.InputPathCountSizeInfoP->Size})
+                                   Output Reference File Count : {dirPatchMetadata.OutputFileIndexListP->Length} (Total Size: {dirPatchMetadata.OutputPathCountSizeInfoP->Size})
+                                   Input Total File Size       : {dirPatchMetadata.InputPathCountSizeInfoP->Size + dirPatchMetadata.SameFilePathCountSizeInfoP->Size}
+                                   Output Total File Size      : {dirPatchMetadata.OutputPathCountSizeInfoP->Size + dirPatchMetadata.SameFilePathCountSizeInfoP->Size}
+                                   
+                               """);
+
+                if (dirPatchMetadata.InputFileSizeListP != null &&
+                    dirPatchMetadata.OutputFileHashesListP != null)
+                {
+                    sb.AppendLine($"""
+                                   Kuro Games HDiff Extension Info:
+                                       Input File Asserted Count : {dirPatchMetadata.InputFileSizeListP->Length}
+                                       Output File Hashes Count  : {dirPatchMetadata.OutputFileHashesListP->Length}
+                                       
+                                   """);
+                }
+            }
+
+            if (HPatch.TryGetHDiff13PatchMetadata(ref info, out PatchMetadata patchMetadata))
+            {
+                sb.AppendLine($"""
+                               Generic Patch Info:
+                                   Input Size           : {patchMetadata.DiffOldSize}
+                                   Output Size          : {patchMetadata.DiffNewSize}
+                                   RLE Cover Info Count : {patchMetadata.CoverDataCount}
+                                   RLE Cover Info Size  : {patchMetadata.CoverDataSizeP->Size} (Compressed Size: {patchMetadata.CoverDataSizeP->CompressedSize})
+                                   RLE Control Size     : {patchMetadata.RleControlDataSizeP->Size} (Compressed Size: {patchMetadata.RleControlDataSizeP->CompressedSize})
+                                   RLE Code Size        : {patchMetadata.RleCodeDataSizeP->Size} (Compressed Size: {patchMetadata.RleCodeDataSizeP->CompressedSize})
+                                   RLE New Data Size    : {patchMetadata.NewDiffDataSizeP->Size} (Compressed Size: {patchMetadata.NewDiffDataSizeP->CompressedSize})
+                               """);
+            }
+
+            Console.WriteLine(sb.ToString());
         }
 
         private static double   lastSpeed;
