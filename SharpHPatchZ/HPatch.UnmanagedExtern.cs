@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using SharpHPatchZ.Extension;
 using SharpHPatchZ.Header;
+using SharpHPatchZ.Header.Metadata;
 using SharpHPatchZ.Native;
 
 // ReSharper disable InconsistentNaming
@@ -211,6 +212,14 @@ public static partial class HPatch
             return ExceptionHelper.TryGetReturnCodeFromError(ex);
         }
     }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_util_get_hdiff13_patch_metadata")]
+    public static unsafe PatchMetadata* SharpHPatchZ_TryGetHDiff13PatchMetadata(HDiffInfo* infoP)
+        => (PatchMetadata*)Unsafe.AsPointer(ref infoP[0].GetPatchMetadata());
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_util_get_hdiff19_patch_metadata")]
+    public static unsafe DirectoryPatchMetadata* SharpHPatchZ_TryGetHDiff19DirectoryPatchMetadata(HDiffInfo* infoP)
+        => (DirectoryPatchMetadata*)Unsafe.AsPointer(ref infoP[0].MetadataAs<DirectoryPatchMetadata>());
 
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_get_last_errorA")]
     public static unsafe int SharpHPatchZ_GetLastErrorUtf8(byte* bufferA, int bufferLength, ExceptionHelper.LastErrorMessageType messageType)
