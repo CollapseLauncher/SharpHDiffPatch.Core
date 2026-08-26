@@ -11,8 +11,8 @@
         <PackageIcon>icon.png</PackageIcon>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <VersionPrefix>2.4.1</VersionPrefix>
-        <AssemblyVersion>2.4.1</AssemblyVersion>
+        <VersionPrefix>2.4.2</VersionPrefix>
+        <AssemblyVersion>2.4.2</AssemblyVersion>
         <IsAotCompatible>true</IsAotCompatible>
         <IsTrimmable>true</IsTrimmable>
         <Configurations>Debug;Release</Configurations>
@@ -29,7 +29,7 @@
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)'!='netstandard2.0'">
-        <PackageReference Include="Hi3Helper.ZstdNet" Version="*" />
+        <PackageReference Include="Hi3Helper.ZstdNet" Version="1.6.7" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
