@@ -99,6 +99,8 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         return thisStruct;
     }
 
+    public ReadOnlySpan<char> GetSpan() => Native.GetSpan();
+
     public static implicit operator ReadOnlySpan<char>(Utf16UnmanagedString unmanaged)
         => unmanaged.Native;
 
@@ -147,5 +149,7 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
             => unmanaged.Length == 0
                 ? ""
                 : unmanaged.ToString();
+
+        public ReadOnlySpan<char> GetSpan() => this;
     }
 }

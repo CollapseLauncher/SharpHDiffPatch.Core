@@ -1,13 +1,18 @@
-﻿using System;
+﻿using SharpHPatchZ.Header;
+using SharpHPatchZ.Header.Metadata;
+using System;
 using System.CommandLine;
 using System.Diagnostics;
 using System.IO;
-using System.Numerics;
-using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading;
-using SharpHPatchZ.Header;
-using SharpHPatchZ.Header.Metadata;
+
+#if NET6_0_OR_GREATER
+using System.Numerics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
+#endif
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable CommentTypo
@@ -42,11 +47,14 @@ public static class PatcherBin
         return option;
     }
 
-    public static int Main(params string[] args)
+    private static void AddCommandPatch(RootCommand command)
     {
-        Argument<string> inputPathArg = new Argument<string>("Input File", "Input path of the old file/folder to patch").RegisterTo(Command);
-        Argument<string> patchPathArg = new Argument<string>("Patch File", "Patch file path to produce the new version of the file/folder").RegisterTo(Command);
-        Argument<string> outputPathArg = new Argument<string>("Output File", "Output path of the new version to be produced").RegisterTo(Command);
+        Command patchCommand = new("patch", "Perform patch using provided Input, Patch and Output files");
+        command.AddCommand(patchCommand);
+
+        Argument<string> inputPathArg = new Argument<string>("Input File", "Input path of the old file/folder to patch").RegisterTo(patchCommand);
+        Argument<string> patchPathArg = new Argument<string>("Patch File", "Patch file path to produce the new version of the file/folder").RegisterTo(patchCommand);
+        Argument<string> outputPathArg = new Argument<string>("Output File", "Output path of the new version to be produced").RegisterTo(patchCommand);
 
         Option<PatchPreset> bufferModeOpt = new Option<PatchPreset>(["-p", "--preset"], () => PatchPreset.Performance,
                                                                     """
@@ -69,55 +77,55 @@ public static class PatcherBin
                                                                     (Note: -p/--parallel-threads will be ignored with this mode)
 
 
-                                                                    """).RegisterTo(Command);
+                                                                    """).RegisterTo(patchCommand);
 
         Option<uint> threadsOpt = new Option<uint>(["-t", "--parallel-threads"], () => (uint)Environment.ProcessorCount,
-                                                   "Determines how much parallel threads to be run.").RegisterTo(Command);
+                                                   "Determines how much parallel threads to be run.").RegisterTo(patchCommand);
         Option<bool> isKuroTypeOpt = new Option<bool>(["-k", "--kuro"],
-                                                      "Defining that the patch file is a Kuro Games HDiff format.").RegisterTo(Command);
+                                                      "Defining that the patch file is a Kuro Games HDiff format.").RegisterTo(patchCommand);
 
 #if NET6_0_OR_GREATER
         Option<bool> useSimdOpt = new Option<bool>(["--simd"],
                                                    () => true,
-                                                   "Whether to use SIMD calculation while performing RLE additions.").RegisterTo(Command);
+                                                   "Whether to use SIMD calculation while performing RLE additions.").RegisterTo(patchCommand);
 #endif
 
         Option<uint> bufferCopyBufferSizeOpt = new Option<uint>(["--buffer-copy"],
-                                                                "Determines how big the buffer size while performing copy routines to similar files.").RegisterTo(Command);
+                                                                "Determines how big the buffer size while performing copy routines to similar files.").RegisterTo(patchCommand);
         Option<uint> bufferPatchWorkerBufferSizeOpt = new Option<uint>(["--buffer-patch"],
-                                                                       "Determines how big the buffer size used by the patch worker.").RegisterTo(Command);
+                                                                       "Determines how big the buffer size used by the patch worker.").RegisterTo(patchCommand);
         Option<uint> bufferReaderBufferSizeOpt = new Option<uint>(["--buffer-reader"],
-                                                                  "Determines how big the buffer size used by the RLE Stream Reader.").RegisterTo(Command);
+                                                                  "Determines how big the buffer size used by the RLE Stream Reader.").RegisterTo(patchCommand);
 
-        Command.SetHandler((context) =>
+        patchCommand.SetHandler(context =>
         {
-            string inputPath  = context.ParseResult.GetValueForArgument(inputPathArg);
-            string patchPath  = context.ParseResult.GetValueForArgument(patchPathArg);
+            string inputPath = context.ParseResult.GetValueForArgument(inputPathArg);
+            string patchPath = context.ParseResult.GetValueForArgument(patchPathArg);
             string outputPath = context.ParseResult.GetValueForArgument(outputPathArg);
-            bool   isKuroType = context.ParseResult.GetValueForOption(isKuroTypeOpt);
-            uint   threads    = context.ParseResult.GetValueForOption(threadsOpt);
+            bool isKuroType = context.ParseResult.GetValueForOption(isKuroTypeOpt);
+            uint threads = context.ParseResult.GetValueForOption(threadsOpt);
 
 #if NET6_0_OR_GREATER
             bool useSimd = context.ParseResult.GetValueForOption(useSimdOpt);
 #endif
 
-            uint bufferCopyBufferSize        = context.ParseResult.GetValueForOption(bufferCopyBufferSizeOpt);
+            uint bufferCopyBufferSize = context.ParseResult.GetValueForOption(bufferCopyBufferSizeOpt);
             uint bufferPatchWorkerBufferSize = context.ParseResult.GetValueForOption(bufferPatchWorkerBufferSizeOpt);
-            uint bufferReaderBufferSize      = context.ParseResult.GetValueForOption(bufferReaderBufferSizeOpt);
+            uint bufferReaderBufferSize = context.ParseResult.GetValueForOption(bufferReaderBufferSizeOpt);
 
             PatchPreset patchPreset = context.ParseResult.GetValueForOption(bufferModeOpt);
             PatchOptions options = patchPreset switch
             {
-                PatchPreset.Performance     => PatchOptions.BigBuffer,
-                PatchPreset.Balanced        => PatchOptions.Default,
+                PatchPreset.Performance => PatchOptions.BigBuffer,
+                PatchPreset.Balanced => PatchOptions.Default,
                 PatchPreset.MemoryOptimized => PatchOptions.SmallBuffer,
                 PatchPreset.OptimizedForHDD => PatchOptions.OptimizeForHDD,
-                _                           => PatchOptions.BigBuffer
+                _ => PatchOptions.BigBuffer
             };
 
-            if (bufferCopyBufferSize != 0) options.CopyBufferSize               = (int)bufferCopyBufferSize;
+            if (bufferCopyBufferSize != 0) options.CopyBufferSize = (int)bufferCopyBufferSize;
             if (bufferPatchWorkerBufferSize != 0) options.PatchWorkerBufferSize = (int)bufferPatchWorkerBufferSize;
-            if (bufferReaderBufferSize != 0) options.ReaderBufferSize           = (int)bufferReaderBufferSize;
+            if (bufferReaderBufferSize != 0) options.ReaderBufferSize = (int)bufferReaderBufferSize;
 
             InitializeOptions initializeOptions = new()
             {
@@ -141,9 +149,9 @@ public static class PatcherBin
             {
                 ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(PatchProgress);
 
-                using HDiffInfo info = HPatch.CreateInstance(CreatePatchStream, initializeOptions);
+                using HDiffInfo info = HPatch.CreateInstance(pos => CreatePatchStream(patchPath, pos), initializeOptions);
                 PrintFileInfo(info, inputPath, patchPath, outputPath, options, patchPreset);
-                PatchResult result = HPatch.Patch(info, CreatePatchStream, inputPath, outputPath, options, progressCallback);
+                PatchResult result = HPatch.Patch(info, pos => CreatePatchStream(patchPath, pos), inputPath, outputPath, options, progressCallback);
                 Console.WriteLine();
 
                 if (result.Exception != null)
@@ -153,13 +161,6 @@ public static class PatcherBin
                     return;
                 }
                 Console.WriteLine($"Patch completed in: {Stopwatch.Elapsed:c} ({Stopwatch.Elapsed.TotalSeconds} seconds)");
-
-                (Stream, bool) CreatePatchStream(long position)
-                {
-                    FileStream stream = File.Open(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                    stream.Position = position;
-                    return (stream, false);
-                }
             }
             catch (Exception ex)
             {
@@ -175,7 +176,178 @@ public static class PatcherBin
                 RefreshStopwatch.Stop();
             }
         });
+    }
 
+    private static (Stream, bool) CreatePatchStream(string patchPath, long position)
+    {
+        FileStream stream = File.Open(patchPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        stream.Position = position;
+        return (stream, false);
+    }
+
+    private static void AddCommandInfo(RootCommand command)
+    {
+        Command infoCommand = new("info", "Prints information about the patch file");
+        command.AddCommand(infoCommand);
+
+        Argument<string> patchFileArg = new Argument<string>("Patch File", "The path of the patch file in which to get the info from.").RegisterTo(infoCommand);
+
+        Option<bool> verbosePrint = new Option<bool>("--verbose",
+                                                     () => false,
+                                                     "Prints more verbose information about the patch file. If the patch file is a directory patch, this will print the reference file paths as well.")
+            .RegisterTo(infoCommand);
+
+        infoCommand.SetHandler(context =>
+        {
+            string patchFilePath  = context.ParseResult.GetValueForArgument(patchFileArg);
+            bool   isVerbosePrint = context.ParseResult.GetValueForOption(verbosePrint);
+
+            HDiffInfo info = new();
+            try
+            {
+                info = HPatch.CreateInstance(pos => CreatePatchStream(patchFilePath, pos));
+                PrintFileInfo(info);
+                if (isVerbosePrint &&
+                    HPatch.TryGetDirectoryPatchMetadata(ref info, out DirectoryPatchMetadata directoryPatch))
+                {
+                    unsafe
+                    {
+                        if (directoryPatch.InputPathListP != null)
+                        {
+                            PrintPathList("Input Path List:",
+                                          directoryPatch.InputPathListP,
+                                          directoryPatch.InputFileSizeListP,
+                                          directoryPatch.InputFileIndexListP,
+                                          null);
+                        }
+
+                        if (directoryPatch.OutputPathListP != null)
+                        {
+                            PrintPathList("Output Path List:",
+                                          directoryPatch.OutputPathListP,
+                                          directoryPatch.OutputFileSizeListP,
+                                          directoryPatch.OutputFileIndexListP,
+                                          directoryPatch.OutputFileHashesListP);
+                        }
+
+                        if (directoryPatch.SameFilePathIndexPairP != null &&
+                            directoryPatch.SameFilePathCountSizeInfoP != null &&
+                            directoryPatch.InputPathListP != null &&
+                            directoryPatch.OutputPathListP != null)
+                        {
+                            Console.WriteLine("Same File Copy List:");
+
+                            void* p                     = directoryPatch.SameFilePathIndexPairP;
+                            int   count                 = directoryPatch.SameFilePathCountSizeInfoP->Count;
+                            var   sameFileIndexPairSpan = new Span<FileIndexPair>(p, count);
+
+                            Span<Utf16UnmanagedString> inputPathList = directoryPatch.InputPathListP->GetSpan();
+                            Span<Utf16UnmanagedString> outputPathList = directoryPatch.OutputPathListP->GetSpan();
+                            for (int i = 0; i < count; i++)
+                            {
+                                ref FileIndexPair        pair       = ref sameFileIndexPairSpan[i];
+                                ref Utf16UnmanagedString inputPath  = ref inputPathList[pair.OldIndex];
+                                ref Utf16UnmanagedString outputPath = ref outputPathList[pair.NewIndex];
+
+                                Console.WriteLine($"    {inputPath} ->> {outputPath}");
+                            }
+
+                            Console.WriteLine();
+                        }
+                    }
+                }
+
+                static unsafe void PrintPathList(
+                    string                                msgType,
+                    UnmanagedArray<Utf16UnmanagedString>* pathList,
+                    UnmanagedArray<long>*                 pathSizeList,
+                    UnmanagedArray<int>*                  pathFileIndexList,
+                    UnmanagedArray<long>*                 pathFileHashList)
+                {
+                    Console.WriteLine(msgType);
+                    Span<Utf16UnmanagedString> pathArray = pathList->GetSpan();
+                    Span<long> fileSizeArray = pathSizeList == null ?
+                        Span<long>.Empty : pathSizeList->GetSpan();
+
+                    Span<long> fileHashArray = pathFileHashList == null ?
+                        Span<long>.Empty : pathFileHashList->GetSpan();
+
+                    for (int i = 0; i < pathArray.Length; i++)
+                    {
+                        ref Utf16UnmanagedString pathStr  = ref pathArray[i];
+                        string                   pathType = GetPathType(ref pathStr, out bool isDirectory);
+
+                        if (isDirectory)
+                        {
+                            Console.WriteLine($"    {pathType}: {(pathStr == "" ? "(root)" : pathStr)}");
+                        }
+                    }
+
+                    Span<int> fileIndexList = pathFileIndexList->GetSpan();
+                    for (int i = 0; i < fileIndexList.Length; i++)
+                    {
+                        ref int                  index    = ref fileIndexList[i];
+                        ref Utf16UnmanagedString pathStr  = ref pathArray[index];
+
+                        string tail = "";
+                        if (!fileSizeArray.IsEmpty)
+                        {
+                            ref long pathSize = ref fileSizeArray[i];
+                            tail = $" ({pathSize} bytes)";
+                        }
+
+#if NET6_0_OR_GREATER
+                        if (!fileHashArray.IsEmpty)
+                        {
+                            ref long fileHash = ref fileHashArray[i];
+                            Span<byte> hashBytes = MemoryMarshal.AsBytes(new Span<long>(Unsafe.AsPointer(ref fileHash), sizeof(long)));
+
+                            string hexString = Convert.ToHexString(hashBytes);
+                            tail += $" (Hash: {hexString})";
+                        }
+#endif
+
+                        Console.WriteLine($"    File: {(pathStr == "" ? "(root)" : pathStr)}{tail}");
+                    }
+
+                    Console.WriteLine();
+                }
+
+                static string GetPathType(ref Utf16UnmanagedString inputPathStr, out bool isDirectory)
+                {
+                    ReadOnlySpan<char> inputPathSpan = inputPathStr;
+                    if (inputPathSpan.IsEmpty)
+                    {
+                        isDirectory = true;
+                        return "Directory";
+                    }
+
+                    // ReSharper disable once AssignmentInConditionalExpression
+                    return (isDirectory = !inputPathSpan.IsEmpty && inputPathSpan[^1] is '/' or '\\')
+                        ? "Directory"
+                        : "File";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    $"An error has occurred! [{ex.GetType().Name}]: {ex.Message}\r\nStack Trace:\r\n{ex.StackTrace}");
+                context.ExitCode = int.MinValue;
+#if DEBUG
+                throw;
+#endif
+            }
+            finally
+            {
+                info.Dispose();
+            }
+        });
+    }
+
+    public static int Main(params string[] args)
+    {
+        AddCommandPatch(Command);
+        AddCommandInfo(Command);
         return Command.Invoke(args);
     }
 
@@ -192,33 +364,24 @@ public static class PatcherBin
     }
 #endif
 
-    private static unsafe void PrintFileInfo(HDiffInfo    info,
-                                             string       inputPath,
-                                             string       patchPath,
-                                             string       outputPath,
-                                             PatchOptions options,
-                                             PatchPreset  patchPresetType)
+    private static unsafe void PrintFileInfo(HDiffInfo info)
     {
         StringBuilder sb = new();
-        sb.AppendLine($"""
-                       Input Path       : {inputPath}
-                       Patch Path       : {patchPath}
-                       Output Path      : {outputPath}
-                       Buffer Type      : {patchPresetType}
-                       Diff Type        : {info.MagicType}
-                       Diff File Size   : {new FileInfo(patchPath).Length}
-                       Compression Type : {info.CompressionType}
-                       
-                       Options:
-                           Max. Parallel Threads    : {options.ParallelThreads}
-                           Copy Buffer Size         : {options.CopyBufferSize}
-                           RLE Reader Buffer Size   : {options.ReaderBufferSize}
-                           Patch Worker Buffer Size : {options.PatchWorkerBufferSize}
-                       """);
-
-#if NET6_0_OR_GREATER
-        sb.AppendLine($"    Use SIMD?                : {DetermineSIMDCapability(options)}");
-#endif
+        if (HPatch.TryGetPatchMetadata(ref info, out PatchMetadata patchMetadata))
+        {
+            sb.AppendLine($"""
+                           Generic Patch Info:
+                               Diff Type            : {info.MagicType}
+                               Compression Type     : {info.CompressionType}
+                               Input Size           : {patchMetadata.DiffOldSize}
+                               Output Size          : {patchMetadata.DiffNewSize}
+                               RLE Cover Info Count : {patchMetadata.CoverDataCount}
+                               RLE Cover Info Size  : {patchMetadata.CoverDataSizeP->Size} (Compressed Size: {patchMetadata.CoverDataSizeP->CompressedSize})
+                               RLE Control Size     : {patchMetadata.RleControlDataSizeP->Size} (Compressed Size: {patchMetadata.RleControlDataSizeP->CompressedSize})
+                               RLE Code Size        : {patchMetadata.RleCodeDataSizeP->Size} (Compressed Size: {patchMetadata.RleCodeDataSizeP->CompressedSize})
+                               RLE New Data Size    : {patchMetadata.NewDiffDataSizeP->Size} (Compressed Size: {patchMetadata.NewDiffDataSizeP->CompressedSize})
+                           """);
+        }
 
         if (HPatch.TryGetDirectoryPatchMetadata(ref info, out DirectoryPatchMetadata dirPatchMetadata))
         {
@@ -246,22 +409,36 @@ public static class PatcherBin
             }
         }
 
-        if (HPatch.TryGetPatchMetadata(ref info, out PatchMetadata patchMetadata))
-        {
-            sb.AppendLine($"""
-                           
-                           Generic Patch Info:
-                               Input Size           : {patchMetadata.DiffOldSize}
-                               Output Size          : {patchMetadata.DiffNewSize}
-                               RLE Cover Info Count : {patchMetadata.CoverDataCount}
-                               RLE Cover Info Size  : {patchMetadata.CoverDataSizeP->Size} (Compressed Size: {patchMetadata.CoverDataSizeP->CompressedSize})
-                               RLE Control Size     : {patchMetadata.RleControlDataSizeP->Size} (Compressed Size: {patchMetadata.RleControlDataSizeP->CompressedSize})
-                               RLE Code Size        : {patchMetadata.RleCodeDataSizeP->Size} (Compressed Size: {patchMetadata.RleCodeDataSizeP->CompressedSize})
-                               RLE New Data Size    : {patchMetadata.NewDiffDataSizeP->Size} (Compressed Size: {patchMetadata.NewDiffDataSizeP->CompressedSize})
-                           """);
-        }
-
         Console.WriteLine(sb.ToString());
+    }
+
+    private static void PrintFileInfo(HDiffInfo    info,
+                                      string       inputPath,
+                                      string       patchPath,
+                                      string       outputPath,
+                                      PatchOptions options,
+                                      PatchPreset  patchPresetType)
+    {
+        StringBuilder sb = new();
+        sb.AppendLine($"""
+                       Input Path  : {inputPath}
+                       Output Path : {outputPath}
+                       Patch Path  : {patchPath}
+                       
+                       Options:
+                           Preset                   : {patchPresetType}
+                           Max. Parallel Threads    : {options.ParallelThreads}
+                           Copy Buffer Size         : {options.CopyBufferSize}
+                           RLE Reader Buffer Size   : {options.ReaderBufferSize}
+                           Patch Worker Buffer Size : {options.PatchWorkerBufferSize}
+                       """);
+
+#if NET6_0_OR_GREATER
+        sb.AppendLine($"    Use SIMD?                : {DetermineSIMDCapability(options)}");
+#endif
+        Console.WriteLine(sb.ToString());
+
+        PrintFileInfo(info);
     }
 
     private static double   lastSpeed;
