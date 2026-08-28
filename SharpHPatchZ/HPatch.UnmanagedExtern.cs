@@ -81,7 +81,7 @@ public static partial class HPatch
     {
         try
         {
-            string?           filePath          = StringExtension.GetManagedStringAuto(pathP);
+            string? filePath = StringExtension.GetManagedStringAuto(pathP);
             if (filePath == null)
             {
                 throw ExceptionHelper.ThrowHDiffPathIsEmptyOrInvalid();
@@ -213,12 +213,12 @@ public static partial class HPatch
         }
     }
 
-    [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_util_get_hdiff13_patch_metadata")]
-    public static unsafe PatchMetadata* SharpHPatchZ_TryGetHDiff13PatchMetadata(HDiffInfo* infoP)
+    [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_util_get_patch_metadata")]
+    public static unsafe PatchMetadata* SharpHPatchZ_TryGetPatchMetadata(HDiffInfo* infoP)
         => (PatchMetadata*)Unsafe.AsPointer(ref infoP[0].GetPatchMetadata());
 
-    [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_util_get_hdiff19_patch_metadata")]
-    public static unsafe DirectoryPatchMetadata* SharpHPatchZ_TryGetHDiff19DirectoryPatchMetadata(HDiffInfo* infoP)
+    [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_util_get_directory_patch_metadata")]
+    public static unsafe DirectoryPatchMetadata* SharpHPatchZ_TryGetDirectoryPatchMetadata(HDiffInfo* infoP)
         => (DirectoryPatchMetadata*)Unsafe.AsPointer(ref infoP[0].MetadataAs<DirectoryPatchMetadata>());
 
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_get_last_errorA")]
