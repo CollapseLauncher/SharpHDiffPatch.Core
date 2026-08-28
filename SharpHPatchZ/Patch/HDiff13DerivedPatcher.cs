@@ -99,7 +99,7 @@ internal sealed partial class HDiff13DerivedPatcher : PatcherBase
     }
 
     public override Task StartPatchAsync(string inputPath, string outputPath, CancellationToken token)
-        => Task.Factory.StartNew(_ => StartPatch(inputPath, outputPath, token),
+        => Task.Factory.StartNew(state => StartPatch(inputPath, outputPath, (CancellationToken)state!),
                                  token,
                                  TaskCreationOptions.LongRunning);
 

@@ -84,7 +84,7 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
                 int  writeLength = (int)Math.Min(buffer.Length, _fileStreamEnds[streamIndex] - offset);
 
                 FileStream stream = GetFileStream(streamIndex);
-                RandomAccessCompat.Write(stream.SafeFileHandle!,
+                RandomAccessCompat.Write(stream.SafeFileHandle,
                                          buffer[..writeLength],
                                          offset - streamStart);
 
@@ -114,7 +114,7 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
                 int  readLength  = (int)Math.Min(buffer.Length, _fileStreamEnds[streamIndex] - offset);
 
                 FileStream stream = GetFileStream(streamIndex);
-                int read = RandomAccessCompat.Read(stream.SafeFileHandle!,
+                int read = RandomAccessCompat.Read(stream.SafeFileHandle,
                                                    buffer[..readLength],
                                                    offset - streamStart);
 
@@ -158,6 +158,7 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
         finally
         {
             _lifetimeLock.ExitWriteLock();
+            _lifetimeLock.Dispose();
         }
     }
 

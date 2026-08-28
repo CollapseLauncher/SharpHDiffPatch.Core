@@ -30,7 +30,7 @@ internal static class StreamExtension
 #if !NET6_0_OR_GREATER
             _ = stream.ReadAtLeast(buffer, offset, count, count, true);
 #else
-            _ = stream.ReadAtLeast(buffer.AsSpan(offset, count), count, true);
+            _ = stream.ReadAtLeast(buffer.AsSpan(offset, count), count);
 #endif
         }
 
@@ -61,7 +61,7 @@ internal static class StreamExtension
             int totalRead = offset;
             while (totalRead < minimumBytes)
             {
-                int read = stream.Read(buffer, totalRead, count - totalRead);
+                int read = stream.Read(buffer, offset + totalRead, count - totalRead);
                 if (read == 0)
                 {
                     return throwOnEndOfStream ? throw new EndOfStreamException() : totalRead;
@@ -86,7 +86,7 @@ internal static class StreamExtension
             int totalRead = offset;
             while (totalRead < minimumBytes)
             {
-                int read = await stream.ReadAsync(buffer, totalRead, count - totalRead, cancellationToken).ConfigureAwait(false);
+                int read = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, cancellationToken).ConfigureAwait(false);
                 if (read == 0)
                 {
                     return throwOnEndOfStream ? throw new EndOfStreamException() : totalRead;
