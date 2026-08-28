@@ -17,4 +17,41 @@
     <ItemGroup>
         <ProjectReference Include="..\SharpHPatchZ\SharpHPatchZ.csproj" />
     </ItemGroup>
+
+
+    <PropertyGroup Condition="'$(PublishAot)' == 'true'">
+        <!-- Publish Options -->
+        <DefineConstants>$(DefineConstants);AOT</DefineConstants>
+
+        <!-- Compilation and Optimization -->
+        <Deterministic>true</Deterministic>
+        <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+        <OptimizationPreference>Speed</OptimizationPreference>
+        <IlcDisableReflection>true</IlcDisableReflection>
+        <DisableReflection>true</DisableReflection>
+        <IlcScanReflection>false</IlcScanReflection>
+        <ScanReflection>false</ScanReflection>
+        <IlcDisableSingleFile>true</IlcDisableSingleFile>
+        <IlcTrimMetadata>true</IlcTrimMetadata>
+        <TrimMetadata>true</TrimMetadata>
+        <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+        <FoldIdenticalMethodBodies>true</FoldIdenticalMethodBodies>
+
+        <!-- Debugging and Metadata -->
+        <DebuggerSupport>false</DebuggerSupport>
+        <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+        <StackTraceSupport>true</StackTraceSupport>
+        <TrimmerRemoveSymbols>true</TrimmerRemoveSymbols>
+        <IlcGenerateMstatFile>false</IlcGenerateMstatFile>
+        <IlcGenerateDgmlFile>false</IlcGenerateDgmlFile>
+
+        <!-- Security and Resource Management -->
+        <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+        <EnableUnsafeUTF7Encoding>false</EnableUnsafeUTF7Encoding>
+        <EventSourceSupport>false</EventSourceSupport>
+        <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+        <MetricsSupport>false</MetricsSupport>
+        <UseSystemResourceKeys>false</UseSystemResourceKeys>
+        <XmlResolverIsNetworkingEnabledByDefault>false</XmlResolverIsNetworkingEnabledByDefault>
+    </PropertyGroup>
 </Project>
