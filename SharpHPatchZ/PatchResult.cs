@@ -3,10 +3,19 @@ using SharpHPatchZ.Extension;
 
 namespace SharpHPatchZ;
 
+/// <summary>
+/// Determines whether the patch process has been successful or not.
+/// </summary>
 public class PatchResult
 {
+    /// <summary>
+    /// Containing an error if the patching process is faulty.
+    /// </summary>
     public Exception? Exception { get; init; }
 
+    /// <summary>
+    /// Whether the patching process is successful or faulty.
+    /// </summary>
     public bool IsSuccessful { get; init; }
 
     public static implicit operator bool(PatchResult result) => result.IsSuccessful;
