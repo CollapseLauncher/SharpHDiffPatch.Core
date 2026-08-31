@@ -1,10 +1,10 @@
 ﻿using System;
-using SharpHPatchZ.Extension;
-using SharpHPatchZ.Header;
-using SharpHPatchZ.IO.Reader;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SharpHPatchZ.Extension;
+using SharpHPatchZ.Header;
+using SharpHPatchZ.IO.Reader;
 using SharpHPatchZ.Patch;
 
 namespace SharpHPatchZ;
