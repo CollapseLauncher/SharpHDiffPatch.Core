@@ -83,7 +83,7 @@ internal static partial class PatcherFactory
         {
             int bufferSize = options.ReaderBufferSize;
 
-            ChunkSizeInfo coverSize  = *patchMetadata.CoverDataSizeP;
+            ChunkSizeInfo coverSize   = *patchMetadata.CoverDataSizeP;
             ChunkSizeInfo controlSize = *patchMetadata.RleControlDataSizeP;
             ChunkSizeInfo codeSize    = *patchMetadata.RleCodeDataSizeP;
             ChunkSizeInfo newDataSize = *patchMetadata.NewDiffDataSizeP;

@@ -9,81 +9,77 @@ namespace SharpHPatchZ;
 
 public static partial class HPatch
 {
-    /// <summary>
-    /// Try retrieve a <see cref="PatchMetadata"/> struct from a patch context.
-    /// </summary>
     /// <param name="info">A context and information struct for the <see cref="PatchMetadata"/> to be retrieved from.</param>
-    /// <param name="patchMetadata">A retrieved struct of <see cref="PatchMetadata"/> containing the main information about the patch file.</param>
-    /// <returns>
-    /// Returns <see langword="true"/> if <param name="patchMetadata"/> is successfully retrieved. Otherwise, <see langword="false"/> if the context struct is invalid or corrupted.
-    /// </returns>
-    public static bool TryGetPatchMetadata(
-        ref HDiffInfo     info,
-        out PatchMetadata patchMetadata)
+    extension(ref HDiffInfo info)
     {
-        Unsafe.SkipInit(out patchMetadata);
-
-        ref PatchMetadata patchMetadataRef = ref info.GetPatchMetadata();
-        if (Unsafe.IsNullRef(ref patchMetadataRef))
+        /// <summary>
+        /// Try retrieve a <see cref="PatchMetadata"/> struct from a patch context.
+        /// </summary>
+        /// <param name="patchMetadata">A retrieved struct of <see cref="PatchMetadata"/> containing the main information about the patch file.</param>
+        /// <returns>
+        /// Returns <see langword="true"/> if <param name="patchMetadata"/> is successfully retrieved. Otherwise, <see langword="false"/> if the context struct is invalid or corrupted.
+        /// </returns>
+        public bool TryGetPatchMetadata(out PatchMetadata patchMetadata)
         {
-            return false;
+            Unsafe.SkipInit(out patchMetadata);
+
+            ref PatchMetadata patchMetadataRef = ref info.GetPatchMetadata();
+            if (Unsafe.IsNullRef(ref patchMetadataRef))
+            {
+                return false;
+            }
+
+            patchMetadata = patchMetadataRef;
+            return true;
         }
 
-        patchMetadata = patchMetadataRef;
-        return true;
-    }
-
-    /// <summary>
-    /// Try retrieve a <see cref="DirectoryPatchMetadata"/> struct from a patch context.
-    /// </summary>
-    /// <param name="info">A context and information struct for the <see cref="DirectoryPatchMetadata"/> to be retrieved from.</param>
-    /// <param name="patchMetadata">A retrieved struct of <see cref="DirectoryPatchMetadata"/> containing the main information about the patch file.</param>
-    /// <returns>
-    /// Returns <see langword="true"/> if <param name="patchMetadata"/> is successfully retrieved.
-    /// Otherwise, <see langword="false"/> if the patch context does not contain <see cref="DirectoryPatchMetadata"/> struct.
-    /// </returns>
-    public static bool TryGetDirectoryPatchMetadata(
-        ref HDiffInfo              info,
-        out DirectoryPatchMetadata patchMetadata)
-    {
-        Unsafe.SkipInit(out patchMetadata);
-
-        ref DirectoryPatchMetadata patchMetadataRef = ref info.MetadataAs<DirectoryPatchMetadata>();
-        if (Unsafe.IsNullRef(ref patchMetadataRef))
+        /// <summary>
+        /// Try retrieve a <see cref="DirectoryPatchMetadata"/> struct from a patch context.
+        /// </summary>
+        /// <param name="patchMetadata">A retrieved struct of <see cref="DirectoryPatchMetadata"/> containing the main information about the patch file.</param>
+        /// <returns>
+        /// Returns <see langword="true"/> if <param name="patchMetadata"/> is successfully retrieved.
+        /// Otherwise, <see langword="false"/> if the patch context does not contain <see cref="DirectoryPatchMetadata"/> struct.
+        /// </returns>
+        public bool TryGetDirectoryPatchMetadata(out DirectoryPatchMetadata patchMetadata)
         {
-            return false;
+            Unsafe.SkipInit(out patchMetadata);
+
+            ref DirectoryPatchMetadata patchMetadataRef = ref info.MetadataAs<DirectoryPatchMetadata>();
+            if (Unsafe.IsNullRef(ref patchMetadataRef))
+            {
+                return false;
+            }
+
+            patchMetadata = patchMetadataRef;
+            return true;
         }
 
-        patchMetadata = patchMetadataRef;
-        return true;
-    }
-
-    /// <summary>
-    /// Try retrieves both total Input and Output size from a patch context.
-    /// </summary>
-    /// <param name="info">A context and information struct for the total Input and Output size to be retrieved from.</param>
-    /// <param name="totalInputSize">The total size of an Input File/Directory.</param>
-    /// <param name="totalOutputSize">The total size of an Output File/Directory.</param>
-    /// <returns>
-    /// Returns <see langword="true"/> if both <param name="totalInputSize"/> and <param name="totalOutputSize"/> are successfully retrieved.
-    /// Otherwise, <see langword="false"/> if the patch context is invalid or corrupted.
-    /// </returns>
-    public static bool TryGetDiffSizeInfo(ref HDiffInfo info,
-                                          out long      totalInputSize,
-                                          out long      totalOutputSize)
-    {
-        Unsafe.SkipInit(out totalInputSize);
-        Unsafe.SkipInit(out totalOutputSize);
-
-        ref PatchMetadata patchMetadata = ref info.GetPatchMetadata();
-        if (Unsafe.IsNullRef(ref patchMetadata))
+        /// <summary>
+        /// Try retrieves both total Input and Output size from a patch context.
+        /// </summary>
+        /// <param name="totalInputSize">The total size of an Input File/Directory.</param>
+        /// <param name="totalOutputSize">The total size of an Output File/Directory.</param>
+        /// <returns>
+        /// Returns <see langword="true"/> if both <param name="totalInputSize"/> and <param name="totalOutputSize"/> are successfully retrieved.
+        /// Otherwise, <see langword="false"/> if the patch context is invalid or corrupted.
+        /// </returns>
+        public bool TryGetDiffSizeInfo(out long totalInputSize,
+                                       out long totalOutputSize)
         {
-            return false;
-        }
+            Unsafe.SkipInit(out totalInputSize);
+            Unsafe.SkipInit(out totalOutputSize);
 
-        totalInputSize  = patchMetadata.DiffOldSize;
-        totalOutputSize = patchMetadata.DiffNewSize;
-        return true;
+            ref PatchMetadata patchMetadata = ref info.GetPatchMetadata();
+            if (Unsafe.IsNullRef(ref patchMetadata))
+            {
+                return false;
+            }
+
+            totalInputSize  = patchMetadata.DiffOldSize;
+            totalOutputSize = patchMetadata.DiffNewSize;
+            return true;
+        }
     }
 
     /// <summary>
@@ -96,16 +92,16 @@ public static partial class HPatch
     /// Returns <see langword="true"/> if both <param name="totalInputSize"/> and <param name="totalOutputSize"/> are successfully retrieved.
     /// Otherwise, <see langword="false"/> if the patch context or the file is invalid or corrupted.
     /// </returns>
-    public static bool TryGetDiffSizeInfo(string   patchFilePath,
-                                          out long totalInputSize,
-                                          out long totalOutputSize)
+    public static bool TryGetDiffSizeInfo(
+        string   patchFilePath,
+        out long totalInputSize,
+        out long totalOutputSize)
     {
         HDiffInfo info = CreateInstance(CreateStream);
         try
         {
-            return TryGetDiffSizeInfo(ref info,
-                                      out totalInputSize,
-                                      out totalOutputSize);
+            return info.TryGetDiffSizeInfo(out totalInputSize,
+                                           out totalOutputSize);
         }
         finally
         {
@@ -137,9 +133,8 @@ public static partial class HPatch
         HDiffInfo info = CreateInstance(createStream);
         try
         {
-            return TryGetDiffSizeInfo(ref info,
-                                      out totalInputSize,
-                                      out totalOutputSize);
+            return info.TryGetDiffSizeInfo(out totalInputSize,
+                                           out totalOutputSize);
         }
         finally
         {
@@ -186,4 +181,17 @@ public static partial class HPatch
         => array == null ||
            (MetadataExtension.TryGetMetadataType(array, out MetadataTypeConst metadataType) && metadataType != MetadataTypeConst.UnmanagedArrayType)
             ? Span<T>.Empty : array->GetSpan();
+
+    /// <summary>
+    /// Try gets the <see cref="Span{T}"/> from an <see cref="UnmanagedArray{T}"/> instance.
+    /// </summary>
+    /// <typeparam name="T">The type of the content struct</typeparam>
+    /// <param name="array">The unmanaged array to get the <see cref="Span{T}"/> from.</param>
+    /// <returns>
+    /// Returns a non-empty <see cref="Span{T}"/> if the array is valid.
+    /// Otherwise, returns an empty <see cref="Span{T}"/> if the array is invalid.
+    /// </returns>
+    public static unsafe Span<T> TryGetUnmanagedArraySpan<T>(this ref UnmanagedArray<T> array)
+        where T : unmanaged
+        => TryGetUnmanagedArraySpan((UnmanagedArray<T>*)Unsafe.AsPointer(ref array));
 }

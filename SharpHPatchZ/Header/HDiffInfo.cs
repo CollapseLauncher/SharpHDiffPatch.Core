@@ -15,13 +15,13 @@ public unsafe struct HDiffInfo : IDisposable
     public InitializeOptions InitializeOptions;
     public void*             MetadataP;
 
-    public ref T MetadataAs<T>()
+    internal ref T MetadataAs<T>()
         where T : unmanaged, IMetadataInit
         => ref MetadataP == null ?
             ref Unsafe.NullRef<T>() :
             ref Unsafe.AsRef<T>(MetadataP);
 
-    public ref T AllocMetadata<T>()
+    internal ref T AllocMetadata<T>()
         where T : unmanaged, IMetadataInit
     {
         if (MetadataP != null) MemoryAlloc.Free(MetadataP);
@@ -31,7 +31,7 @@ public unsafe struct HDiffInfo : IDisposable
         return ref Unsafe.AsRef<T>(MetadataP);
     }
 
-    public ref PatchMetadata GetPatchMetadata()
+    internal ref PatchMetadata GetPatchMetadata()
     {
         void* patchMetadataP;
         if (MetadataExtension.TryGetMetadataType(MetadataP, out MetadataTypeConst rootMetadataType) &&

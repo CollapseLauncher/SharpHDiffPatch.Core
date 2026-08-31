@@ -3,6 +3,9 @@
 // ReSharper disable InconsistentNaming
 namespace SharpHPatchZ.Header;
 
+/// <summary>
+/// Determines the Compression Type of the HDiff file.
+/// </summary>
 public enum HDiffCompression
 {
     Uncompressed,

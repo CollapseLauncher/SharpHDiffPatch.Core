@@ -138,6 +138,9 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
 
     public void Dispose()
     {
+        if (Volatile.Read(ref _disposed) != 0)
+            return;
+
         _lifetimeLock.EnterWriteLock();
         try
         {

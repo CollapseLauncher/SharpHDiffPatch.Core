@@ -241,8 +241,8 @@ public static class PatcherBin
                             int   count                 = directoryPatch.SameFilePathCountSizeInfoP->Count;
                             var   sameFileIndexPairSpan = new Span<FileIndexPair>(p, count);
 
-                            Span<Utf16UnmanagedString> inputPathList = directoryPatch.InputPathListP->GetSpan();
-                            Span<Utf16UnmanagedString> outputPathList = directoryPatch.OutputPathListP->GetSpan();
+                            Span<Utf16UnmanagedString> inputPathList = HPatch.TryGetUnmanagedArraySpan(directoryPatch.InputPathListP);
+                            Span<Utf16UnmanagedString> outputPathList = HPatch.TryGetUnmanagedArraySpan(directoryPatch.OutputPathListP);
                             for (int i = 0; i < count; i++)
                             {
                                 ref FileIndexPair        pair       = ref sameFileIndexPairSpan[i];
@@ -265,12 +265,9 @@ public static class PatcherBin
                     UnmanagedArray<long>*                 pathFileHashList)
                 {
                     Console.WriteLine(msgType);
-                    Span<Utf16UnmanagedString> pathArray = pathList->GetSpan();
-                    Span<long> fileSizeArray = pathSizeList == null ?
-                        Span<long>.Empty : pathSizeList->GetSpan();
-
-                    Span<long> fileHashArray = pathFileHashList == null ?
-                        Span<long>.Empty : pathFileHashList->GetSpan();
+                    Span<Utf16UnmanagedString> pathArray     = HPatch.TryGetUnmanagedArraySpan(pathList);
+                    Span<long>                 fileSizeArray = HPatch.TryGetUnmanagedArraySpan(pathSizeList);
+                    Span<long>                 fileHashArray = HPatch.TryGetUnmanagedArraySpan(pathFileHashList);
 
                     for (int i = 0; i < pathArray.Length; i++)
                     {
@@ -283,7 +280,7 @@ public static class PatcherBin
                         }
                     }
 
-                    Span<int> fileIndexList = pathFileIndexList->GetSpan();
+                    Span<int> fileIndexList = HPatch.TryGetUnmanagedArraySpan(pathFileIndexList);
                     for (int i = 0; i < fileIndexList.Length; i++)
                     {
                         ref int                  index    = ref fileIndexList[i];
