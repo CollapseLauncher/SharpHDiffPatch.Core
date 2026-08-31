@@ -138,17 +138,14 @@ internal sealed class RandomMergedStreamWrapper : IDisposable
 
     public void Dispose()
     {
-        if (Volatile.Read(ref _disposed) != 0)
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
             return;
+        }
 
         _lifetimeLock.EnterWriteLock();
         try
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 1)
-            {
-                return;
-            }
-
             foreach (KeyValuePair<int, Lazy<FileStream>> kvp in _fileStreams)
             {
                 if (kvp.Value.IsValueCreated)
