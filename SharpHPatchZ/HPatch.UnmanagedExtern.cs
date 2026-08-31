@@ -1,7 +1,9 @@
-﻿#if NET8_0_OR_GREATER
+﻿using System.IO;
+using System.Threading.Tasks;
+
+#if NET8_0_OR_GREATER
 using System;
 using System.Buffers;
-using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
@@ -9,21 +11,25 @@ using SharpHPatchZ.Extension;
 using SharpHPatchZ.Header;
 using SharpHPatchZ.Header.Metadata;
 using SharpHPatchZ.Native;
+#endif
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable IdentifierTypo
 // ReSharper disable StringLiteralTypo
 
+#if NET8_0_OR_GREATER
 #if USEWINDOWS
 using ConventionCall = System.Runtime.CompilerServices.CallConvStdcall;
 #else
 using ConventionCall = System.Runtime.CompilerServices.CallConvCdecl;
+#endif
 #endif
 
 namespace SharpHPatchZ;
 
 public static partial class HPatch
 {
+#if NET8_0_OR_GREATER
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_read_header_signature_string")]
     public static unsafe int SharpHPatchZ_ReadHeaderSignatureStringAuto(void* signatureP, HDiffMagic* magicTypeP, HDiffCompression* compressionTypeP, HDiffChecksum* checksumTypeP)
     {
@@ -229,13 +235,6 @@ public static partial class HPatch
     public static unsafe int SharpHPatchZ_GetLastErrorUnicode(char* bufferW, int bufferLength, ExceptionHelper.LastErrorMessageType messageType)
         => ExceptionHelper.TryGetLastErrorMessageUnicode(new Span<char>(bufferW, bufferLength), messageType);
 
-    private static (Stream Stream, bool LeaveOpen) CreateFileStreamWrapper(string filePath, long position)
-    {
-        FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        stream.Position = position;
-        return (stream, false);
-    }
-
     private static unsafe (Stream Stream, bool LeaveOpen) CreateFileStreamWrapper(void* FILEP, long position)
     {
         try
@@ -250,5 +249,19 @@ public static partial class HPatch
             throw ExceptionHelper.ThrowHDiffIOException(ex);
         }
     }
-}
 #endif
+
+    private static (Stream Stream, bool LeaveOpen) CreateFileStreamWrapper(string filePath, long position)
+    {
+        FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        stream.Position = position;
+        return (stream, false);
+    }
+
+    private static ValueTask<(Stream Stream, bool LeaveOpen)> CreateFileStreamWrapperAsync(string filePath, long position)
+    {
+        FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        stream.Position = position;
+        return new ValueTask<(Stream Stream, bool LeaveOpen)>((stream, false));
+    }
+}

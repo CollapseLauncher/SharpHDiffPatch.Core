@@ -33,7 +33,11 @@ internal abstract class PatcherBase
     public abstract void StartPatch(string      inputPath, string outputPath, CancellationToken token);
     public abstract Task StartPatchAsync(string inputPath, string outputPath, CancellationToken token);
 
-    internal unsafe void AdvanceProgress(int written)
+    internal
+#if NET6_0_OR_GREATER
+        unsafe
+#endif
+        void AdvanceProgress(int written)
     {
         Interlocked.Add(ref TotalWritten, written);
         ProgressCallback.ProcessedBytesCallback(TotalWritten, TotalSize, written);

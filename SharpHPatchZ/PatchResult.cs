@@ -22,6 +22,6 @@ public class PatchResult
     public static implicit operator Exception?(PatchResult result) => result.Exception;
     public static implicit operator int(PatchResult result) => ExceptionHelper.TryGetReturnCodeFromError(result);
 
-    public static implicit operator PatchResult(Exception ex) => new() { Exception = ex, IsSuccessful = false };
+    public static implicit operator PatchResult(Exception? ex) => new() { Exception = ex, IsSuccessful = ex == null };
     public static implicit operator PatchResult(bool value) => new() { Exception = !value ? new Exception() : null, IsSuccessful = value };
 }
