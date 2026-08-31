@@ -172,8 +172,11 @@ internal static class StringExtension
 #endif
 }
 
+/// <summary>Identifies an encoding used by a zero-terminated native character sequence.</summary>
 public enum NativeStringEncoding
 {
+    /// <summary>UTF-8 encoding.</summary>
     Utf8,
+    /// <summary>UTF-16 encoding in the platform's native little-endian representation.</summary>
     Unicode
 }

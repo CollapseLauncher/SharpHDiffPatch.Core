@@ -80,67 +80,68 @@ file static class Const
     public const string HDiffCompLZMASizeTooSmallForDictionaryRead = "HDIFF_CompLZMASizeToSmallForDictionaryRead";
 }
 
+/// <summary>Creates library-specific exceptions and translates them for unmanaged callers.</summary>
 public static class ExceptionHelper
 {
-    private static Exception? LastException;
+    internal static Exception? LastException;
 
-    public static NotSupportedException ThrowHDiffHeaderMagicNotSupported(ReadOnlySpan<char> magic)
+    internal static NotSupportedException ThrowHDiffHeaderMagicNotSupported(ReadOnlySpan<char> magic)
         => new($"[{Const.HDiffHeaderMagicNotSupported}] Header magic: {magic.ToString()} is not supported!");
-    public static NotSupportedException ThrowHDiffHeaderCompressionNotSupported(ReadOnlySpan<char> enumString)
+    internal static NotSupportedException ThrowHDiffHeaderCompressionNotSupported(ReadOnlySpan<char> enumString)
         => new($"[{Const.HDiffHeaderCompressionNotSupported}] HDIFF compression: {enumString.ToString()} is not supported!");
-    public static NotSupportedException ThrowHDiffHeaderChecksumNotSupported(ReadOnlySpan<char> enumString)
+    internal static NotSupportedException ThrowHDiffHeaderChecksumNotSupported(ReadOnlySpan<char> enumString)
         => new($"[{Const.HDiffHeaderChecksumNotSupported}] HDIFF checksum: {enumString.ToString()} is not supported!");
-    public static NotSupportedException ThrowHDiffPatchFactoryNotSupported(HDiffMagic type)
+    internal static NotSupportedException ThrowHDiffPatchFactoryNotSupported(HDiffMagic type)
         => new($"[{Const.HDiffPatchFactoryNotSupported}] No factory supported for type: {type}!");
-
-    public static NullReferenceException ThrowHDiffInfoNotAllocated()
+    internal static NullReferenceException ThrowHDiffInfoNotAllocated()
         => new($"[{Const.HDiffInfoNotAllocated}] HDiffInfo pointer is not allocated!");
-    public static NullReferenceException ThrowHDiffInfoDirectoryPatchMetadataNotAllocated()
+    internal static NullReferenceException ThrowHDiffInfoDirectoryPatchMetadataNotAllocated()
         => new($"[{Const.HDiffInfoDirectoryPatchMetadataNotAllocated}] HDiffInfo directory patch metadata is not allocated!");
-    public static NullReferenceException ThrowHDiffInfoPatchMetadataNotAllocated()
+    internal static NullReferenceException ThrowHDiffInfoPatchMetadataNotAllocated()
         => new($"[{Const.HDiffInfoPatchMetadataNotAllocated}] HDiffInfo patch metadata is not allocated!");
-    public static NullReferenceException ThrowHDiffFILEDescriptorNull()
+    internal static NullReferenceException ThrowHDiffFILEDescriptorNull()
         => new($"[{Const.HDiffFILEDescriptorNull}] FILE descriptor cannot be null!");
-    public static NullReferenceException ThrowHDiffArgumentNull(string nameOfArg)
+    internal static NullReferenceException ThrowHDiffArgumentNull(string nameOfArg)
         => new($"[{Const.HDiffArgumentNull}] Argument: {nameOfArg} cannot be null!");
-
-    public static InvalidOperationException ThrowHDiffHeaderSignatureEmptyOrUnreadable()
+    internal static InvalidOperationException ThrowHDiffHeaderSignatureEmptyOrUnreadable()
         => new($"[{Const.HDiffHeaderSignatureEmptyOrUnreadable}] Header signature is empty or unreadable!");
-    public static EndOfStreamException ThrowHDiffEndOfFileOrData(Exception innerException)
+    internal static EndOfStreamException ThrowHDiffEndOfFileOrData(Exception innerException)
         => new($"[{Const.HDiffHeaderEndOfFileOrData}] HDiff Data has reached End-of-File or Data", innerException);
-    public static InvalidOperationException ThrowHDiffPathIsEmptyOrInvalid()
+    internal static InvalidOperationException ThrowHDiffPathIsEmptyOrInvalid()
         => new($"[{Const.HDiffPathIsEmptyOrInvalid}] File or Directory path is empty or invalid");
-    public static IOException ThrowHDiffIOException(Exception ex)
+    internal static IOException ThrowHDiffIOException(Exception ex)
         => new($"[{Const.HDiffIOException}] An IO Error has occurred with message: {ex.Message}", ex);
-    public static FileNotFoundException ThrowHDiffPatchInputPathNotExist(string filePath)
+    internal static FileNotFoundException ThrowHDiffPatchInputPathNotExist(string filePath)
         => new($"[{Const.HDiffPatchInputPathNotExist}] Input path does not exist: {filePath}", filePath);
-    public static InvalidOperationException ThrowHDiffPatchInputSizeMismatched(string filePath, long existingSize, long expectingSize)
+    internal static InvalidOperationException ThrowHDiffPatchInputSizeMismatched(string filePath, long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchInputSizeMismatched}] Input file size does not match: {filePath} (Expecting: {expectingSize} bytes, but got: {existingSize} instead).");
-    public static InvalidOperationException ThrowHDiffPatchPathNotADirectory(string path)
+    internal static InvalidOperationException ThrowHDiffPatchPathNotADirectory(string path)
         => new($"[{Const.HDiffPatchPathNotADirectory}] Path is not a directory!: {path}");
-    public static InvalidOperationException ThrowHDiffPatchPathNotAFile(string path)
+    internal static InvalidOperationException ThrowHDiffPatchPathNotAFile(string path)
         => new($"[{Const.HDiffPatchPathNotAFile}] Path is not a file!: {path}");
-    public static InvalidOperationException ThrowHDiffPatchInputFilesMismatched(long existingSize, long expectingSize)
+    internal static InvalidOperationException ThrowHDiffPatchInputFilesMismatched(long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchInputFilesMismatched}] Input file size mismatched! Expecting: {expectingSize} bytes but got: {expectingSize} bytes instead.");
-    public static InvalidOperationException ThrowHDiffPatchKuroInputFileSizeMismatched(string filePath, long existingSize, long expectingSize)
+    internal static InvalidOperationException ThrowHDiffPatchKuroInputFileSizeMismatched(string filePath, long existingSize, long expectingSize)
         => new($"[{Const.HDiffPatchKuroInputFileSizeMismatched}] Kuro Games Patch input file size does not match: {filePath} (Expecting: {expectingSize} bytes, but got: {existingSize} instead).");
-    public static IndexOutOfRangeException ThrowHDiffStreamReadOutOfBound()
+    internal static IndexOutOfRangeException ThrowHDiffStreamReadOutOfBound()
         => new($"[{Const.HDiffStreamReadOutOfBound}] Stream Read is out of bound!");
-    public static InvalidDataException ThrowHDiffStringEncodingFailed(Exception? innerException)
+    internal static InvalidDataException ThrowHDiffStringEncodingFailed(Exception? innerException)
         => new($"[{Const.HDiffStringEncodingFailed}] Error while trying to encode a string!", innerException);
-
-    public static InvalidDataException ThrowHDiffCompLZMAPropertyMissing()
+    internal static InvalidDataException ThrowHDiffCompLZMAPropertyMissing()
         => new($"[{Const.HDiffCompLZMAPropertyMissing}] The LZMA stream is missing its properties.");
-    public static InvalidDataException ThrowHDiffCompLZMA2DictionaryInvalid(int property)
+    internal static InvalidDataException ThrowHDiffCompLZMA2DictionaryInvalid(int property)
         => new($"[{Const.HDiffCompLZMA2DictionaryInvalid}] The LZMA2 dictionary property must be at most 40, but was {property}.");
-    public static InvalidDataException ThrowHDiffCompLZMA2NoCompressedPayload()
+    internal static InvalidDataException ThrowHDiffCompLZMA2NoCompressedPayload()
         => new($"[{Const.HDiffCompLZMA2NoCompressedPayload}] The LZMA2 stream has no compressed payload.");
-    public static InvalidDataException ThrowHDiffCompLZMADictionaryInvalidLength(int lzmaPropertySize, int property)
+    internal static InvalidDataException ThrowHDiffCompLZMADictionaryInvalidLength(int lzmaPropertySize, int property)
         => new($"[{Const.HDiffCompLZMADictionaryInvalidLength}] The LZMA property length must be {lzmaPropertySize}, but was {property}.");
-    public static InvalidDataException ThrowHDiffCompLZMASizeTooSmallForDictionaryRead()
+    internal static InvalidDataException ThrowHDiffCompLZMASizeTooSmallForDictionaryRead()
         => new($"[{Const.HDiffCompLZMASizeTooSmallForDictionaryRead}] The LZMA compressed size is too small to contain its headers and payload.");
 
 
+    /// <summary>Maps a library exception to the numeric code used by the unmanaged API.</summary>
+    /// <param name="ex">The <see cref="Exception"/> to record and translate, or <see langword="null"/> for success.</param>
+    /// <returns><c>0</c> if <paramref name="ex"/> is <see langword="null"/>. A defined positive error code if the exception is recognized. Otherwise, <c>-1</c>.</returns>
     public static int TryGetReturnCodeFromError(Exception? ex)
     {
         if (ex == null)
@@ -187,6 +188,10 @@ public static class ExceptionHelper
     }
 
 #if NET8_0_OR_GREATER
+    /// <summary>Writes the most recently recorded error to a zero-terminated UTF-8 buffer.</summary>
+    /// <param name="spanByte">The destination buffer, including space for a zero terminator.</param>
+    /// <param name="lastErrorMessageType">The error details to include.</param>
+    /// <returns>The number of bytes written. <c>0</c> when no error is available. Otherwise, <c>-1</c> when <paramref name="spanByte"/> is too small.</returns>
     public static int TryGetLastErrorMessageUtf8(Span<byte> spanByte, LastErrorMessageType lastErrorMessageType)
     {
         Exception? thisException = Volatile.Read(ref LastException);
@@ -226,6 +231,10 @@ public static class ExceptionHelper
         return written;
     }
 
+    /// <summary>Writes the most recently recorded error to a zero-terminated UTF-16 buffer.</summary>
+    /// <param name="spanChar">The destination buffer, including space for a zero terminator.</param>
+    /// <param name="lastErrorMessageType">The error details to include.</param>
+    /// <returns>The number of characters written. <c>0</c> when no error is available. Otherwise, <c>-1</c> when <paramref name="spanChar"/> is too small.</returns>
     public static int TryGetLastErrorMessageUnicode(Span<char> spanChar, LastErrorMessageType lastErrorMessageType)
     {
         Exception? thisException = Volatile.Read(ref LastException);
@@ -266,11 +275,15 @@ public static class ExceptionHelper
         return written;
     }
 
+    /// <summary>Specifies which portions of the last error are returned to an unmanaged caller.</summary>
     [Flags]
     public enum LastErrorMessageType
     {
+        /// <summary>Include the exception message.</summary>
         Message              = 1,
+        /// <summary>Include the exception stack trace.</summary>
         StackTrace           = 2,
+        /// <summary>Include both the exception message and stack trace.</summary>
         MessageAndStackTrace = Message | StackTrace
     }
 #endif

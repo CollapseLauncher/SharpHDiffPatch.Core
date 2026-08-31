@@ -7,14 +7,17 @@ using SharpHPatchZ.Extension;
 
 namespace SharpHPatchZ.Header.Metadata;
 
+/// <summary>Owns a UTF-16 string stored in unmanaged memory.</summary>
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct Utf16UnmanagedString : IMetadataInit
 {
+    /// <summary>Initializes a new empty <see cref="Utf16UnmanagedString"/>.</summary>
     public Utf16UnmanagedString()
     {
         Init();
     }
 
+    /// <inheritdoc/>
     public void Init()
     {
         if (IsDisposed || IsInitialized)
@@ -27,6 +30,7 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         MetadataType  = MetadataTypeConst.Utf16UnmanagedStringType;
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (IsDisposed || !IsInitialized || Native is { Chars: 0, Length: 0 })
@@ -42,14 +46,17 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         MemoryAlloc.Free((char*)old.Chars);
     }
 
+    /// <inheritdoc/>
     public MetadataTypeConst MetadataType { get; private set; }
 
+    /// <inheritdoc/>
     public bool IsInitialized
     {
         get => _isInitialized == 1;
         private set => _isInitialized = value ? (byte)1 : (byte)0;
     }
 
+    /// <inheritdoc/>
     public bool IsDisposed
     {
         get => _isDisposed == 1;
@@ -58,8 +65,12 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
 
     private byte          _isInitialized;
     private byte          _isDisposed;
+    /// <summary>The native string pointer and length.</summary>
     public  NativeStringW Native;
 
+    /// <summary>Creates an unmanaged UTF-16 string from UTF-8 bytes.</summary>
+    /// <param name="source">The UTF-8 bytes to convert.</param>
+    /// <returns>A newly allocated <see cref="Utf16UnmanagedString"/>.</returns>
 #if NET6_0_OR_GREATER
     [SkipLocalsInit]
 #endif
@@ -81,6 +92,9 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         }
     }
 
+    /// <summary>Creates an unmanaged UTF-16 string from managed characters.</summary>
+    /// <param name="source">The characters to copy.</param>
+    /// <returns>A newly allocated <see cref="Utf16UnmanagedString"/>.</returns>
 #if NET6_0_OR_GREATER
     [SkipLocalsInit]
 #endif
@@ -99,6 +113,8 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         return thisStruct;
     }
 
+    /// <summary>Gets a <see cref="ReadOnlySpan{T}"/> over the string's characters.</summary>
+    /// <returns>A <see cref="ReadOnlySpan{T}"/> over the unmanaged UTF-16 characters.</returns>
     public ReadOnlySpan<char> GetSpan() => Native.GetSpan();
 
     public static implicit operator ReadOnlySpan<char>(Utf16UnmanagedString unmanaged)
@@ -109,6 +125,7 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
             ? ""
             : unmanaged.Native.ToString();
 
+    /// <inheritdoc/>
     public override string ToString() => Native.ToString();
 
     private static Utf16UnmanagedString TransformUtf8ToUnicode(
@@ -132,17 +149,24 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
         }
     }
 
+    /// <summary>Represents a non-owning pointer and length for a UTF-16 string.</summary>
+    /// <param name="chars">A pointer to the UTF-16 characters.</param>
+    /// <param name="length">The number of characters.</param>
     [StructLayout(LayoutKind.Sequential)]
     public readonly struct NativeStringW(char* chars, int length)
     {
+        /// <summary>Gets an empty <see cref="NativeStringW"/>.</summary>
         public static NativeStringW Empty => default;
 
+        /// <summary>The address of the first UTF-16 character.</summary>
         public readonly nint Chars  = (nint)chars;
+        /// <summary>The number of UTF-16 characters.</summary>
         public readonly int  Length = length;
 
         public static implicit operator ReadOnlySpan<char>(NativeStringW unmanaged)
             => new((char*)unmanaged.Chars, unmanaged.Length);
 
+        /// <inheritdoc/>
         public override string ToString() => new((char*)Chars, 0, Length);
 
         public static implicit operator string(NativeStringW unmanaged)
@@ -150,6 +174,8 @@ public unsafe struct Utf16UnmanagedString : IMetadataInit
                 ? ""
                 : unmanaged.ToString();
 
+        /// <summary>Gets a <see cref="ReadOnlySpan{T}"/> over the native characters.</summary>
+        /// <returns>A <see cref="ReadOnlySpan{T}"/> over the native characters.</returns>
         public ReadOnlySpan<char> GetSpan() => this;
     }
 }

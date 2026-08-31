@@ -371,10 +371,12 @@ file static class BZip2Crc32Premul
     }
 }
 
+/// <summary>Computes the big-endian CRC-32 variant used by BZip2 streams.</summary>
 public sealed class BZip2Crc32 : NonCryptographicHashAlgorithm
 {
     private uint _crc = BZip2Crc32Premul.InitialState;
 
+    /// <summary>Initializes a new <see cref="BZip2Crc32"/>.</summary>
     public BZip2Crc32()
         : base(BZip2Crc32Premul.HashSize)
     {
@@ -386,22 +388,32 @@ public sealed class BZip2Crc32 : NonCryptographicHashAlgorithm
         _crc = crc;
     }
 
+    /// <summary>Creates a copy with the same accumulated CRC state.</summary>
+    /// <returns>A new accumulator containing the current state.</returns>
     public BZip2Crc32 Clone() => new(_crc);
 
+    /// <summary>Appends a single byte to the CRC calculation.</summary>
+    /// <param name="value">The <see cref="byte"/> to append.</param>
     public void AppendByte(byte value) => _crc = BZip2Crc32Premul.UpdateByte(_crc, value);
 
+    /// <inheritdoc/>
     public override void Append(ReadOnlySpan<byte> source) => _crc = Update(_crc, source);
 
+    /// <inheritdoc/>
     public override void Reset() => _crc = BZip2Crc32Premul.InitialState;
 
+    /// <inheritdoc/>
     protected override void GetCurrentHashCore(Span<byte> destination) => BinaryPrimitives.WriteUInt32BigEndian(destination, ~_crc);
 
+    /// <inheritdoc/>
     protected override void GetHashAndResetCore(Span<byte> destination)
     {
         BinaryPrimitives.WriteUInt32BigEndian(destination, ~_crc);
         _crc = BZip2Crc32Premul.InitialState;
     }
 
+    /// <summary>Gets the current CRC as an unsigned 32-bit integer without resetting the accumulator.</summary>
+    /// <returns>The current CRC value.</returns>
     public uint GetCurrentHashAsUInt32() => ~_crc;
 
     private static uint Update(uint crc, ReadOnlySpan<byte> source)

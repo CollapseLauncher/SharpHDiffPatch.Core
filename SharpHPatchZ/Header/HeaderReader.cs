@@ -11,10 +11,16 @@ using SharpHPatchZ.IO.Reader;
 
 namespace SharpHPatchZ.Header;
 
+/// <summary>
+/// Provides operations for parsing HDiff patch headers.
+/// </summary>
 public class HeaderReader
 {
     private delegate ref PatchMetadata PatchMetadataAllocator(ref HDiffInfo info);
 
+    /// <summary>Parses a patch header signature into an existing <see cref="HDiffInfo"/> value.</summary>
+    /// <param name="signature">The header signature to parse.</param>
+    /// <param name="info">The patch information to populate.</param>
     public static void ReadHeaderSignature(ReadOnlySpan<char> signature, ref HDiffInfo info)
     {
         ReadBasicHeaderSignature(signature,

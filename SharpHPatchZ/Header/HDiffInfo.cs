@@ -6,13 +6,21 @@ using SharpHPatchZ.Header.Metadata;
 
 namespace SharpHPatchZ.Header;
 
+/// <summary>
+/// Holds the parsed header, initialization options, and unmanaged metadata for an HDiff patch.
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 public unsafe struct HDiffInfo : IDisposable
 {
+    /// <summary>Identifies the patch format.</summary>
     public HDiffMagic        MagicType;
+    /// <summary>Identifies the compression algorithm used by the patch.</summary>
     public HDiffCompression  CompressionType;
+    /// <summary>Identifies the checksum algorithm used by the patch.</summary>
     public HDiffChecksum     ChecksumType;
+    /// <summary>Contains the <see cref="SharpHPatchZ.InitializeOptions"/> used to initialize this <see cref="HDiffInfo"/>.</summary>
     public InitializeOptions InitializeOptions;
+    /// <summary>Points to format-specific unmanaged metadata owned by this instance.</summary>
     public void*             MetadataP;
 
     internal ref T MetadataAs<T>()
@@ -58,6 +66,7 @@ public unsafe struct HDiffInfo : IDisposable
         return ref Unsafe.AsRef<PatchMetadata>(patchMetadataP);
     }
 
+    /// <summary>Releases the unmanaged metadata owned by this instance.</summary>
     public void Dispose()
     {
         if (MetadataP == null) return;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using SharpHPatchZ.IO.Compression.Lzma.LZ;

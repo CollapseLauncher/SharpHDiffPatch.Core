@@ -88,6 +88,10 @@ public sealed class BZip2InputStream : Stream
         }
     }
 
+    /// <summary>Initializes a new <see cref="BZip2InputStream"/>.</summary>
+    /// <param name="stream">The <see cref="Stream"/> containing BZip2-compressed data.</param>
+    /// <param name="decompressConcatenated">Whether to decompress concatenated BZip2 streams.</param>
+    /// <param name="leaveOpen">Whether to leave <paramref name="stream"/> open when this stream is disposed.</param>
     public BZip2InputStream(Stream stream, bool decompressConcatenated, bool leaveOpen = false)
     {
         if (stream == null!)
@@ -135,6 +139,7 @@ public sealed class BZip2InputStream : Stream
         }
     }
 
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         if (_disposed)
@@ -168,29 +173,41 @@ public sealed class BZip2InputStream : Stream
         if (_seqToUnseq.Length != 0) ArrayPool<byte>.Shared.Return(_seqToUnseq);
     }
 
+    /// <summary>Gets or sets whether this instance may dispose the underlying <see cref="Stream"/>.</summary>
     public bool IsStreamOwner { get; set; } = true;
 
+    /// <inheritdoc/>
     public override bool CanRead  => _baseStream.CanRead;
+    /// <inheritdoc/>
     public override bool CanSeek  => false;
+    /// <inheritdoc/>
     public override bool CanWrite => false;
+    /// <inheritdoc/>
     public override long Length   => _baseStream.Length;
 
+    /// <inheritdoc/>
     public override long Position
     {
         get => throw new NotSupportedException("Cannot get the position of the compressed data");
         set => throw new NotSupportedException("BZip2InputStream position cannot be set");
     }
 
+    /// <inheritdoc/>
     public override void Flush() => _baseStream.Flush();
 
+    /// <inheritdoc/>
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException("BZip2InputStream Seek not supported");
 
+    /// <inheritdoc/>
     public override void SetLength(long value) => throw new NotSupportedException("BZip2InputStream SetLength not supported");
 
+    /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException("BZip2InputStream Write not supported");
 
+    /// <inheritdoc/>
     public override void WriteByte(byte value) => throw new NotSupportedException("BZip2InputStream WriteByte not supported");
 
+    /// <inheritdoc/>
     public override int Read(byte[] buffer, int offset, int count)
     {
         if (buffer == null)
@@ -209,6 +226,7 @@ public sealed class BZip2InputStream : Stream
     }
 
 #if NET6_0_OR_GREATER
+    /// <inheritdoc/>
     public override int Read(Span<byte> buffer) => ReadCore(buffer);
 #endif
 
@@ -274,6 +292,7 @@ public sealed class BZip2InputStream : Stream
         return written;
     }
 
+    /// <inheritdoc/>
     public override int ReadByte()
     {
         if (_streamEnd)

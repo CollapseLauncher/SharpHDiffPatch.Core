@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Buffers.Binary;
 using System.IO;
 using SharpHPatchZ.IO.Compression.Lzma.LZ;
@@ -6,6 +6,7 @@ using SharpHPatchZ.IO.Compression.Lzma.RangeCoder;
 
 namespace SharpHPatchZ.IO.Compression.Lzma;
 
+/// <summary>Provides a forward-only <see cref="Stream"/> that decompresses LZMA or LZMA2 data while it is read.</summary>
 public sealed class LzmaInputStream : Stream
 {
     private readonly Stream _inputStream;
@@ -32,15 +33,38 @@ public sealed class LzmaInputStream : Stream
     private bool _needProps     = true;
     private bool _isDisposed;
 
+    /// <summary>Initializes a new <see cref="LzmaInputStream"/> whose compressed and decompressed sizes are unknown.</summary>
+    /// <param name="properties">The LZMA or LZMA2 property bytes.</param>
+    /// <param name="inputStream">The <see cref="Stream"/> containing compressed data.</param>
+    /// <param name="leaveOpen">Whether to leave <paramref name="inputStream"/> open when this stream is disposed.</param>
     public LzmaInputStream(byte[] properties, Stream inputStream, bool leaveOpen = false)
         : this(properties, inputStream, -1, -1, null, properties.Length < 5, leaveOpen) { }
 
+    /// <summary>Initializes a new <see cref="LzmaInputStream"/> with a known compressed size.</summary>
+    /// <param name="properties">The LZMA or LZMA2 property bytes.</param>
+    /// <param name="inputStream">The <see cref="Stream"/> containing compressed data.</param>
+    /// <param name="inputSize">The compressed data size, in bytes.</param>
+    /// <param name="leaveOpen">Whether to leave <paramref name="inputStream"/> open when this stream is disposed.</param>
     public LzmaInputStream(byte[] properties, Stream inputStream, long inputSize, bool leaveOpen = false)
         : this(properties, inputStream, inputSize, -1, null, properties.Length < 5, leaveOpen) { }
 
+    /// <summary>Initializes a new <see cref="LzmaInputStream"/> with known compressed and decompressed sizes.</summary>
+    /// <param name="properties">The LZMA or LZMA2 property bytes.</param>
+    /// <param name="inputStream">The <see cref="Stream"/> containing compressed data.</param>
+    /// <param name="inputSize">The compressed data size, in bytes.</param>
+    /// <param name="outputSize">The decompressed data size, in bytes.</param>
+    /// <param name="leaveOpen">Whether to leave <paramref name="inputStream"/> open when this stream is disposed.</param>
     public LzmaInputStream(byte[] properties, Stream inputStream, long inputSize, long outputSize, bool leaveOpen = false)
         : this(properties, inputStream, inputSize, outputSize, null, properties.Length < 5, leaveOpen) { }
 
+    /// <summary>Initializes a new <see cref="LzmaInputStream"/> with explicit format and dictionary settings.</summary>
+    /// <param name="properties">The decoder property bytes.</param>
+    /// <param name="inputStream">The <see cref="Stream"/> containing compressed data.</param>
+    /// <param name="inputSize">The compressed data size, in bytes, or a negative value when unknown.</param>
+    /// <param name="outputSize">The decompressed data size, in bytes, or a negative value when unknown.</param>
+    /// <param name="presetDictionary">An optional preset dictionary <see cref="Stream"/>.</param>
+    /// <param name="isLzma2">Whether the compressed data uses the LZMA2 container format.</param>
+    /// <param name="leaveOpen">Whether to leave <paramref name="inputStream"/> open when this stream is disposed.</param>
     public LzmaInputStream(
         byte[]  properties,
         Stream  inputStream,
@@ -91,14 +115,19 @@ public sealed class LzmaInputStream : Stream
         }
     }
 
+    /// <inheritdoc/>
     public override bool CanRead => true;
 
+    /// <inheritdoc/>
     public override bool CanSeek => false;
 
+    /// <inheritdoc/>
     public override bool CanWrite => false;
 
+    /// <inheritdoc/>
     public override void Flush() { }
 
+    /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
         if (_isDisposed)
@@ -118,14 +147,17 @@ public sealed class LzmaInputStream : Stream
         base.Dispose(disposing);
     }
 
+    /// <inheritdoc/>
     public override long Length => _position + _availableBytes;
 
+    /// <inheritdoc/>
     public override long Position
     {
         get => _position;
         set => throw new NotSupportedException();
     }
 
+    /// <inheritdoc/>
     public override int Read(byte[] buffer, int offset, int count)
     {
         if (_endReached)
@@ -277,11 +309,15 @@ public sealed class LzmaInputStream : Stream
         }
     }
 
+    /// <inheritdoc/>
     public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
+    /// <inheritdoc/>
     public override void SetLength(long value) => throw new NotSupportedException();
 
+    /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
+    /// <summary>Gets the decoder property bytes used by this stream.</summary>
     public byte[] Properties { get; }
 }
