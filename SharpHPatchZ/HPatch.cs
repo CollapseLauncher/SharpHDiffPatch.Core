@@ -151,7 +151,7 @@ public static partial class HPatch
         InitializeOptions initializeOptions,
         CancellationToken token = default)
     {
-        (Stream stream, bool leaveOpen) = CreateFileStreamWrapper(patchPath, 0);
+        (Stream stream, bool leaveOpen) = await CreateFileStreamWrapperAsync(patchPath, 0);
 #if NET6_0_OR_GREATER
         await
 #endif
