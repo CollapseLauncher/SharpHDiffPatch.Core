@@ -50,7 +50,7 @@ The benchmark results below are produced by comparing the previous V2 codebase a
 
 ## Test: Directory, ZSTD compressed - Native (HPatchZ) vs. SharpHPatchZ
 - Input Size: 65.32 GB (65,327,239,481 bytes)
-- Diff Size: 15.91 GB (15,918,843,223 bytes) (compressed with: **`-c-lzma2-9-128m`**)
+- Diff Size: 15.91 GB (15,918,843,223 bytes) (compressed with: **`-c-zstd-22-30`**)
 - Output Size: 65.14 GB (65,142,234,460 bytes)
 
 ![](https://github.com/user-attachments/assets/24668b97-0438-41ea-8e6e-699798ef4f70)
