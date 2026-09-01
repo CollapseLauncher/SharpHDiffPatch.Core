@@ -31,10 +31,10 @@
 
     <ItemGroup>
         <PackageReference Include="System.IO.Hashing" Version="*" />
-        <PackageReference Include="ZstdSharp.Port" Version="*" />
+        <PackageReference Include="ZstdSharp.Port" Version="*" Condition="'$(TargetFramework)'!='net11.0'"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)'!='netstandard2.0'">
+    <ItemGroup Condition="'$(TargetFramework)'!='netstandard2.0' and '$(TargetFramework)'!='net11.0'">
         <PackageReference Include="Hi3Helper.ZstdNet" Version="1.6.7" />
     </ItemGroup>
 

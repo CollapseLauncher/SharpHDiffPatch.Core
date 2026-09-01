@@ -1,4 +1,4 @@
-# SharpHDiffPatch
+# SharpHPatchZ
 
 [![NuGet Downloads](https://img.shields.io/nuget/dt/SharpHDiffPatch.Core.svg?style=flat-square)](https://www.nuget.org/packages/SharpHDiffPatch.Core/) [![NuGet version](https://img.shields.io/nuget/v/SharpHDiffPatch.Core.svg?style=flat-square)](https://www.nuget.org/packages/SharpHDiffPatch.Core/)
 
@@ -12,9 +12,24 @@ Supporting file and directory patching with these compression formats:
 - LZMA2
 - No Compression.
 
-HDIFFSF20 format is planned to be supported later v3.0 releases.
+HDIFFSF20 and HDIFFW26 format is planned to be supported in later v3.0 releases.
 
-This project is used as a part submodule of our main project: [**Collapse Launcher**](https://github.com/CollapseLauncher).
+This project is used as a part of a submodule, widely used within our main project: [**Collapse Launcher**](https://github.com/CollapseLauncher) and [**Hi3Helper.Sophon**](https://github.com/CollapseLauncher/Hi3Helper.Sophon).
+
+# Supported Target Frameworks
+Currently, SharpHPatchZ supports for a broad .NET Target Frameworks (TFM) and .NET Standard 2.0 compatible frameworks below:
+
+| TFM | Version |
+|-----|-------|
+| .NET Framework | 4.6.1 or above [1][2] |
+| .NET Core | 6 or above [3] |
+| Mono | 5.4 or above, 6.4 or above (Untested) [1][2] |
+| Unity | 2018.1 or above (Untested) [1][2] |
+
+### Sidenotes:
+- **[1]** SIMD-based RLE Addition is not supported
+- **[2]** ZStandard decompression uses managed-port instead. This applies for any **non .NET Core TFMs** and **any platform other than:** **Linux x64/arm64** and **Windows x64/arm64**.
+- **[3]** For .NET 11 or above, the built-in ZStandard decompression stream will be used instead. This should be supported for any platform (including Android, Windows, Linux, macOS, iOS, etc.)
 
 # Usage Examples
 ## A. Basic Patching Usage with Progress Output
@@ -321,7 +336,7 @@ _Thanks to @Cryotechnic for the initial implementaion on the V2 codebase._
 
 ### For Kuro Games developer:
 
-_I think it's better for you to make a different signature magic (for example: `HDiff19Kuro` or something) instead of just adding an arbitrary structs inside of the file so it's easier for us to automatically parse your format. Also, don't forget to ask the permission to the original developer of the format (housisong) that you slightly changed their format for your own purposes (**And... don't forget to give them a credit on your launcher license file or something**)_😉
+*I think it's better for you to make a different signature magic (for example: `HDiff19Kuro` or something) instead of just adding an arbitrary structs inside of the file so it's easier for us to automatically parse your format. Also, don't forget to ask the permission to the original developer of the format (housisong) that you slightly changed their format for your own purposes (**And... don't forget to give them a credit on your launcher license file or something**)* 😉
 
 ~ @neon-nyan
 
