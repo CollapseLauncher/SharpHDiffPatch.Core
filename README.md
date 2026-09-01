@@ -1,6 +1,6 @@
 # SharpHPatchZ
 
-[![NuGet Downloads](https://img.shields.io/nuget/dt/SharpHDiffPatch.Core.svg?style=flat-square)](https://www.nuget.org/packages/SharpHDiffPatch.Core/) [![NuGet version](https://img.shields.io/nuget/v/SharpHDiffPatch.Core.svg?style=flat-square)](https://www.nuget.org/packages/SharpHDiffPatch.Core/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/SharpHPatchZ.svg?style=flat-square)](https://www.nuget.org/packages/SharpHPatchZ/) [![NuGet version](https://img.shields.io/nuget/v/SharpHPatchZ.svg?style=flat-square)](https://www.nuget.org/packages/SharpHPatchZ/)
 
 **SharpHPatchZ** (formerly SharpHDiffPatch) is a patching library for HDiffPatch format written in C#, purposedly as a port of **HPatchZ** implementation (from [**HDiffPatch** by **housisong**](https://github.com/sisong/HDiffPatch)). This project doesn't support making a diff file and only works for patching.
 
@@ -30,6 +30,34 @@ Currently, SharpHPatchZ supports for a broad .NET Target Frameworks (TFM) and .N
 - **[1]** SIMD-based RLE Addition is not supported
 - **[2]** ZStandard decompression uses managed-port instead. This applies for any **non .NET Core TFMs** and **any platform other than:** **Linux x64/arm64** and **Windows x64/arm64**.
 - **[3]** For .NET 11 or above, the built-in `ZstandardStream` will be used for decompression instead. This should be supported for any platform (including Android, Windows, Linux, macOS, iOS, etc.)
+
+# Benchmark
+The benchmark results below are produced by comparing the previous V2 codebase and the [native implementation](https://github.com/sisong/HDiffPatch).
+
+## Test: Single file, LZMA2 compressed
+| Method        | Mean     | Error    | StdDev   | Ratio | RatioSD | Gen0     | Gen1     | Gen2     | Allocated | Alloc Ratio |
+|-------------- |---------:|---------:|---------:|------:|--------:|---------:|---------:|---------:|----------:|------------:|
+| v2 | 19.46 ms | 18.01 ms | 0.987 ms |  1.00 |    0.06 |        - |        - |        - |  60.43 MB |        1.00 |
+| v2+OldFastBuffer | 57.55 ms | 49.20 ms | 2.697 ms |  2.96 |    0.17 |        - |        - |        - |   34.4 MB |        0.57 |
+| v3           | 16.92 ms | 18.52 ms | 1.015 ms |  0.87 |    0.06 | 468.7500 | 468.7500 | 468.7500 |   4.58 MB |        0.08 |
+
+## Test: Directory, LZMA2 compressed
+| Method        | Mean    | Error    | StdDev   | Ratio | Gen0      | Gen1      | Gen2      | Allocated | Alloc Ratio |
+|-------------- |--------:|---------:|---------:|------:|----------:|----------:|----------:|----------:|------------:|
+| v2 | 7.028 s | 0.3049 s | 0.0167 s |  1.00 |         - |         - |         - | 937.31 MB |        1.00 |
+| v2+OldFastBuffer| 7.176 s | 0.2930 s | 0.0161 s |  1.02 |         - |         - |         - | 692.19 MB |        0.74 |
+| v3           | 4.639 s | 0.3283 s | 0.0180 s |  0.66 | 3000.0000 | 2000.0000 | 2000.0000 | 136.46 MB |        0.15 |
+
+## Test: Directory, LZMA2 compressed - Native (HPatchZ) vs. SharpHPatchZ
+- Input Size: 65.32 GB (65,327,239,481 bytes)
+- Diff Size: 15.91 GB (15,918,843,223 bytes) (compressed with: **`-c-lzma2-9-128m`**)
+- Output Size: 65.14 GB (65,142,234,460 bytes)
+
+![](https://github.com/user-attachments/assets/24668b97-0438-41ea-8e6e-699798ef4f70)
+
+### Result
+- Native (HPatchZ) (Left): **239.57 seconds**
+- SharpHPatchZ (Right): **148.899 seconds**
 
 # Usage Examples
 ## A. Basic Patching Usage with Progress Output
