@@ -48,7 +48,7 @@ The benchmark results below are produced by comparing the previous V2 codebase a
 | v2+OldFastBuffer| 7.176 s | 0.2930 s | 0.0161 s |  1.02 |         - |         - |         - | 692.19 MB |        0.74 |
 | v3           | 4.639 s | 0.3283 s | 0.0180 s |  0.66 | 3000.0000 | 2000.0000 | 2000.0000 | 136.46 MB |        0.15 |
 
-## Test: Directory, LZMA2 compressed - Native (HPatchZ) vs. SharpHPatchZ
+## Test: Directory, ZSTD compressed - Native (HPatchZ) vs. SharpHPatchZ
 - Input Size: 65.32 GB (65,327,239,481 bytes)
 - Diff Size: 15.91 GB (15,918,843,223 bytes) (compressed with: **`-c-lzma2-9-128m`**)
 - Output Size: 65.14 GB (65,142,234,460 bytes)
