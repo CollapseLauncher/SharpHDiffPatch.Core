@@ -29,7 +29,7 @@ Currently, SharpHPatchZ supports for a broad .NET Target Frameworks (TFM) and .N
 ### Sidenotes:
 - **[1]** SIMD-based RLE Addition is not supported
 - **[2]** ZStandard decompression uses managed-port instead. This applies for any **non .NET Core TFMs** and **any platform other than:** **Linux x64/arm64** and **Windows x64/arm64**.
-- **[3]** For .NET 11 or above, the built-in ZStandard decompression stream will be used instead. This should be supported for any platform (including Android, Windows, Linux, macOS, iOS, etc.)
+- **[3]** For .NET 11 or above, the built-in `ZstandardStream` will be used for decompression instead. This should be supported for any platform (including Android, Windows, Linux, macOS, iOS, etc.)
 
 # Usage Examples
 ## A. Basic Patching Usage with Progress Output
