@@ -1,0 +1,56 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <AssemblyName>SharpHPatchZ</AssemblyName>
+        <AssemblyTitle>SharpHPatchZ (formerly: SharpHDiffPatch) - Apply binary patches for HDiffPatch format.</AssemblyTitle>
+        <Description>SharpHPatchZ is a port of HPatchZ implementation from HDiffPatch project (by housisong), written in C#. Provides as nearly as fast as the native implementation, supporting multi-threading and several compressed formats.</Description>
+        <PackageProjectUrl>https://github.com/CollapseLauncher/SharpHDiffPatch.Core</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Copyright>Copyright (c) 2025 Collapse Project Team, Kemal Setya Adhi (neon-nyan)</Copyright>
+        <Authors>neon-nyan</Authors>
+        <TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+        <PackageIcon>icon.png</PackageIcon>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <VersionPrefix>3.0.0</VersionPrefix>
+        <AssemblyVersion>3.0.0</AssemblyVersion>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <Configurations>Debug;Release</Configurations>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <PackageTags>hdiff</PackageTags>
+        <Platforms>AnyCPU;x64;x86;ARM64</Platforms>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="icon.png" Pack="true" PackagePath="\" />
+        <None Include="../README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.IO.Hashing" Version="*" />
+        <PackageReference Include="ZstdSharp.Port" Version="*" Condition="'$(TargetFramework)'!='net11.0'"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)'!='netstandard2.0' and '$(TargetFramework)'!='net11.0'">
+        <PackageReference Include="Hi3Helper.ZstdNet" Version="1.6.7" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
+        <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="*" />
+        <PackageReference Include="Microsoft.Bcl.Memory" Version="*" />
+        <PackageReference Include="System.Buffers" Version="*" />
+        <PackageReference Include="System.Memory" Version="*" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Folder Include="NetStandardCompat\System.Runtime.InteropServices\" />
+    </ItemGroup>
+
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <Optimize>True</Optimize>
+    </PropertyGroup>
+
+</Project>

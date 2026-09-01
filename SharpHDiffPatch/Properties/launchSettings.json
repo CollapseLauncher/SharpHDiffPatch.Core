@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "SharpHDiffPatch-bin": {
-      "commandName": "Project",
-      "commandLineArgs": "\"G:\\Hi3SEA\" \"G:\\Hi3CNRecipe.cookbook.bz2\" \"K:\\Hi3CN-dotnet\" -l Verbose -B -b partial"
-    }
-  }
-}
