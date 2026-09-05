@@ -12,8 +12,8 @@
         <PackageIcon>icon.png</PackageIcon>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <VersionPrefix>3.0.0</VersionPrefix>
-        <AssemblyVersion>3.0.0</AssemblyVersion>
+        <VersionPrefix>3.0.1</VersionPrefix>
+        <AssemblyVersion>3.0.1</AssemblyVersion>
         <IsAotCompatible>true</IsAotCompatible>
         <IsTrimmable>true</IsTrimmable>
         <Configurations>Debug;Release</Configurations>

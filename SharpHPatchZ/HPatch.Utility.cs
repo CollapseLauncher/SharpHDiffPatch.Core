@@ -17,7 +17,7 @@ public static partial class HPatch
         /// </summary>
         /// <param name="patchMetadata">A retrieved struct of <see cref="PatchMetadata"/> containing the main information about the patch file.</param>
         /// <returns>
-        /// Returns <see langword="true"/> if <param name="patchMetadata"/> is successfully retrieved. Otherwise, <see langword="false"/> if the context struct is invalid or corrupted.
+        /// Returns <see langword="true"/> if <paramref name="patchMetadata"/> is successfully retrieved. Otherwise, <see langword="false"/> if the context struct is invalid or corrupted.
         /// </returns>
         public bool TryGetPatchMetadata(out PatchMetadata patchMetadata)
         {
@@ -38,7 +38,7 @@ public static partial class HPatch
         /// </summary>
         /// <param name="patchMetadata">A retrieved struct of <see cref="DirectoryPatchMetadata"/> containing the main information about the patch file.</param>
         /// <returns>
-        /// Returns <see langword="true"/> if <param name="patchMetadata"/> is successfully retrieved.
+        /// Returns <see langword="true"/> if <paramref name="patchMetadata"/> is successfully retrieved.
         /// Otherwise, <see langword="false"/> if the patch context does not contain <see cref="DirectoryPatchMetadata"/> struct.
         /// </returns>
         public bool TryGetDirectoryPatchMetadata(out DirectoryPatchMetadata patchMetadata)
@@ -61,19 +61,59 @@ public static partial class HPatch
         /// <param name="totalInputSize">The total size of an Input File/Directory.</param>
         /// <param name="totalOutputSize">The total size of an Output File/Directory.</param>
         /// <returns>
-        /// Returns <see langword="true"/> if both <param name="totalInputSize"/> and <param name="totalOutputSize"/> are successfully retrieved.
+        /// Returns <see langword="true"/> if both <paramref name="totalInputSize"/> and <paramref name="totalOutputSize"/> are successfully retrieved.
         /// Otherwise, <see langword="false"/> if the patch context is invalid or corrupted.
         /// </returns>
         public bool TryGetDiffSizeInfo(out long totalInputSize,
                                        out long totalOutputSize)
         {
+            return info.TryGetDiffSizeInfo(out totalInputSize,
+                                           out totalOutputSize,
+                                           out _,
+                                           out _);
+        }
+
+        /// <summary>
+        /// Try retrieves both total Input and Output size from a patch context.
+        /// </summary>
+        /// <param name="totalInputSize">The total size of an Input File/Directory.</param>
+        /// <param name="totalOutputSize">The total size of an Output File/Directory.</param>
+        /// <param name="diffOnlyInputSize">The diff size of an Output File/Directory. The value only be returned if the Patch Metadata is a <see cref="DirectoryPatchMetadata"/> kind.</param>
+        /// <param name="diffOnlyOutputSize">The diff size of an Output File/Directory. The value only be returned if the Patch Metadata is a <see cref="DirectoryPatchMetadata"/> kind.</param>
+        /// <returns>
+        /// Returns <see langword="true"/> if all <paramref name="totalInputSize"/>, <paramref name="totalOutputSize"/>, <paramref name="diffOnlyInputSize"/> and <paramref name="diffOnlyOutputSize"/> are successfully retrieved.
+        /// Otherwise, <see langword="false"/> if the patch context is invalid or corrupted.
+        /// </returns>
+        public unsafe bool TryGetDiffSizeInfo(out long totalInputSize,
+                                              out long totalOutputSize,
+                                              out long diffOnlyInputSize,
+                                              out long diffOnlyOutputSize)
+        {
             Unsafe.SkipInit(out totalInputSize);
             Unsafe.SkipInit(out totalOutputSize);
+            Unsafe.SkipInit(out diffOnlyInputSize);
+            Unsafe.SkipInit(out diffOnlyOutputSize);
 
             ref PatchMetadata patchMetadata = ref info.GetPatchMetadata();
             if (Unsafe.IsNullRef(ref patchMetadata))
             {
                 return false;
+            }
+
+            if (info.TryGetDirectoryPatchMetadata(out DirectoryPatchMetadata dirPatchMetadata))
+            {
+                // In directory patch, the actual total size must be added by
+                // Input/OutputPathCountSizeInfoP + SameFilePathCountSizeInfoP as
+                // the DiffOld/NewSize only contains the diff size.
+                totalInputSize = dirPatchMetadata.InputPathCountSizeInfoP->Size +
+                                 dirPatchMetadata.SameFilePathCountSizeInfoP->Size;
+                totalOutputSize = dirPatchMetadata.OutputPathCountSizeInfoP->Size +
+                                  dirPatchMetadata.SameFilePathCountSizeInfoP->Size;
+
+                diffOnlyInputSize  = patchMetadata.DiffOldSize;
+                diffOnlyOutputSize = patchMetadata.DiffNewSize;
+
+                return true;
             }
 
             totalInputSize  = patchMetadata.DiffOldSize;
@@ -89,7 +129,7 @@ public static partial class HPatch
     /// <param name="totalInputSize">The total size of an Input File/Directory.</param>
     /// <param name="totalOutputSize">The total size of an Output File/Directory.</param>
     /// <returns>
-    /// Returns <see langword="true"/> if both <param name="totalInputSize"/> and <param name="totalOutputSize"/> are successfully retrieved.
+    /// Returns <see langword="true"/> if both <paramref name="totalInputSize"/> and <paramref name="totalOutputSize"/> are successfully retrieved.
     /// Otherwise, <see langword="false"/> if the patch context or the file is invalid or corrupted.
     /// </returns>
     public static bool TryGetDiffSizeInfo(
