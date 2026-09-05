@@ -19,13 +19,13 @@ internal sealed partial class HDiff13DerivedPatcher : PatcherBase
     private readonly BittableStreamReader _newDataReader;
 
     internal HDiff13DerivedPatcher(
-        BittableStreamReader coverReader,
-        BittableStreamReader rleCtrlReader,
-        BittableStreamReader rleCodeReader,
-        BittableStreamReader newDataReader,
-        HDiffInfo            info,
-        PatchOptions         options,
-        ProgressCallback     progressCallback)
+        BittableStreamReader   coverReader,
+        BittableStreamReader   rleCtrlReader,
+        BittableStreamReader   rleCodeReader,
+        BittableStreamReader   newDataReader,
+        HDiffInfo              info,
+        PatchOptions           options,
+        ProcessedBytesCallback progressCallback)
         : base(info, options, progressCallback)
     {
         _coverReader   = coverReader;

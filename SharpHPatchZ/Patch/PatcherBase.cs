@@ -12,21 +12,21 @@ internal abstract class PatcherBase
       , IAsyncDisposable
 #endif
 {
-    protected RandomMergedStreamWrapper? InputStream      { get; set; }
-    protected RandomMergedStreamWrapper? OutputStream     { get; set; }
+    protected RandomMergedStreamWrapper? InputStream  { get; set; }
+    protected RandomMergedStreamWrapper? OutputStream { get; set; }
 
-    protected HDiffInfo        Info             { get; set; }
-    protected PatchOptions     Options          { get; set; }
-    protected ProgressCallback ProgressCallback { get; }
+    protected HDiffInfo              Info             { get; set; }
+    protected PatchOptions           Options          { get; set; }
+    protected ProcessedBytesCallback ProgressCallback { get; }
 
     protected long TotalWritten;
     protected long TotalSize;
 
-    protected PatcherBase(HDiffInfo info, PatchOptions options, ProgressCallback progressCallback)
+    protected PatcherBase(HDiffInfo info, PatchOptions options, ProcessedBytesCallback? progressCallback = null)
     {
         Info             = info;
         Options          = options;
-        ProgressCallback = !progressCallback.IsAllocated ? new ProgressCallback() : progressCallback;
+        ProgressCallback = progressCallback ?? NopProcessedBytesCallback;
         TotalSize        = info.GetPatchMetadata().DiffNewSize;
     }
 
@@ -40,7 +40,7 @@ internal abstract class PatcherBase
         void AdvanceProgress(int written)
     {
         Interlocked.Add(ref TotalWritten, written);
-        ProgressCallback.ProcessedBytesCallback(TotalWritten, TotalSize, written);
+        ProgressCallback(TotalWritten, TotalSize, written);
     }
 
     public void Dispose() => DisposeCore();
@@ -48,6 +48,8 @@ internal abstract class PatcherBase
 #if NET6_0_OR_GREATER
     public ValueTask DisposeAsync() => DisposeCoreAsync();
 #endif
+
+    private static void NopProcessedBytesCallback(long totalProcessed, long totalSize, int written) { }
 
     protected virtual void DisposeCore()
     {

@@ -10,6 +10,14 @@ using SharpHPatchZ.Patch;
 namespace SharpHPatchZ;
 
 /// <summary>
+/// A callback delegate for the progress of the patching.
+/// </summary>
+/// <param name="totalProcessed">Determines how many bytes already processed.</param>
+/// <param name="totalSize">Determines how many bytes to be processed in total.</param>
+/// <param name="written">How many bytes is currently being written into the disk.</param>
+public delegate void ProcessedBytesCallback(long totalProcessed, long totalSize, int written);
+
+/// <summary>
 /// A factory delegate which creates an instance of a <see cref="Stream"/> of the patch from specified <paramref name="position"/>.
 /// </summary>
 /// <param name="position">The offset position of the <see cref="Stream"/> to begin from.</param>
@@ -173,20 +181,20 @@ public static partial class HPatch
     /// <param name="inputPath">The specified Input path of a file or directory.</param>
     /// <param name="outputPath">The specified Output path of a file or directory to be written to</param>
     /// <param name="options">Options during the patching process. For more usage information, see <see cref="PatchOptions"/>.</param>
-    /// <param name="progressCallback">A struct containing the specified delegated method to be used to report the progress of the patch process. Use <see cref="ProgressCallback.CreateFromManaged"/> to create the struct and pass the callback.</param>
+    /// <param name="progressCallback">A callback to report the progress of the patch process.</param>
     /// <param name="token">A cancellation token for the cancellation event while patching operation is happening.</param>
     /// <returns>
     /// Returns a result of the patching process. The returned result can be implicitly cast into a nullable <see cref="Exception"/> or <see cref="bool"/>.<br/>
     /// If cast into a <see cref="bool"/>, the <see langword="true"/> means that the patching process has been successful. Otherwise, failed and <see cref="PatchResult.Exception"/> would be not <see langword="null"/>.<br/>
     /// If cast into a nullable <see cref="Exception"/> and the result is <see langword="null"/>, meaning that the patching process has been successful. Otherwise, failed.
     /// </returns>
-    public static PatchResult Patch(HDiffInfo         info,
-                                    CreateStream      createPatchStream,
-                                    string            inputPath,
-                                    string            outputPath,
-                                    PatchOptions      options          = default,
-                                    ProgressCallback  progressCallback = default,
-                                    CancellationToken token            = default)
+    public static PatchResult Patch(HDiffInfo               info,
+                                    CreateStream            createPatchStream,
+                                    string                  inputPath,
+                                    string                  outputPath,
+                                    PatchOptions            options          = default,
+                                    ProcessedBytesCallback? progressCallback = null,
+                                    CancellationToken       token            = default)
     {
         try
         {
@@ -210,20 +218,20 @@ public static partial class HPatch
     /// <param name="inputPath">The specified Input path of a file or directory.</param>
     /// <param name="outputPath">The specified Output path of a file or directory to be written to</param>
     /// <param name="options">Options during the patching process. For more usage information, see <see cref="PatchOptions"/>.</param>
-    /// <param name="progressCallback">A struct containing the specified delegated method to be used to report the progress of the patch process. Use <see cref="ProgressCallback.CreateFromManaged"/> to create the struct and pass the callback.</param>
+    /// <param name="progressCallback">A callback to report the progress of the patch process.</param>
     /// <param name="token">A cancellation token for the cancellation event while patching operation is happening.</param>
     /// <returns>
     /// Returns a result of the patching process. The returned result can be implicitly cast into a nullable <see cref="Exception"/> or <see cref="bool"/>.<br/>
     /// If cast into a <see cref="bool"/>, the <see langword="true"/> means that the patching process has been successful. Otherwise, failed and <see cref="PatchResult.Exception"/> would be not <see langword="null"/>.<br/>
     /// If cast into a nullable <see cref="Exception"/> and the result is <see langword="null"/>, meaning that the patching process has been successful. Otherwise, failed.
     /// </returns>
-    public static PatchResult Patch(HDiffInfo         info,
-                                    string            patchPath,
-                                    string            inputPath,
-                                    string            outputPath,
-                                    PatchOptions      options          = default,
-                                    ProgressCallback  progressCallback = default,
-                                    CancellationToken token            = default)
+    public static PatchResult Patch(HDiffInfo               info,
+                                    string                  patchPath,
+                                    string                  inputPath,
+                                    string                  outputPath,
+                                    PatchOptions            options          = default,
+                                    ProcessedBytesCallback? progressCallback = null,
+                                    CancellationToken       token            = default)
     {
         try
         {
@@ -248,7 +256,7 @@ public static partial class HPatch
     /// <param name="inputPath">The specified Input path of a file or directory.</param>
     /// <param name="outputPath">The specified Output path of a file or directory to be written to</param>
     /// <param name="options">Options during the patching process. For more usage information, see <see cref="PatchOptions"/>.</param>
-    /// <param name="progressCallback">A struct containing the specified delegated method to be used to report the progress of the patch process. Use <see cref="ProgressCallback.CreateFromManaged"/> to create the struct and pass the callback.</param>
+    /// <param name="progressCallback">A callback to report the progress of the patch process.</param>
     /// <param name="token">A cancellation token for the cancellation event while patching operation is happening.</param>
     /// <returns>
     /// Returns a result of the patching process. The returned result can be implicitly cast into a nullable <see cref="Exception"/> or <see cref="bool"/>.<br/>
@@ -256,13 +264,13 @@ public static partial class HPatch
     /// If cast into a nullable <see cref="Exception"/> and the result is <see langword="null"/>, meaning that the patching process has been successful. Otherwise, failed.
     /// </returns>
     public static async Task<PatchResult> PatchAsync(
-        HDiffInfo         info,
-        CreateStreamAsync createPatchStreamAsync,
-        string            inputPath,
-        string            outputPath,
-        PatchOptions      options          = default,
-        ProgressCallback  progressCallback = default,
-        CancellationToken token            = default)
+        HDiffInfo               info,
+        CreateStreamAsync       createPatchStreamAsync,
+        string                  inputPath,
+        string                  outputPath,
+        PatchOptions            options          = default,
+        ProcessedBytesCallback? progressCallback = null,
+        CancellationToken       token            = default)
     {
         try
         {
@@ -287,7 +295,7 @@ public static partial class HPatch
     /// <param name="inputPath">The specified Input path of a file or directory.</param>
     /// <param name="outputPath">The specified Output path of a file or directory to be written to</param>
     /// <param name="options">Options during the patching process. For more usage information, see <see cref="PatchOptions"/>.</param>
-    /// <param name="progressCallback">A struct containing the specified delegated method to be used to report the progress of the patch process. Use <see cref="ProgressCallback.CreateFromManaged"/> to create the struct and pass the callback.</param>
+    /// <param name="progressCallback">A callback to report the progress of the patch process.</param>
     /// <param name="token">A cancellation token for the cancellation event while patching operation is happening.</param>
     /// <returns>
     /// Returns a result of the patching process. The returned result can be implicitly cast into a nullable <see cref="Exception"/> or <see cref="bool"/>.<br/>
@@ -295,13 +303,13 @@ public static partial class HPatch
     /// If cast into a nullable <see cref="Exception"/> and the result is <see langword="null"/>, meaning that the patching process has been successful. Otherwise, failed.
     /// </returns>
     public static async Task<PatchResult> PatchAsync(
-        HDiffInfo         info,
-        string            patchPath,
-        string            inputPath,
-        string            outputPath,
-        PatchOptions      options          = default,
-        ProgressCallback  progressCallback = default,
-        CancellationToken token            = default)
+        HDiffInfo               info,
+        string                  patchPath,
+        string                  inputPath,
+        string                  outputPath,
+        PatchOptions            options          = default,
+        ProcessedBytesCallback? progressCallback = null,
+        CancellationToken       token            = default)
     {
         try
         {

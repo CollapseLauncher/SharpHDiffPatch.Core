@@ -15,10 +15,10 @@ internal static partial class PatcherFactory
     private static class HDiff13Derived
     {
         public static HDiff13DerivedPatcher Create(
-            ref HDiffInfo    info,
-            CreateStream     createPatchStream,
-            PatchOptions     options,
-            ProgressCallback progressCallback)
+            ref HDiffInfo          info,
+            CreateStream           createPatchStream,
+            PatchOptions           options,
+            ProcessedBytesCallback progressCallback)
         {
             GetPatchContextInfos(ref info,
                                  out long coverDataOffset,
@@ -44,11 +44,11 @@ internal static partial class PatcherFactory
         }
 
         public static async Task<HDiff13DerivedPatcher> CreateAsync(
-            HDiffInfo         info,
-            CreateStreamAsync createPatchStreamAsync,
-            PatchOptions      options,
-            ProgressCallback  progressCallback,
-            CancellationToken token)
+            HDiffInfo              info,
+            CreateStreamAsync      createPatchStreamAsync,
+            PatchOptions           options,
+            ProcessedBytesCallback progressCallback,
+            CancellationToken      token)
         {
             GetPatchContextInfos(ref info,
                                  out long coverDataOffset,

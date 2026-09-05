@@ -76,17 +76,14 @@ public class Program
 
     public static void Main()
     {
-        // Create a callback struct and pass the `UpdateProgress` method to the create method.
-        ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(UpdateProgress);
-
         // The `HDiffInfo` info context must be used within `using` scope or by disposing the struct manually.
         // Undisposed info context will cause a memory leak as it uses unmanaged memory under the hood.
 
         // Pass the patch file path into the `HPatch.CreateInstance()` method to create the info context.
         using HDiffInfo info = HPatch.CreateInstance(PatchPath);
         
-        // Pass the `HDiffInfo` info context to the `HPatch.Patch()` method to start the patching process. Also pass the Input and Output Path, and the `progressCallback`
-        PatchResult patchResult = HPatch.Patch(info, PatchPath, InputPath, OutputPath, progressCallback: progressCallback);
+        // Pass the `HDiffInfo` info context to the `HPatch.Patch()` method to start the patching process. Also pass the Input and Output Path, and `UpdateProgress` method to the `progressCallback`
+        PatchResult patchResult = HPatch.Patch(info, PatchPath, InputPath, OutputPath, progressCallback: UpdateProgress);
 
         // If the patch process is not successful, throw the exception.
         if (!patchResult)

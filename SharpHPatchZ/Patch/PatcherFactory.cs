@@ -7,10 +7,11 @@ namespace SharpHPatchZ.Patch;
 
 internal static partial class PatcherFactory
 {
-    public static PatcherBase CreateFromInfo(ref HDiffInfo    info,
-                                             CreateStream     createPatchStream,
-                                             PatchOptions     options,
-                                             ProgressCallback progressCallback)
+    public static PatcherBase CreateFromInfo(
+        ref HDiffInfo           info,
+        CreateStream            createPatchStream,
+        PatchOptions            options,
+        ProcessedBytesCallback? progressCallback)
     {
         if (info.MagicType is HDiffMagic.HDiff19 or HDiffMagic.HDiff13)
         {
@@ -20,11 +21,12 @@ internal static partial class PatcherFactory
         throw ExceptionHelper.ThrowHDiffPatchFactoryNotSupported(info.MagicType);
     }
 
-    public static async Task<PatcherBase> CreateFromInfoAsync(HDiffInfo         info,
-                                                              CreateStreamAsync createPatchStreamAsync,
-                                                              PatchOptions      options,
-                                                              ProgressCallback  progressCallback,
-                                                              CancellationToken token)
+    public static async Task<PatcherBase> CreateFromInfoAsync(
+        HDiffInfo               info,
+        CreateStreamAsync       createPatchStreamAsync,
+        PatchOptions            options,
+        ProcessedBytesCallback? progressCallback,
+        CancellationToken       token)
     {
         if (info.MagicType is HDiffMagic.HDiff19 or HDiffMagic.HDiff13)
         {

@@ -155,16 +155,16 @@ public static partial class HPatch
     /// <param name="outputPathP">A pointer to the zero-terminated output path.</param>
     /// <param name="infoP">A pointer to an initialized <see cref="HDiffInfo"/>.</param>
     /// <param name="optionsP">A pointer to <see cref="PatchOptions"/>, or <see langword="null"/> to use defaults.</param>
-    /// <param name="progressCallbackP">A pointer to a <see cref="ProgressCallback"/>, or <see langword="null"/> for no callback.</param>
+    /// <param name="progressCallbackP">A pointer to a <see cref="ProcessedBytesCallback"/>, or <see langword="null"/> for no callback.</param>
     /// <returns><c>0</c> if patching succeeds. Otherwise, a library error code.</returns>
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_patch_from_filepath")]
     public static unsafe int SharpHPatchZ_PatchFromFilePathAuto(
-        void*             patchPathP,
-        void*             inputPathP,
-        void*             outputPathP,
-        HDiffInfo*        infoP,
-        PatchOptions*     optionsP,
-        ProgressCallback* progressCallbackP)
+        void*         patchPathP,
+        void*         inputPathP,
+        void*         outputPathP,
+        HDiffInfo*    infoP,
+        PatchOptions* optionsP,
+        void*         progressCallbackP)
     {
         string? patchPath  = StringExtension.GetManagedStringAuto(patchPathP);
         string? inputPath  = StringExtension.GetManagedStringAuto(inputPathP);
@@ -178,7 +178,6 @@ public static partial class HPatch
             if (infoP == null) throw ExceptionHelper.ThrowHDiffInfoNotAllocated();
 
             PatchOptions options = optionsP == null ? new PatchOptions() : Unsafe.AsRef<PatchOptions>(optionsP); // Copy
-            ProgressCallback progressCallback = progressCallbackP == null ? new ProgressCallback() : Unsafe.AsRef<ProgressCallback>(progressCallbackP);
             ref HDiffInfo info = ref infoP[0];
 
             return Patch(info,
@@ -186,7 +185,7 @@ public static partial class HPatch
                          inputPath,
                          outputPath,
                          options,
-                         progressCallback);
+                         (totalWritten, totalSize, written) => ProgressCallbackWrapper(progressCallbackP, totalWritten, totalSize, written));
         }
         catch (Exception ex)
         {
@@ -200,16 +199,16 @@ public static partial class HPatch
     /// <param name="outputPathP">A pointer to the zero-terminated output path.</param>
     /// <param name="infoP">A pointer to an initialized <see cref="HDiffInfo"/>.</param>
     /// <param name="optionsP">A pointer to <see cref="PatchOptions"/>, or <see langword="null"/> to use defaults.</param>
-    /// <param name="progressCallbackP">A pointer to a <see cref="ProgressCallback"/>, or <see langword="null"/> for no callback.</param>
+    /// <param name="progressCallbackP">A pointer to a <see cref="ProcessedBytesCallback"/>, or <see langword="null"/> for no callback.</param>
     /// <returns><c>0</c> if patching succeeds. Otherwise, a library error code.</returns>
     [UnmanagedCallersOnly(CallConvs = [typeof(ConventionCall)], EntryPoint = "shpz_patch_from_FILE")]
     public static unsafe int SharpHPatchZ_PatchFromFILE(
-        void*             FILEP,
-        void*             inputPathP,
-        void*             outputPathP,
-        HDiffInfo*        infoP,
-        PatchOptions*     optionsP,
-        ProgressCallback* progressCallbackP)
+        void*         FILEP,
+        void*         inputPathP,
+        void*         outputPathP,
+        HDiffInfo*    infoP,
+        PatchOptions* optionsP,
+        void*         progressCallbackP)
     {
         string? inputPath  = StringExtension.GetManagedStringAuto(inputPathP);
         string? outputPath = StringExtension.GetManagedStringAuto(outputPathP);
@@ -222,7 +221,6 @@ public static partial class HPatch
             if (infoP == null) throw ExceptionHelper.ThrowHDiffInfoNotAllocated();
 
             PatchOptions options = optionsP == null ? new PatchOptions() : Unsafe.AsRef<PatchOptions>(optionsP); // Copy
-            ProgressCallback progressCallback = progressCallbackP == null ? new ProgressCallback() : Unsafe.AsRef<ProgressCallback>(progressCallbackP);
             ref HDiffInfo info = ref infoP[0];
 
             return Patch(info,
@@ -230,7 +228,7 @@ public static partial class HPatch
                          inputPath,
                          outputPath,
                          options,
-                         progressCallback);
+                         (totalWritten, totalSize, written) => ProgressCallbackWrapper(progressCallbackP, totalWritten, totalSize, written));
         }
         catch (Exception ex)
         {
@@ -307,6 +305,12 @@ public static partial class HPatch
         }
     }
 #endif
+
+    private static unsafe void ProgressCallbackWrapper(void* delegateP, long totalWritten, long totalSize, int written)
+    {
+        if (delegateP != null)
+            ((delegate* unmanaged[Cdecl]<long, long, int, void>)delegateP)(totalWritten, totalSize, written);
+    }
 
     private static (Stream Stream, bool LeaveOpen) CreateFileStreamWrapper(string filePath, long position)
     {
