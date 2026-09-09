@@ -167,10 +167,6 @@ typedef void (SHPZ_CALLBACK *shpz_processed_bytes_callback)(
     int64_t total_size,
     int32_t written);
 
-typedef struct shpz_progress_callback {
-    shpz_processed_bytes_callback processed_bytes;
-} shpz_progress_callback;
-
 typedef struct shpz_hdiff_info {
     shpz_hdiff_magic       magic_type;
     shpz_hdiff_compression compression_type;
@@ -309,14 +305,6 @@ static inline shpz_patch_options shpz_make_patch_options(void)
     return value;
 }
 
-static inline shpz_progress_callback shpz_make_progress_callback(
-    shpz_processed_bytes_callback callback)
-{
-    shpz_progress_callback value;
-    value.processed_bytes = callback;
-    return value;
-}
-
 /*
  * String arguments documented as "auto string" accept a null-terminated UTF-8
  * string or a null-terminated UTF-16LE string. UTF-16 must use shpz_char16_t,
@@ -357,7 +345,7 @@ SHPZ_API int32_t SHPZ_CALL shpz_patch_from_filepath(
     const void                   *output_path,
     const shpz_hdiff_info        *info,
     const shpz_patch_options     *options,
-    const shpz_progress_callback *progress);
+    shpz_processed_bytes_callback progress_callback);
 
 /* The FILE remains owned by the caller and is not closed by SharpHPatchZ. */
 SHPZ_API int32_t SHPZ_CALL shpz_patch_from_FILE(
@@ -366,7 +354,7 @@ SHPZ_API int32_t SHPZ_CALL shpz_patch_from_FILE(
     const void                   *output_path,
     const shpz_hdiff_info        *info,
     const shpz_patch_options     *options,
-    const shpz_progress_callback *progress);
+    shpz_processed_bytes_callback progress_callback);
 
 SHPZ_API int32_t SHPZ_CALL shpz_free_diff_info(shpz_hdiff_info *info);
 
@@ -409,7 +397,6 @@ SHPZ_STATIC_ASSERT(sizeof(shpz_hdiff_magic) == 4, "shpz_hdiff_magic must be 4 by
 SHPZ_STATIC_ASSERT(sizeof(shpz_metadata_type) == 2, "shpz_metadata_type must be 2 bytes");
 SHPZ_STATIC_ASSERT(sizeof(shpz_initialize_options) == 4, "shpz_initialize_options layout mismatch");
 SHPZ_STATIC_ASSERT(sizeof(shpz_patch_options) == 20, "shpz_patch_options layout mismatch");
-SHPZ_STATIC_ASSERT(sizeof(shpz_progress_callback) == sizeof(void *), "shpz_progress_callback layout mismatch");
 SHPZ_STATIC_ASSERT(sizeof(shpz_hdiff_info) == (sizeof(void *) == 8 ? 24 : 20),
                    "shpz_hdiff_info size mismatch");
 SHPZ_STATIC_ASSERT(offsetof(shpz_hdiff_info, metadata) == 16, "shpz_hdiff_info layout mismatch");
