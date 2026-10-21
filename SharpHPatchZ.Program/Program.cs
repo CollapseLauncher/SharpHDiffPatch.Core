@@ -147,11 +147,9 @@ public static class PatcherBin
 
             try
             {
-                ProgressCallback progressCallback = ProgressCallback.CreateFromManaged(PatchProgress);
-
                 using HDiffInfo info = HPatch.CreateInstance(pos => CreatePatchStream(patchPath, pos), initializeOptions);
                 PrintFileInfo(info, inputPath, patchPath, outputPath, options, patchPreset);
-                PatchResult result = HPatch.Patch(info, pos => CreatePatchStream(patchPath, pos), inputPath, outputPath, options, progressCallback);
+                PatchResult result = HPatch.Patch(info, pos => CreatePatchStream(patchPath, pos), inputPath, outputPath, options, PatchProgress);
                 Console.WriteLine();
 
                 if (result.Exception != null)
@@ -364,7 +362,7 @@ public static class PatcherBin
     private static unsafe void PrintFileInfo(HDiffInfo info)
     {
         StringBuilder sb = new();
-        if (HPatch.TryGetPatchMetadata(ref info, out PatchMetadata patchMetadata))
+        if (info.TryGetPatchMetadata(out PatchMetadata patchMetadata))
         {
             sb.AppendLine($"""
                            Generic Patch Info:
@@ -380,7 +378,7 @@ public static class PatcherBin
                            """);
         }
 
-        if (HPatch.TryGetDirectoryPatchMetadata(ref info, out DirectoryPatchMetadata dirPatchMetadata))
+        if (info.TryGetDirectoryPatchMetadata(out DirectoryPatchMetadata dirPatchMetadata))
         {
             sb.AppendLine($"""
                            
