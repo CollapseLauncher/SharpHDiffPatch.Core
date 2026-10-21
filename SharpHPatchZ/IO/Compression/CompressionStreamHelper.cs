@@ -183,7 +183,7 @@ internal static class DecompressStreamFactory
         private readonly Stream _underlyingStream;
         private readonly bool   _leaveOpen;
         private          long   _position;
-        private          bool   _disposed;
+        private          int    _disposed;
 
         internal ChunkedReadStream(Stream sourceStream,
                                    long   size,
@@ -203,7 +203,7 @@ internal static class DecompressStreamFactory
                 return;
             }
 
-            if (Interlocked.Exchange(ref _disposed, true))
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 return;
 
             if (!_leaveOpen)
@@ -225,8 +225,20 @@ internal static class DecompressStreamFactory
         }
 
         public override int Read(byte[] buffer, int offset, int count)
-            => Read(buffer.AsSpan(offset, count));
+        {
+            ThrowIfDisposed();
+            ValidateReadArguments(buffer, offset, count);
 
+            int requested = (int)Math.Min(count, Length - _position);
+            if (requested == 0)
+                return 0;
+
+            int read = _underlyingStream.Read(buffer, offset, requested);
+            _position += read;
+            return read;
+        }
+
+#if NET6_0_OR_GREATER
         public override int Read(Span<byte> buffer)
         {
             ThrowIfDisposed();
@@ -239,10 +251,23 @@ internal static class DecompressStreamFactory
             _position += read;
             return read;
         }
+#endif
 
         public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
-            => await ReadAsync(buffer.AsMemory(offset, count), cancellationToken);
+        {
+            ThrowIfDisposed();
+            ValidateReadArguments(buffer, offset, count);
 
+            int requested = (int)Math.Min(count, Length - _position);
+            if (requested == 0)
+                return 0;
+
+            int read = await _underlyingStream.ReadAsync(buffer, offset, requested, cancellationToken).ConfigureAwait(false);
+            _position += read;
+            return read;
+        }
+
+#if NET6_0_OR_GREATER
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
@@ -255,6 +280,7 @@ internal static class DecompressStreamFactory
             _position += read;
             return read;
         }
+#endif
 
         public override long Seek(long offset, SeekOrigin origin)
         {
@@ -271,22 +297,26 @@ internal static class DecompressStreamFactory
             throw new NotSupportedException();
         }
 
+#if NET6_0_OR_GREATER
         public override void Write(ReadOnlySpan<byte> buffer)
         {
             throw new NotSupportedException();
         }
+#endif
 
         public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
 
+#if NET6_0_OR_GREATER
         public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
         }
+#endif
 
-        public override bool CanRead  => !_disposed && _underlyingStream.CanRead;
+        public override bool CanRead  => Volatile.Read(ref _disposed) == 0 && _underlyingStream.CanRead;
         public override bool CanSeek  => false;
         public override bool CanWrite => false;
 
@@ -300,8 +330,20 @@ internal static class DecompressStreamFactory
 
         private void ThrowIfDisposed()
         {
-            if (_disposed)
+            if (Volatile.Read(ref _disposed) != 0)
                 throw new ObjectDisposedException(nameof(ChunkedReadStream));
+        }
+
+        private static void ValidateReadArguments(byte[] buffer, int offset, int count)
+        {
+            if (buffer is null)
+                throw new ArgumentNullException(nameof(buffer));
+            if (offset < 0)
+                throw new ArgumentOutOfRangeException(nameof(offset));
+            if (count < 0)
+                throw new ArgumentOutOfRangeException(nameof(count));
+            if (buffer.Length - offset < count)
+                throw new ArgumentException("Offset and count exceed the buffer length.");
         }
     }
 }
