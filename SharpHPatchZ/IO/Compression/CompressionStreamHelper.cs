@@ -15,6 +15,8 @@ using SharpHPatchZ.IO.Compression.Lzma;
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
+using System.Threading.Tasks;
 
 #if !NET11_0_OR_GREATER
 using ZstdManagedDecompressor = ZstdSharp.Decompressor;
@@ -68,7 +70,7 @@ internal static class DecompressStreamFactory
             throw new ArgumentOutOfRangeException(nameof(decompressedSize));
 
         if (type == HDiffCompression.Uncompressed || compressedSize == 0)
-            return sourceStream;
+            return sourceStream.GetChunkedRead(decompressedSize, leaveOpen);
 
         // Advance one byte padding for Zlib / Libdeflate
         if (type == HDiffCompression.Zlib)
@@ -76,7 +78,7 @@ internal static class DecompressStreamFactory
 
         return type switch
         {
-            HDiffCompression.Zstd => CreateZstdStream(sourceStream, leaveOpen),
+            HDiffCompression.Zstd => CreateZstdStream(sourceStream.GetChunkedRead(compressedSize, leaveOpen), leaveOpen),
             HDiffCompression.Zlib => new DeflateStream(sourceStream, CompressionMode.Decompress, leaveOpen),
             HDiffCompression.BZ2 => new BZip2InputStream(sourceStream, false, leaveOpen),
             HDiffCompression.PBZ2 => new BZip2InputStream(sourceStream, true, leaveOpen),
@@ -165,5 +167,112 @@ internal static class DecompressStreamFactory
         payloadSize = compressedSize >= 0 ? compressedSize - 1 - properties.Length : -1;
 
         return new LzmaInputStream(properties, rawStream, payloadSize, decompressedSize, leaveOpen);
+    }
+
+    private static ChunkedReadStream GetChunkedRead(this Stream stream,
+                                                    long        size,
+                                                    bool        leaveOpen)
+    {
+        return new ChunkedReadStream(stream, size, leaveOpen);
+    }
+
+    private class ChunkedReadStream : Stream
+    {
+        private readonly Stream underlyingStream;
+        private          long   _position;
+        private          bool   _disposed;
+        private          bool   _leaveOpen;
+
+        internal ChunkedReadStream(Stream sourceStream,
+                                   long   size,
+                                   bool   leaveOpen)
+        {
+            underlyingStream = sourceStream;
+            Length           = size;
+            _leaveOpen       = leaveOpen;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!disposing)
+            {
+                return;
+            }
+
+            if (Interlocked.Exchange(ref _disposed, true))
+                return;
+
+            if (!_leaveOpen)
+                underlyingStream.Dispose();
+
+            base.Dispose(disposing);
+        }
+
+        public override void Flush() => underlyingStream.Flush();
+
+        public override Task FlushAsync(CancellationToken cancellationToken) =>
+            underlyingStream.FlushAsync(cancellationToken);
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => Read(buffer.AsSpan(offset, count));
+
+        public override int Read(Span<byte> buffer)
+        {
+            int read = underlyingStream.Read(buffer[..Math.Min((int)(Length - _position), buffer.Length)]);
+            _position += read;
+            return read;
+        }
+
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => await ReadAsync(buffer.AsMemory(offset, count), cancellationToken);
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            int read = await underlyingStream.ReadAsync(buffer[..Math.Min((int)(Length - _position), buffer.Length)], cancellationToken);
+            _position += read;
+            return read;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override bool CanRead  => true;
+        public override bool CanSeek  => false;
+        public override bool CanWrite => false;
+
+        public override long Length { get; }
+
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
     }
 }
