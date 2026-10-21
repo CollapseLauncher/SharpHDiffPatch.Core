@@ -72,17 +72,19 @@ internal static class DecompressStreamFactory
         if (type == HDiffCompression.Uncompressed || compressedSize == 0)
             return sourceStream.GetChunkedRead(decompressedSize, leaveOpen);
 
+        Stream chunkedStream = sourceStream.GetChunkedRead(compressedSize, leaveOpen);
+
         // Advance one byte padding for Zlib / Libdeflate
         if (type == HDiffCompression.Zlib)
-            sourceStream.ReadByte();
+            chunkedStream.ReadByte();
 
         return type switch
         {
-            HDiffCompression.Zstd => CreateZstdStream(sourceStream.GetChunkedRead(compressedSize, leaveOpen), leaveOpen),
-            HDiffCompression.Zlib => new DeflateStream(sourceStream, CompressionMode.Decompress, leaveOpen),
-            HDiffCompression.BZ2 => new BZip2InputStream(sourceStream, false, leaveOpen),
-            HDiffCompression.PBZ2 => new BZip2InputStream(sourceStream, true, leaveOpen),
-            HDiffCompression.Lzma or HDiffCompression.Lzma2 => CreateLzmaStream(type, sourceStream, compressedSize, decompressedSize, leaveOpen),
+            HDiffCompression.Zstd => CreateZstdStream(chunkedStream, leaveOpen),
+            HDiffCompression.Zlib => new DeflateStream(chunkedStream, CompressionMode.Decompress, leaveOpen),
+            HDiffCompression.BZ2 => new BZip2InputStream(chunkedStream, false, leaveOpen),
+            HDiffCompression.PBZ2 => new BZip2InputStream(chunkedStream, true, leaveOpen),
+            HDiffCompression.Lzma or HDiffCompression.Lzma2 => CreateLzmaStream(type, chunkedStream, compressedSize, decompressedSize, leaveOpen),
             _ => throw ExceptionHelper.ThrowHDiffHeaderCompressionNotSupported(type.ToString())
         };
     }
@@ -169,27 +171,29 @@ internal static class DecompressStreamFactory
         return new LzmaInputStream(properties, rawStream, payloadSize, decompressedSize, leaveOpen);
     }
 
-    private static ChunkedReadStream GetChunkedRead(this Stream stream,
-                                                    long        size,
-                                                    bool        leaveOpen)
+    private static Stream GetChunkedRead(this Stream stream,
+                                         long        size,
+                                         bool        leaveOpen)
     {
-        return new ChunkedReadStream(stream, size, leaveOpen);
+        return size < 0 ? stream : new ChunkedReadStream(stream, size, leaveOpen);
     }
 
-    private class ChunkedReadStream : Stream
+    private sealed class ChunkedReadStream : Stream
     {
-        private readonly Stream underlyingStream;
+        private readonly Stream _underlyingStream;
+        private readonly bool   _leaveOpen;
         private          long   _position;
         private          bool   _disposed;
-        private          bool   _leaveOpen;
 
         internal ChunkedReadStream(Stream sourceStream,
                                    long   size,
                                    bool   leaveOpen)
         {
-            underlyingStream = sourceStream;
-            Length           = size;
-            _leaveOpen       = leaveOpen;
+            _underlyingStream = sourceStream ?? throw new ArgumentNullException(nameof(sourceStream));
+            Length = size >= 0
+                ? size
+                : throw new ArgumentOutOfRangeException(nameof(size));
+            _leaveOpen = leaveOpen;
         }
 
         protected override void Dispose(bool disposing)
@@ -203,22 +207,35 @@ internal static class DecompressStreamFactory
                 return;
 
             if (!_leaveOpen)
-                underlyingStream.Dispose();
+                _underlyingStream.Dispose();
 
             base.Dispose(disposing);
         }
 
-        public override void Flush() => underlyingStream.Flush();
+        public override void Flush()
+        {
+            ThrowIfDisposed();
+            _underlyingStream.Flush();
+        }
 
-        public override Task FlushAsync(CancellationToken cancellationToken) =>
-            underlyingStream.FlushAsync(cancellationToken);
+        public override Task FlushAsync(CancellationToken cancellationToken)
+        {
+            ThrowIfDisposed();
+            return _underlyingStream.FlushAsync(cancellationToken);
+        }
 
         public override int Read(byte[] buffer, int offset, int count)
             => Read(buffer.AsSpan(offset, count));
 
         public override int Read(Span<byte> buffer)
         {
-            int read = underlyingStream.Read(buffer[..Math.Min((int)(Length - _position), buffer.Length)]);
+            ThrowIfDisposed();
+
+            int requested = (int)Math.Min(buffer.Length, Length - _position);
+            if (requested == 0)
+                return 0;
+
+            int read = _underlyingStream.Read(buffer[..requested]);
             _position += read;
             return read;
         }
@@ -228,7 +245,13 @@ internal static class DecompressStreamFactory
 
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
-            int read = await underlyingStream.ReadAsync(buffer[..Math.Min((int)(Length - _position), buffer.Length)], cancellationToken);
+            ThrowIfDisposed();
+
+            int requested = (int)Math.Min(buffer.Length, Length - _position);
+            if (requested == 0)
+                return 0;
+
+            int read = await _underlyingStream.ReadAsync(buffer[..requested], cancellationToken).ConfigureAwait(false);
             _position += read;
             return read;
         }
@@ -263,7 +286,7 @@ internal static class DecompressStreamFactory
             throw new NotSupportedException();
         }
 
-        public override bool CanRead  => true;
+        public override bool CanRead  => !_disposed && _underlyingStream.CanRead;
         public override bool CanSeek  => false;
         public override bool CanWrite => false;
 
@@ -273,6 +296,12 @@ internal static class DecompressStreamFactory
         {
             get => _position;
             set => throw new NotSupportedException();
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(ChunkedReadStream));
         }
     }
 }
