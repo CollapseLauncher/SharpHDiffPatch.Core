@@ -41,9 +41,16 @@ public static partial class HPatch
         /// Returns <see langword="true"/> if <paramref name="patchMetadata"/> is successfully retrieved.
         /// Otherwise, <see langword="false"/> if the patch context does not contain <see cref="DirectoryPatchMetadata"/> struct.
         /// </returns>
-        public bool TryGetDirectoryPatchMetadata(out DirectoryPatchMetadata patchMetadata)
+        public unsafe bool TryGetDirectoryPatchMetadata(out DirectoryPatchMetadata patchMetadata)
         {
             Unsafe.SkipInit(out patchMetadata);
+
+            if (info.MetadataP == null ||
+                !MetadataExtension.TryGetMetadataType(info.MetadataP, out MetadataTypeConst metadataType) ||
+                metadataType != MetadataTypeConst.DirectoryPatchMetadataType)
+            {
+                return false;
+            }
 
             ref DirectoryPatchMetadata patchMetadataRef = ref info.MetadataAs<DirectoryPatchMetadata>();
             if (Unsafe.IsNullRef(ref patchMetadataRef))
